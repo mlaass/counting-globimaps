@@ -54,6 +54,9 @@ add_executable(globimap_rasterize_polys experiments/src/globimap_rasterize_polys
 add_executable(test_dataset_full_time experiments/src/globimap_test_dataset_full_time.cpp)
 add_executable(test_cos ${SOURCES_TEST_COS})
 
+# Unit tests
+add_executable(test_variable_increment_bf tests/test_variable_increment_bf.cpp)
+
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)
 
@@ -101,6 +104,10 @@ PUBLIC OpenMP::OpenMP_CXX
 
 target_link_libraries(test_cos
 PUBLIC HighFive
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+target_link_libraries(test_variable_increment_bf
 PUBLIC OpenMP::OpenMP_CXX
 )
 

@@ -6,6 +6,7 @@ cmake-build-*/
 *.o
 *.a
 *.so
+*.so.*
 *.dylib
 *.exe
 

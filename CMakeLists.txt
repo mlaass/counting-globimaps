@@ -75,6 +75,8 @@ add_executable(test_cos ${SOURCES_TEST_COS})
 # Unit tests
 add_executable(test_variable_increment_bf tests/test_variable_increment_bf.cpp)
 add_executable(test_spectral_bloom_filter tests/test_spectral_bloom_filter.cpp)
+add_executable(test_dleft_counting_bf tests/test_dleft_counting_bf.cpp)
+add_executable(test_count_min_sketch tests/test_count_min_sketch.cpp)
 
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)
@@ -131,6 +133,14 @@ PUBLIC OpenMP::OpenMP_CXX
 )
 
 target_link_libraries(test_spectral_bloom_filter
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+target_link_libraries(test_dleft_counting_bf
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+target_link_libraries(test_count_min_sketch
 PUBLIC OpenMP::OpenMP_CXX
 )
 

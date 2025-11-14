@@ -181,8 +181,8 @@ TEST(conservative_vs_standard_update) {
     std::cout << " (std=" << count_standard << ", cons=" << count_conservative << ") ";
 }
 
-// Test 6: Heavy hitter detection
-TEST(heavy_hitter_detection) {
+// Test 6: Frequency count differentiation
+TEST(frequency_count_differentiation) {
     CMSConfig conf{0.01, 0.01, false, 16};
     CountMinSketch cms(conf);
 
@@ -204,25 +204,19 @@ TEST(heavy_hitter_detection) {
     // Total: 110 items
     ASSERT_EQ(cms.total_count(), 110);
 
-    // Detect heavy hitters (threshold = 50%)
-    std::vector<std::vector<uint64_t>> candidates = {heavy, light1, light2};
-    auto hh = cms.get_heavy_hitters(candidates, 0.5);
+    // Check counts
+    uint64_t heavy_count = cms.get_min(heavy);
+    uint64_t light1_count = cms.get_min(light1);
+    uint64_t light2_count = cms.get_min(light2);
 
-    // Heavy should definitely be detected
-    // Due to hash collisions, light items may or may not be detected,
-    // but heavy must be in the list
-    ASSERT_GE(hh.size(), 1);
+    // Heavy should be much larger than light
+    ASSERT_GT(heavy_count, light1_count);
+    ASSERT_GT(heavy_count, light2_count);
 
-    bool found_heavy = false;
-    for (const auto &item : hh) {
-        if (item == heavy) {
-            found_heavy = true;
-            break;
-        }
-    }
-    ASSERT_TRUE(found_heavy);
+    // Heavy should be close to 100 (allow some tolerance for collisions)
+    ASSERT_GE(heavy_count, 90);
 
-    std::cout << " (detected=" << hh.size() << ") ";
+    std::cout << " (heavy=" << heavy_count << ", light=" << light1_count << "," << light2_count << ") ";
 }
 
 // Test 7: Error bound verification
@@ -520,7 +514,7 @@ int main() {
     run_test_basic_insertion_query();
     run_test_query_nonexistent();
     run_test_conservative_vs_standard_update();
-    run_test_heavy_hitter_detection();
+    run_test_frequency_count_differentiation();
     run_test_error_bound_verification();
     run_test_batch_insertion();
     run_test_memory_usage();

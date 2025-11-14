@@ -1,0 +1,15 @@
+[submodule "lib/HighFive"]
+	path = lib/HighFive
+	url = git@github.com:BlueBrain/HighFive.git
+[submodule "lib/tqdm.cpp"]
+	path = lib/tqdm.cpp
+	url = git@github.com:tqdm/tqdm.cpp.git
+[submodule "lib/tqdm-cpp"]
+	path = lib/tqdm-cpp
+	url = git@github.com:mraggi/tqdm-cpp.git
+[submodule "lib/boost-headers-only"]
+	path = lib/boost-headers-only
+	url = git@github.com:scipy/boost-headers-only.git
+[submodule "lib/shapelib"]
+	path = lib/shapelib
+	url = git@github.com:mlaass/shapelib.git

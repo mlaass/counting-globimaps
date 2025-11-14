@@ -30,3 +30,5 @@ experiments/*.h5
 # OS files
 .DS_Store
 Thumbs.db
+libshp.so.1.5.0
+libshp.so.1

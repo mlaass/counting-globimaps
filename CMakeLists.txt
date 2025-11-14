@@ -37,6 +37,24 @@ set(HDF5_LIBRARY_DIRS /usr/lib/x86_64-linux-gnu/hdf5/serial)
 add_subdirectory(lib/HighFive/)
 add_subdirectory(lib/shapelib/)
 
+# Python module (optional - only if building with setup.py or if pybind11 is available)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/lib/pybind11/CMakeLists.txt")
+    add_subdirectory(lib/pybind11)
+
+    # Python module source
+    set(PYBIND_SOURCES
+        counting_globimap/pybind.cpp
+    )
+
+    # Generate Python module
+    pybind11_add_module(counting_globimap ${PYBIND_SOURCES})
+
+    # Link OpenMP for parallel processing
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(counting_globimap PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+endif()
+
 # Experiment executables
 set(SOURCES_TEST_DATASET experiments/src/globimap_test_dataset.cpp)
 set(SOURCES_TEST_DATASET_NEW experiments/src/globimap_test_dataset_new.cpp)
@@ -56,6 +74,7 @@ add_executable(test_cos ${SOURCES_TEST_COS})
 
 # Unit tests
 add_executable(test_variable_increment_bf tests/test_variable_increment_bf.cpp)
+add_executable(test_spectral_bloom_filter tests/test_spectral_bloom_filter.cpp)
 
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)
@@ -108,6 +127,10 @@ PUBLIC OpenMP::OpenMP_CXX
 )
 
 target_link_libraries(test_variable_increment_bf
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+target_link_libraries(test_spectral_bloom_filter
 PUBLIC OpenMP::OpenMP_CXX
 )
 

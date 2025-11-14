@@ -13,3 +13,6 @@
 [submodule "lib/shapelib"]
 	path = lib/shapelib
 	url = git@github.com:mlaass/shapelib.git
+[submodule "lib/pybind11"]
+	path = lib/pybind11
+	url = https://github.com/pybind/pybind11.git

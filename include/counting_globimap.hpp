@@ -189,7 +189,7 @@ struct Layer {
       return false;
     }
   }
-  uint64_t byte_size() {
+  uint64_t byte_size() const {
     switch (bits) {
     case 1:
       return f1.size() / 8;
@@ -460,12 +460,12 @@ struct CountingGloBiMap {
     for (size_t i = 0; i < static_cast<size_t>(hashcount); i++) {
       for (auto &l : layers) {
         uint64_t k = (h1 + (i + 1) * h2) & l.mask;
-        auto v = l.get(k);
+        auto v = l.template get<uint64_t>(k);
         if (v == 0) {
           return 0;
         }
         sum += v;
-        if (!l.threshold()) {
+        if (!l.threshold(k)) {
           break;
         }
       }
@@ -573,9 +573,9 @@ struct CountingGloBiMap {
     return sum / mask.hashcount;
   }
 
-  uint64_t byte_size() {
+  uint64_t byte_size() const {
     uint64_t s = 0;
-    for (auto &l : layers) {
+    for (const auto &l : layers) {
       s += l.byte_size();
     }
     return s;

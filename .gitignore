@@ -33,3 +33,4 @@ experiments/*.h5
 Thumbs.db
 libshp.so.1.5.0
 libshp.so.1
+datasets/*

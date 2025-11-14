@@ -94,6 +94,184 @@ struct FilterConfig {
 
 Layers are ordered from finest (typically 1-bit or 8-bit) to coarsest (typically 32-bit or 64-bit).
 
+## Alternative Counting Bloom Filter Implementations
+
+The project includes 5 counting bloom filter implementations, each with different trade-offs. All are header-only and located in `include/`:
+
+### Implementation Overview
+
+1. **CountingGloBiMap** (`counting_globimap.hpp`) - Multi-layer hierarchical filter
+   - Original implementation with cascading layers
+   - NEW: Optional `minimal_increment` for conservative updates (reduces overcounting)
+   - NEW: Optional `cascade_factor` for early cascade (prevents saturation)
+   - Best for: Highly skewed data with varying count magnitudes
+
+2. **Variable-Increment CBF** (`variable_increment_bf.hpp`) - Simple single-layer filter
+   - Based on Rottenstreich et al. (2014)
+   - Uses variable increments [L, 2L-1] for 50% memory savings
+   - Simple 4-parameter configuration
+   - **⚠️ WARNING**: Provides ~4-5x overcounting for frequency queries (310% error)
+   - Best for: **Membership testing only** (`get_bool()`), NOT frequency estimation
+
+3. **Spectral Bloom Filter** (`spectral_bloom_filter.hpp`) - Multiple variants
+   - Based on Cohen & Matias (2003)
+   - Three variants: MS (Minimum Selection), MI (Minimal Increment), RM (Recurring Minimum)
+   - MI variant provides conservative updates for better accuracy
+   - RM variant supports deletions
+   - Best for: High-frequency item detection with accuracy
+
+4. **d-Left Counting Bloom Filter** (`dleft_counting_bf.hpp`) - Deterministic lookups
+   - Based on Bonomi et al. (2006)
+   - Uses d-left hashing with fingerprints for cache-friendly design
+   - Supports deletions
+   - Best for: Cache-sensitive applications, deterministic query time
+
+5. **Count-Min Sketch** (`count_min_sketch.hpp`) - Probabilistic guarantees
+   - Based on Cormode & Muthukrishnan (2005)
+   - Provides error bounds (epsilon, delta parameters)
+   - Optional conservative update
+   - Best for: When you need provable error guarantees, minimal memory
+
+### Quick Selection Guide
+
+Choose based on your requirements:
+
+```
+Need error bounds?          → Count-Min Sketch
+Need deletions?             → d-Left CBF or Spectral BF (RM variant)
+Need minimal memory?        → Count-Min Sketch (2.66 KB typical)
+Need best accuracy?         → Spectral BF (MI) or GloBiMap (MI)
+Need fastest inserts?       → Spectral BF (14M inserts/sec)
+Need cache efficiency?      → d-Left CBF
+Need membership only?       → Variable-Increment CBF (use get_bool(), NOT get_min())
+Need frequency estimation?  → Spectral BF (MI), Count-Min Sketch, or GloBiMap (MI)
+Need varying magnitudes?    → CountingGloBiMap (multi-layer)
+```
+
+**Note**: Do NOT use Variable-Increment CBF for frequency estimation - it provides ~4-5x overcounting due to variable increments [L, 2L-1].
+
+### Building and Running Unit Tests
+
+```bash
+# From build/ directory
+
+# Build individual test suites
+make test_variable_increment_bf
+make test_spectral_bloom_filter
+make test_dleft_counting_bf
+make test_count_min_sketch
+make test_enhanced_globimap
+
+# Run tests
+./test_variable_increment_bf      # 15 tests - VI-CBF correctness
+./test_spectral_bloom_filter      # 17 tests - All SBF variants
+./test_dleft_counting_bf          # 14 tests - d-Left hashing & deletions
+./test_count_min_sketch           # 17 tests - Error bounds & accuracy
+./test_enhanced_globimap          # 10 tests - Conservative updates
+
+# Build and run comparison experiment
+make compare_all_implementations
+./compare_all_implementations     # Side-by-side performance comparison
+```
+
+### Usage Examples
+
+**Variable-Increment CBF:**
+```cpp
+#include "variable_increment_bf.hpp"
+using namespace globimap;
+
+VICBFConfig conf{8, 20, 16, 4};  // k=8, size=2^20, 16-bit counters, L=4
+VariableIncrementBloomFilter cbf(conf);
+
+std::vector<uint64_t> point = {123, 456};
+cbf.put(point);
+
+// ✓ CORRECT USAGE: Membership testing
+bool present = cbf.get_bool(point);  // true
+
+// ✗ INCORRECT USAGE: Frequency estimation (provides ~4x overcounting)
+uint64_t count = cbf.get_min(point); // ~4-7 (actual=1, but increment ∈ [4,7])
+// Do NOT use get_min() for frequency - use Spectral BF or Count-Min Sketch instead
+```
+
+**Spectral Bloom Filter (MI variant):**
+```cpp
+#include "spectral_bloom_filter.hpp"
+using namespace globimap;
+
+SBFConfig conf{8, 20, 16, MINIMAL_INCREMENT};  // Conservative update
+SpectralBloomFilter sbf(conf);
+
+std::vector<uint64_t> point = {123, 456};
+for (int i = 0; i < 100; ++i) sbf.put(point);
+uint64_t count = sbf.get_min(point);  // Very close to 100
+```
+
+**d-Left Counting Bloom Filter:**
+```cpp
+#include "dleft_counting_bf.hpp"
+using namespace globimap;
+
+DLeftCBFConfig conf{2048, 4, 4, 3, 8};  // buckets, slots, d-subtables, fp_bits, counter_bits
+DLeftCountingBloomFilter cbf(conf);
+
+std::vector<uint64_t> point = {123, 456};
+cbf.put(point);
+uint64_t count = cbf.get_min(point);  // 1
+cbf.remove(point);                     // Deletion supported
+count = cbf.get_min(point);            // 0
+```
+
+**Count-Min Sketch:**
+```cpp
+#include "count_min_sketch.hpp"
+using namespace globimap;
+
+CMSConfig conf{0.01, 0.01, true, 16};  // ε=0.01, δ=0.01, conservative, 16-bit
+CountMinSketch cms(conf);
+
+std::vector<uint64_t> point = {123, 456};
+for (int i = 0; i < 100; ++i) cms.put(point);
+uint64_t count = cms.get_min(point);  // ~100 with high probability
+
+// Error guarantees: count <= true + ε*N with probability 1-δ
+double epsilon = cms.epsilon_actual();
+double delta = cms.delta_actual();
+```
+
+**Enhanced CountingGloBiMap:**
+```cpp
+#include "counting_globimap.hpp"
+using namespace globimap;
+
+FilterConfig conf;
+conf.hash_k = 8;
+conf.layers = {{8, 16}, {16, 14}};    // 2^16 8-bit + 2^14 16-bit counters
+conf.minimal_increment = true;         // Conservative update
+conf.cascade_factor = 0.75;            // Cascade at 75% of max
+
+CountingGloBiMap<> gbm(conf);
+
+std::vector<uint64_t> point = {123, 456};
+for (int i = 0; i < 100; ++i) gbm.put(point);
+uint64_t count = gbm.get_min(point);  // Very close to 100
+```
+
+### Performance Comparison (from compare_all_implementations)
+
+On synthetic workload (100K uniform inserts, 10K Zipfian queries, α=1.5):
+
+| Implementation    | Memory  | Insert Speed     | Query Accuracy |
+|-------------------|---------|------------------|----------------|
+| Count-Min Sketch  | 2.66 KB | 40.5 M/sec       | 0.04% error    |
+| d-Left CBF        | 40 KB   | 24.6 M/sec       | 0.00% error    |
+| GloBiMap (MI)     | 96 KB   | 10.8 M/sec       | 0.00% error    |
+| VI-CBF            | 2 MB    | 17.7 M/sec       | 310% error*    |
+| Spectral BF (MI)  | 2 MB    | 19.5 M/sec       | 0.00% error    |
+
+\* **VI-CBF error is EXPECTED** - designed for membership testing (`get_bool()`), not frequency estimation. Use Spectral BF or Count-Min Sketch for accurate frequency queries.
+
 ### Experiments Structure
 
 All experiment code is in `experiments/src/`:

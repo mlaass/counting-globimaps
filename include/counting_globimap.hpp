@@ -167,7 +167,40 @@ struct Layer {
       assert(false); // bits needs to be 1,8,16,32 or 64
     }
   }
-  bool threshold(size_t i) {
+  /**
+   * @brief Check if counter has reached the cascade threshold
+   * @param i Counter index
+   * @param factor Cascade factor (0.0-1.0), where 1.0 is full threshold
+   * @return True if counter >= factor * max_value
+   */
+  bool threshold_factor(size_t i, double factor) const {
+    if (factor >= 1.0) {
+      return threshold(i);  // Use original threshold for factor = 1.0
+    }
+
+    switch (bits) {
+    case 1:
+      return f1[i] >= static_cast<BITS1>(THRESHOLD_1BIT * factor);
+      break;
+    case 8:
+      return f8[i] >= static_cast<BITS8>(THRESHOLD_8BIT * factor);
+      break;
+    case 16:
+      return f16[i] >= static_cast<BITS16>(THRESHOLD_16BIT * factor);
+      break;
+    case 32:
+      return f32[i] >= static_cast<BITS32>(THRESHOLD_32BIT * factor);
+      break;
+    case 64:
+      return f64[i] >= static_cast<BITS64>((double)THRESHOLD_64BIT * factor);
+      break;
+    default:
+      assert(false); // bits needs to be 1,8,16,32 or 64
+      return false;
+    }
+  }
+
+  bool threshold(size_t i) const {
     switch (bits) {
     case 1:
       return f1[i] == THRESHOLD_1BIT;
@@ -355,6 +388,17 @@ struct LayerConfig {
 struct FilterConfig {
   uint hash_k;
   std::vector<LayerConfig> layers;
+
+  // Conservative update option (inspired by Spectral Bloom Filter MI variant)
+  // When true, only increment counters at minimum value (reduces overcounting)
+  bool minimal_increment = false;
+
+  // Early cascade factor (0.0 to 1.0)
+  // Triggers cascade before counter reaches max value
+  // e.g., 0.75 means cascade at 75% of threshold instead of 100%
+  // Reduces saturation effects and improves accuracy for high-frequency items
+  double cascade_factor = 1.0;
+
   std::string to_string() {
     std::stringstream ss;
     ss << "k_" << hash_k;
@@ -365,6 +409,12 @@ struct FilterConfig {
     ss << "logsize_";
     for (auto l2 : layers) {
       ss << l2.logsize << ".";
+    }
+    if (minimal_increment) {
+      ss << "mi";
+    }
+    if (cascade_factor != 1.0) {
+      ss << "cf_" << cascade_factor;
     }
     return ss.str();
   }
@@ -425,19 +475,71 @@ struct CountingGloBiMap {
       }
     }
     hash(&point[0], 2, &h1, &h2);
-    auto all_full = true;
-    for (uint64_t i = 0; i < static_cast<uint64_t>(hashcount); i++) {
-      for (auto &l : layers) {
-        uint64_t k = (h1 + (i + 1) * h2) & l.mask;
-        if (!l.threshold(k)) {
+
+    // Minimal increment (conservative update): only increment counters at minimum
+    if (config.minimal_increment) {
+      // First pass: find minimum count across all hash positions
+      uint64_t min_count = UINT64_MAX;
+      std::vector<std::pair<size_t, uint64_t>> positions;  // (layer_idx, position)
+
+      for (uint64_t i = 0; i < static_cast<uint64_t>(hashcount); i++) {
+        uint64_t sum = 0;
+        size_t target_layer = 0;
+        uint64_t target_k = 0;
+
+        for (size_t layer_idx = 0; layer_idx < layers.size(); ++layer_idx) {
+          auto &l = layers[layer_idx];
+          uint64_t k = (h1 + (i + 1) * h2) & l.mask;
+          auto v = l.template get<uint64_t>(k);
+          sum += v;
+
+          if (!l.threshold_factor(k, config.cascade_factor)) {
+            target_layer = layer_idx;
+            target_k = k;
+            break;
+          }
+        }
+
+        positions.push_back({target_layer, target_k});
+        min_count = std::min(min_count, sum);
+      }
+
+      // Second pass: only increment positions that equal minimum
+      for (uint64_t i = 0; i < static_cast<uint64_t>(hashcount); i++) {
+        uint64_t sum = 0;
+        for (size_t layer_idx = 0; layer_idx < layers.size(); ++layer_idx) {
+          auto &l = layers[layer_idx];
+          uint64_t k = (h1 + (i + 1) * h2) & l.mask;
+          auto v = l.template get<uint64_t>(k);
+          sum += v;
+
+          if (!l.threshold_factor(k, config.cascade_factor)) {
+            break;
+          }
+        }
+
+        if (sum == min_count) {
+          auto [layer_idx, k] = positions[i];
           PARA_CRIT
-          l.increment(k);
-          all_full = false;
-          break;
+          layers[layer_idx].increment(k);
         }
       }
+    } else {
+      // Standard update with optional cascade_factor
+      auto all_full = true;
+      for (uint64_t i = 0; i < static_cast<uint64_t>(hashcount); i++) {
+        for (auto &l : layers) {
+          uint64_t k = (h1 + (i + 1) * h2) & l.mask;
+          if (!l.threshold_factor(k, config.cascade_factor)) {
+            PARA_CRIT
+            l.increment(k);
+            all_full = false;
+            break;
+          }
+        }
+      }
+      // assert(!all_full); // insufficent size in filter configuration
     }
-    // assert(!all_full); // insufficent size in filter configuration
   }
 
   bool get_bool(const std::vector<uint64_t> &point) {

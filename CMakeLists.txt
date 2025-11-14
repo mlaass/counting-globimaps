@@ -71,12 +71,14 @@ add_executable(print_poly_stats experiments/src/globimap_print_poly_stats.cpp)
 add_executable(globimap_rasterize_polys experiments/src/globimap_rasterize_polys.cpp)
 add_executable(test_dataset_full_time experiments/src/globimap_test_dataset_full_time.cpp)
 add_executable(test_cos ${SOURCES_TEST_COS})
+add_executable(compare_all_implementations experiments/src/compare_all_implementations.cpp)
 
 # Unit tests
 add_executable(test_variable_increment_bf tests/test_variable_increment_bf.cpp)
 add_executable(test_spectral_bloom_filter tests/test_spectral_bloom_filter.cpp)
 add_executable(test_dleft_counting_bf tests/test_dleft_counting_bf.cpp)
 add_executable(test_count_min_sketch tests/test_count_min_sketch.cpp)
+add_executable(test_enhanced_globimap tests/test_enhanced_globimap.cpp)
 
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)
@@ -128,6 +130,10 @@ PUBLIC HighFive
 PUBLIC OpenMP::OpenMP_CXX
 )
 
+target_link_libraries(compare_all_implementations
+PUBLIC OpenMP::OpenMP_CXX
+)
+
 target_link_libraries(test_variable_increment_bf
 PUBLIC OpenMP::OpenMP_CXX
 )
@@ -141,6 +147,10 @@ PUBLIC OpenMP::OpenMP_CXX
 )
 
 target_link_libraries(test_count_min_sketch
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+target_link_libraries(test_enhanced_globimap
 PUBLIC OpenMP::OpenMP_CXX
 )
 

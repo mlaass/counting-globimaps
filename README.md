@@ -103,6 +103,207 @@ errors = json.loads(cbf.error_summary())
 print(f"Errors detected: {errors['errors']}")
 ```
 
+## Alternative Counting Bloom Filter Implementations
+
+In addition to the original **CountingGloBiMap**, this project now includes 4 alternative counting bloom filter implementations, each optimized for different use cases. All implementations are header-only C++ libraries with consistent APIs.
+
+### Available Implementations
+
+| Implementation | Best For | Memory | Speed | Accuracy | Features |
+|----------------|----------|--------|-------|----------|----------|
+| **CountingGloBiMap** | Varying count magnitudes | Medium | Good | Excellent* | Multi-layer, cascading |
+| **Count-Min Sketch** | Minimal memory, error bounds | **Smallest** | **Fastest** | Excellent | Probabilistic guarantees |
+| **Spectral BF** | High-frequency detection | Large | **Fastest** | **Perfect*** | 3 variants, optional deletions |
+| **d-Left CBF** | Cache efficiency, deletions | Small | Fast | **Excellent** | Deterministic lookups, deletions |
+| **Variable-Increment CBF** | **Membership testing ONLY** | Large | Fast | Poor for counts† | Simple, 50% memory vs standard CBF |
+
+\* With `minimal_increment=true` option
+† **WARNING**: 310% error for frequency queries - VI-CBF is designed for membership testing (`get_bool()`), NOT frequency estimation (`get_min()`)
+
+### Performance Comparison
+
+Benchmarked on 100K uniform inserts + 10K Zipfian queries (α=1.5):
+
+| Implementation | Memory Usage | Insert Throughput | Query Accuracy |
+|----------------|--------------|-------------------|----------------|
+| Count-Min Sketch | **2.66 KB** | 40.5 M/sec | 0.04% error |
+| d-Left CBF | 40 KB | 24.6 M/sec | **0.00% error** |
+| CountingGloBiMap (MI) | 96 KB | 10.8 M/sec | **0.00% error** |
+| Variable-Increment CBF | 2 MB | 17.7 M/sec | 310% error† |
+| Spectral BF (MI) | 2 MB | **19.5 M/sec** | **0.00% error** |
+
+† **Expected behavior** - VI-CBF is designed for membership testing (`get_bool()`), NOT frequency estimation. Use Spectral BF or Count-Min Sketch for accurate frequency queries.
+
+### Quick Selection Guide
+
+Choose the right implementation for your needs:
+
+```
+┌─────────────────────────────────────────┐
+│  What's most important?                 │
+└─────────────────────────────────────────┘
+         │
+         ├─ Need error bounds (ε, δ)?      → Count-Min Sketch
+         │
+         ├─ Need deletion support?         → d-Left CBF or Spectral BF (RM variant)
+         │
+         ├─ Minimal memory critical?       → Count-Min Sketch (2.66 KB)
+         │
+         ├─ Best accuracy needed?          → Spectral BF (MI) or CountingGloBiMap (MI)
+         │
+         ├─ Fastest inserts needed?        → Count-Min Sketch or Spectral BF (20-40M/sec)
+         │
+         ├─ Cache efficiency critical?     → d-Left CBF
+         │
+         ├─ Only membership testing?       → Variable-Increment CBF (use get_bool() only)
+         │
+         ├─ Need frequency estimation?     → Spectral BF (MI), Count-Min, or GloBiMap (MI)
+         │
+         └─ Varying count magnitudes?      → CountingGloBiMap (multi-layer)
+```
+
+**⚠️ Important**: Do NOT use Variable-Increment CBF for frequency estimation - it provides ~4x overcounting.
+
+### C++ Usage Examples
+
+All implementations follow a consistent API pattern:
+
+**Count-Min Sketch** (minimal memory, error bounds):
+```cpp
+#include "count_min_sketch.hpp"
+using namespace globimap;
+
+CMSConfig conf{0.01, 0.01, true, 16};  // ε=0.01, δ=0.01, conservative, 16-bit
+CountMinSketch cms(conf);
+
+std::vector<uint64_t> point = {123, 456};
+for (int i = 0; i < 100; ++i) cms.put(point);
+
+uint64_t count = cms.get_min(point);  // ~100 with high probability
+// Guarantees: count <= true_count + ε*N with probability 1-δ
+```
+
+**Spectral Bloom Filter** (perfect accuracy):
+```cpp
+#include "spectral_bloom_filter.hpp"
+using namespace globimap;
+
+SBFConfig conf{8, 20, 16, MINIMAL_INCREMENT};  // k=8, size=2^20, 16-bit, MI variant
+SpectralBloomFilter sbf(conf);
+
+std::vector<uint64_t> point = {123, 456};
+for (int i = 0; i < 100; ++i) sbf.put(point);
+uint64_t count = sbf.get_min(point);  // Very close to 100 (conservative update)
+```
+
+**d-Left Counting Bloom Filter** (cache-friendly, deletions):
+```cpp
+#include "dleft_counting_bf.hpp"
+using namespace globimap;
+
+DLeftCBFConfig conf{2048, 4, 4, 3, 8};  // buckets, slots, d-subtables, fp_bits, counter_bits
+DLeftCountingBloomFilter cbf(conf);
+
+std::vector<uint64_t> point = {123, 456};
+cbf.put(point);
+uint64_t count = cbf.get_min(point);  // 1
+cbf.remove(point);                     // Deletion supported!
+count = cbf.get_min(point);            // 0
+```
+
+**Variable-Increment CBF** (⚠️ **membership testing ONLY**):
+```cpp
+#include "variable_increment_bf.hpp"
+using namespace globimap;
+
+VICBFConfig conf{8, 20, 16, 4};  // k=8, size=2^20, 16-bit counters, L=4
+VariableIncrementBloomFilter cbf(conf);
+
+std::vector<uint64_t> point = {123, 456};
+cbf.put(point);
+
+// ✓ CORRECT: Use for membership testing
+bool present = cbf.get_bool(point);  // true
+
+// ✗ INCORRECT: Do NOT use for frequency estimation (310% error!)
+uint64_t count = cbf.get_min(point); // ~4-7 (actual=1, increment ∈ [4,7])
+// For accurate frequency queries, use Spectral BF or Count-Min Sketch instead
+```
+
+**Enhanced CountingGloBiMap** (conservative updates):
+```cpp
+#include "counting_globimap.hpp"
+using namespace globimap;
+
+FilterConfig conf;
+conf.hash_k = 8;
+conf.layers = {{8, 16}, {16, 14}};    // 2^16 8-bit + 2^14 16-bit counters
+conf.minimal_increment = true;         // NEW: Conservative update (reduces overcounting)
+conf.cascade_factor = 0.75;            // NEW: Cascade at 75% of max (prevents saturation)
+
+CountingGloBiMap<> gbm(conf);
+for (int i = 0; i < 100; ++i) gbm.put({123, 456});
+uint64_t count = gbm.get_min({123, 456});  // Very close to 100
+```
+
+### Running Unit Tests
+
+Each implementation has comprehensive unit tests:
+
+```bash
+cd build
+
+# Build all tests
+make test_count_min_sketch
+make test_spectral_bloom_filter
+make test_dleft_counting_bf
+make test_variable_increment_bf
+make test_enhanced_globimap
+
+# Run tests
+./test_count_min_sketch           # 17 tests - error bounds, conservative update
+./test_spectral_bloom_filter      # 17 tests - MS/MI/RM variants
+./test_dleft_counting_bf          # 14 tests - d-left hashing, deletions
+./test_variable_increment_bf      # 15 tests - variable increments, overflow
+./test_enhanced_globimap          # 10 tests - minimal_increment, cascade_factor
+
+# Run comparison benchmark
+make compare_all_implementations
+./compare_all_implementations     # Side-by-side comparison of all implementations
+```
+
+### Implementation Details
+
+**Count-Min Sketch** ([Cormode & Muthukrishnan, 2005](https://doi.org/10.1016/j.jalgor.2003.12.001))
+- Matrix structure: depth × width counters
+- Error bound: `estimate ≤ true + ε·N` with probability `1-δ`
+- Optional conservative update (only increment minimum counters)
+- Optimal for minimal memory with provable guarantees
+
+**Spectral Bloom Filter** ([Cohen & Matias, 2003](https://doi.org/10.1145/945394.945396))
+- Three variants: MS (Minimum Selection), MI (Minimal Increment), RM (Recurring Minimum)
+- MI variant uses conservative update for near-perfect accuracy
+- RM variant maintains secondary filter for deletion support
+- Optimal for high-frequency item detection
+
+**d-Left Counting Bloom Filter** ([Bonomi et al., 2006](https://doi.org/10.1016/j.comnet.2005.07.016))
+- d-left hashing with fingerprints for space efficiency
+- Deterministic query time (no hash collision chains)
+- Cache-friendly bucket design
+- Supports deletions via fingerprint matching
+
+**Variable-Increment CBF** ([Rottenstreich et al., 2014](https://doi.org/10.1109/TNET.2013.2280836))
+- Single-layer design with variable increments [L, 2L-1]
+- 50% memory reduction vs standard CBF (from paper)
+- Simple 4-parameter configuration
+- Best for membership testing, not frequency estimation
+
+**CountingGloBiMap** ([Werner, 2019](https://martinwerner.de/pdf/2019globimap.pdf))
+- Multi-layer hierarchical design with cascading overflow
+- NEW: `minimal_increment` option for conservative updates
+- NEW: `cascade_factor` option for early cascade
+- Best for data with varying count magnitudes
+
 ## Python API Reference
 
 ### Classes
@@ -147,25 +348,69 @@ print(f"Errors detected: {errors['errors']}")
 
 See the `examples/` directory for complete examples:
 
+### Basic Examples
+
 - **example_counting_basic.py** - Basic usage and operations
 - **example_multi_layer.py** - Multi-layer configuration
 - **example_error_detection.py** - Error detection and analysis
 - **example_cardinality.py** - Cardinality estimation
 
+### Real-World Dataset Examples
+
+- **example_covid19_analysis.py** - Analyze COVID-19 case data from Johns Hopkins CSSE
+- **example_gdelt_analysis.py** - Analyze GDELT global events (conflicts, protests, political events)
+- **example_infrastructure_failures.py** - Analyze NYC 311 infrastructure failure patterns
+- **example_compression_benchmark.py** - Memory compression benchmark with varying sparsity
+
 Run examples:
 ```bash
 cd examples
 python example_counting_basic.py
+python example_covid19_analysis.py
 ```
+
+## Datasets
+
+CountingGloBiMap is designed for sparse spatial datasets with hotspot patterns. Use the provided script to download sample datasets:
+
+```bash
+# Download all available datasets
+./download_datasets.sh
+
+# Or download specific datasets
+./download_datasets.sh covid19
+./download_datasets.sh infrastructure
+```
+
+Available datasets:
+- **COVID-19 Case Data** (Johns Hopkins CSSE) - Auto-download
+- **GDELT Global Events** (Conflicts, protests, political events worldwide) - Auto-download
+- **Infrastructure Failures** (NYC 311 Service Requests) - Auto-download
+- **Lightning Strike Data** (NOAA) - Manual download instructions provided
+- **Wildlife Poaching** (CITES Trade Database) - Manual download instructions provided
+- **Human Trafficking** (CTDC Database) - Manual download instructions with ethical guidelines
+
+See `datasets/README.txt` (created by download script) for details on each dataset.
 
 ## Jupyter Notebooks
 
-The `notebooks/` directory contains 10 Jupyter notebooks for analyzing experiment results:
+The `notebooks/` directory contains Jupyter notebooks for analysis:
+
+### Analysis Notebooks (from experiments)
 
 - Dataset experiments: `test_datasets_*.ipynb`
 - Polygon experiments: `test_polygon*.ipynb`
 - Resolution analysis: `resolutions*.ipynb`
 - Abundance analysis: `AbundanceR.ipynb`
+
+### Interactive Tutorials
+
+- **RealWorld_Dataset_Analysis.ipynb** - Complete walkthrough of COVID-19, infrastructure, and synthetic data analysis
+
+Run notebooks:
+```bash
+jupyter notebook notebooks/RealWorld_Dataset_Analysis.ipynb
+```
 
 See `notebooks/README.md` for details.
 

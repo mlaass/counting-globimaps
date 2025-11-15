@@ -73,6 +73,11 @@ add_executable(test_dataset_full_time experiments/src/globimap_test_dataset_full
 add_executable(test_cos ${SOURCES_TEST_COS})
 add_executable(compare_all_implementations experiments/src/compare_all_implementations.cpp)
 
+# Comparison experiments
+add_executable(globimap_test_dataset_compare experiments/src/globimap_test_dataset_compare.cpp)
+add_executable(globimap_test_cos_compare experiments/src/globimap_test_cos_compare.cpp)
+add_executable(globimap_test_k_compare experiments/src/globimap_test_k_compare.cpp)
+
 # Unit tests
 add_executable(test_variable_increment_bf tests/test_variable_increment_bf.cpp)
 add_executable(test_spectral_bloom_filter tests/test_spectral_bloom_filter.cpp)
@@ -134,6 +139,19 @@ target_link_libraries(compare_all_implementations
 PUBLIC OpenMP::OpenMP_CXX
 )
 
+target_link_libraries(globimap_test_dataset_compare
+PUBLIC HighFive
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+target_link_libraries(globimap_test_cos_compare
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+target_link_libraries(globimap_test_k_compare
+PUBLIC OpenMP::OpenMP_CXX
+)
+
 target_link_libraries(test_variable_increment_bf
 PUBLIC OpenMP::OpenMP_CXX
 )
@@ -151,6 +169,25 @@ PUBLIC OpenMP::OpenMP_CXX
 )
 
 target_link_libraries(test_enhanced_globimap
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+# Multi-category validation test
+add_executable(test_multicategory tests/test_multicategory.cpp)
+target_link_libraries(test_multicategory
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+# Multi-category performance experiment
+add_executable(globimap_test_multicategory experiments/src/globimap_test_multicategory.cpp)
+target_link_libraries(globimap_test_multicategory
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+# Multi-category dataset benchmark
+add_executable(globimap_test_multicategory_dataset experiments/src/globimap_test_multicategory_dataset.cpp)
+target_link_libraries(globimap_test_multicategory_dataset
+PUBLIC HighFive
 PUBLIC OpenMP::OpenMP_CXX
 )
 

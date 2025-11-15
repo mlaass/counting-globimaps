@@ -460,11 +460,11 @@ struct CountingGloBiMap {
 
   void put_all(const std::vector<uint64_t> &points) {
     for (auto p = 0; p < points.size(); p += 2) {
-      putp(&points[p]);
+      putp(&points[p], 2);
     }
   }
-  void put(const std::vector<uint64_t> &point) { putp(&point[0]); }
-  void putp(const uint64_t *point) {
+  void put(const std::vector<uint64_t> &point) { putp(&point[0], point.size()); }
+  void putp(const uint64_t *point, size_t size) {
     uint64_t h1 = H1, h2 = H2;
     if (collect_input) {
       coord_t p = {point[0], point[1]};
@@ -474,7 +474,7 @@ struct CountingGloBiMap {
         counter[p] += 1;
       }
     }
-    hash(&point[0], 2, &h1, &h2);
+    hash(&point[0], size, &h1, &h2);
 
     // Minimal increment (conservative update): only increment counters at minimum
     if (config.minimal_increment) {
@@ -562,7 +562,7 @@ struct CountingGloBiMap {
 
   bool get_bool(const std::vector<uint64_t> &point) {
     uint64_t h1 = H1, h2 = H2;
-    hash(&point[0], 2, &h1, &h2);
+    hash(&point[0], point.size(), &h1, &h2);
     auto res = true;
     for (uint64_t i = 0; i < static_cast<uint64_t>(hashcount); i++) {
       uint64_t k = (h1 + (i + 1) * h2) & layers[0].mask;
@@ -576,7 +576,7 @@ struct CountingGloBiMap {
     uint64_t sum = 0;
     uint64_t h1 = H1, h2 = H2;
 
-    hash(&point[0], 2, &h1, &h2);
+    hash(&point[0], point.size(), &h1, &h2);
     for (size_t i = 0; i < static_cast<size_t>(hashcount); i++) {
       for (auto &l : layers) {
         uint64_t k = (h1 + (i + 1) * h2) & l.mask;
@@ -597,7 +597,7 @@ struct CountingGloBiMap {
 
     uint64_t h1 = H1, h2 = H2;
 
-    hash(&point[0], 2, &h1, &h2);
+    hash(&point[0], point.size(), &h1, &h2);
     uint64_t min_v = UINT64_MAX;
     for (auto i = 0; i < hashcount; i++) {
       uint64_t sum = 0;

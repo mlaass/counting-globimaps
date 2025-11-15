@@ -6,6 +6,44 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CountingGloBiMap is a multi-layer counting bloom filter implementation for cardinality estimation of sparse spatial data. This is a header-only C++ library extracted from the GloBiMap research codebase, featuring hierarchical layers with cascading overflow and OpenMP parallelization.
 
+## Python Environment (uv)
+
+This project uses [uv](https://github.com/astral-sh/uv) for Python package management. Python scripts are used for dataset conversion and analysis.
+
+### Setup Python Environment
+```bash
+# Install dependencies (creates .venv automatically)
+uv sync
+
+# Run Python scripts with uv
+uv run python script.py
+
+# Add new Python dependencies
+uv add package-name
+```
+
+### Convert CSV Datasets to HDF5
+```bash
+# Convert all datasets (default: GDELT all events, COVID-19 1% sampling)
+uv run datasets/utils/csv_to_hdf5.py --dataset all
+
+# Convert specific dataset
+uv run datasets/utils/csv_to_hdf5.py --dataset gdelt
+uv run datasets/utils/csv_to_hdf5.py --dataset covid
+
+# Adjust sampling rates
+uv run datasets/utils/csv_to_hdf5.py --gdelt-sample 100000        # Sample 100K GDELT events
+uv run datasets/utils/csv_to_hdf5.py --covid-sample-rate 0.05     # Sample 5% of COVID cases
+```
+
+**Datasets:**
+- **GDELT**: 1.9M global news events with geographic coordinates (12-month sample)
+- **COVID-19**: 1.8M case events (sampled at 1% from 182M total cases on 2021-06-30)
+  - Creates realistic spatial distribution with hotspots (USA, India, Brazil, etc.)
+  - Each confirmed case becomes one coordinate entry at that location
+
+Converted HDF5 files are saved to `datasets/hdf5/`.
+
 ## Build Commands
 
 ### Initial Setup
@@ -45,7 +83,15 @@ make globimap_rasterize_polys
 ./test_datasets_for_k
 ```
 
-Note: Most experiment executables expect HDF5 datasets at hardcoded paths. Check the source files in `experiments/src/` to see expected dataset locations.
+### Running Comparison Experiments
+```bash
+# From project root (not build/)
+./run_all_experiments.sh
+```
+
+This runs all comparison experiments sequentially and saves results to a timestamped directory (`results_YYYY-MM-DD_HH-MM-SS/`).
+
+Note: Dataset comparison experiments expect HDF5 datasets in `./datasets/hdf5/`. Use the CSV-to-HDF5 conversion script to prepare datasets first.
 
 ## Code Architecture
 
@@ -257,6 +303,123 @@ for (int i = 0; i < 100; ++i) gbm.put(point);
 uint64_t count = gbm.get_min(point);  // Very close to 100
 ```
 
+## Multi-Category Support
+
+All implementations support **variable-length point vectors** for tracking multiple categories at the same spatial location. This enables applications like:
+- Event classification (e.g., GDELT QuadClass: verbal/material cooperation/conflict)
+- Time-series binning (track counts per time bucket at each location)
+- Multi-attribute filtering (location + category + subcategory)
+
+### Critical Hash Function Bug Fix
+
+**⚠️ Fixed in commit [hash]**: The hash wrapper in `include/hashfn.hpp` previously hardcoded the input length to 16 bytes, causing all implementations to ignore additional vector elements beyond `[x, y]`.
+
+**Before (BROKEN)**:
+```cpp
+// hashfn.hpp line 33 - WRONG: ignores len parameter
+murmur::MurmurHash3_x64_128(data, 16, *v1, (void *)hash);
+```
+
+**After (FIXED)**:
+```cpp
+// hashfn.hpp line 33 - CORRECT: uses actual vector length
+murmur::MurmurHash3_x64_128(data, len * sizeof(uint64_t), *v1, (void *)hash);
+```
+
+**Impact**: Without this fix, categories were not isolated - all queries returned the total count across all categories.
+
+### Usage
+
+All implementations automatically support variable-length vectors through the same `put()` / `get_min()` interface:
+
+```cpp
+#include "counting_globimap.hpp"  // or any other implementation
+using namespace globimap;
+
+FilterConfig conf;
+conf.hash_k = 8;
+conf.layers = {{8, 20}, {16, 18}};
+conf.minimal_increment = true;
+CountingGloBiMap<> filter(conf);
+
+// Insert events at same location with different categories
+filter.put({100, 200, 1});  // Category 1 at (100, 200)
+filter.put({100, 200, 1});
+filter.put({100, 200, 2});  // Category 2 at (100, 200)
+filter.put({100, 200, 2});
+filter.put({100, 200, 2});
+
+// Query by category - completely isolated
+uint64_t cat1 = filter.get_min({100, 200, 1});  // Returns ~2
+uint64_t cat2 = filter.get_min({100, 200, 2});  // Returns ~3
+uint64_t cat3 = filter.get_min({100, 200, 3});  // Returns 0 (never inserted)
+```
+
+**Backward Compatibility**: All existing 2D code continues to work without modification:
+```cpp
+filter.put({x, y});           // Still works (2-element vector)
+uint64_t count = filter.get_min({x, y});
+```
+
+### Validation Results
+
+**Unit Tests** (`tests/test_multicategory.cpp`):
+- All 4 implementations achieve **0% error, 100% category isolation**
+- Categories at the same location are completely independent
+- Run with: `./build/test_multicategory`
+
+**Synthetic Benchmark** (`experiments/src/globimap_test_multicategory.cpp`):
+- Tests same location (1000, 2000) with 4 categories: 100, 500, 50, 1000 inserts
+- Results: `./results/compare_multicategory.json`
+
+| Implementation | Mean Error % | Max Error % | Isolation % |
+|----------------|--------------|-------------|-------------|
+| Spectral BF (MI) | 0.00 | 0.00 | 100.00 |
+| d-Left CBF | 0.00 | 0.00 | 100.00 |
+| Count-Min Sketch | 0.00 | 0.00 | 100.00 |
+| CountingGloBiMap (MI) | 0.00 | 0.00 | 100.00 |
+
+### Real-World Performance: GDELT Multi-Category Dataset
+
+**Dataset**: 1.9M GDELT events with QuadClass categories (derived from Goldstein scale)
+- Category 1 (Verbal Cooperation): 882K events (45.6%)
+- Category 2 (Material Cooperation): 262K events (13.6%)
+- Category 3 (Verbal Conflict): 598K events (30.9%)
+- Category 4 (Material Conflict): 191K events (9.9%)
+
+**Conversion**:
+```bash
+# Convert GDELT CSV to multi-category HDF5 [lat, lon, category] format
+uv run datasets/utils/convert_gdelt_multicategory.py \
+    datasets/gdelt/gdelt_events_sample.csv \
+    -o datasets/hdf5/gdelt_events_multicategory.h5
+```
+
+**Benchmark Results** (`./build/globimap_test_multicategory_dataset`):
+
+| Implementation | Memory | Insert Time | Query Time | Category Isolation |
+|----------------|--------|-------------|------------|-------------------|
+| Spectral BF (MI) | 2 MB | 0.21s | 0.50 μs | Perfect (0% error) |
+| Count-Min Sketch | 88 KB | 0.33s | 1.09 μs | Perfect (0% error) |
+| CountingGloBiMap (MI) | 1.5 MB | 0.82s | 0.61 μs | Perfect (0.11% error) |
+| d-Left CBF | 95 KB | 0.32s | 1.37 μs | Good (14-21% error) |
+
+All implementations correctly isolate categories - queries for category N only return counts for category N, not the total across all categories.
+
+### Multi-Category Experiments
+
+```bash
+# Build multi-category tests and benchmarks
+cd build
+make test_multicategory                       # Unit tests
+make globimap_test_multicategory             # Synthetic benchmark
+make globimap_test_multicategory_dataset     # Real GDELT benchmark
+
+# Run experiments
+./test_multicategory                         # Quick validation
+./globimap_test_multicategory                # Synthetic: 4 categories at 1 location
+./globimap_test_multicategory_dataset        # Real: 1.9M GDELT events, 4 categories
+```
 
 ### Experiments Structure
 
@@ -270,6 +433,12 @@ All experiment code is in `experiments/src/`:
 - `globimap_print_poly_stats.cpp` - Print polygon statistics
 - `globimap_test_dataset_full_time.cpp` - Full timing benchmarks
 - `globimap_test_cos.cpp` - COS dataset tests
+- **`globimap_test_multicategory.cpp`** - Multi-category isolation benchmark (synthetic)
+- **`globimap_test_multicategory_dataset.cpp`** - Multi-category GDELT dataset benchmark
+- `compare_all_implementations.cpp` - Quick baseline comparison (3 memory budgets)
+- `globimap_test_dataset_compare.cpp` - Real dataset comparison (GDELT, COVID-19)
+- `globimap_test_cos_compare.cpp` - Cosine distribution comparison
+- `globimap_test_k_compare.cpp` - K parameter sensitivity analysis
 
 The `globimap_test_config.hpp` header provides utilities for generating and saving filter configurations as JSON.
 

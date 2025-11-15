@@ -1,0 +1,10 @@
+[project]
+name = "counting-globimaps"
+version = "0.1.0"
+description = "Multi-layer counting bloom filter for spatial cardinality estimation - Python utilities"
+requires-python = ">=3.12"
+dependencies = [
+    "h5py>=3.15.1",
+    "numpy>=2.3.4",
+    "pandas>=2.3.3",
+]

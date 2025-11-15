@@ -604,6 +604,134 @@ EOF
     log_warning "Please review README.txt for data access instructions and ethical guidelines"
 }
 
+download_admin_boundaries() {
+    log_info "========================================="
+    log_info "Natural Earth Admin Boundaries"
+    log_info "========================================="
+
+    local boundaries_dir="$DATASET_DIR/admin_boundaries"
+    mkdir -p "$boundaries_dir"
+
+    log_info "Downloading Natural Earth administrative boundary shapefiles..."
+    log_info "Natural Earth is a public domain map dataset available at naturalearthdata.com"
+
+    # Download Admin 0 - Countries (10m resolution, detailed)
+    local countries_10m_url="https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_0_countries.zip"
+    local countries_10m_zip="$boundaries_dir/ne_10m_admin_0_countries.zip"
+
+    if download_file "$countries_10m_url" "$countries_10m_zip"; then
+        log_info "Extracting countries (10m resolution)..."
+        unzip -o -q "$countries_10m_zip" -d "$boundaries_dir/ne_10m_admin_0_countries"
+        log_success "Extracted: ne_10m_admin_0_countries/"
+    fi
+
+    # Download Admin 1 - States/Provinces (10m resolution, detailed)
+    local states_10m_url="https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_1_states_provinces.zip"
+    local states_10m_zip="$boundaries_dir/ne_10m_admin_1_states_provinces.zip"
+
+    if download_file "$states_10m_url" "$states_10m_zip"; then
+        log_info "Extracting states/provinces (10m resolution)..."
+        unzip -o -q "$states_10m_zip" -d "$boundaries_dir/ne_10m_admin_1_states_provinces"
+        log_success "Extracted: ne_10m_admin_1_states_provinces/"
+    fi
+
+    # Download Admin 0 - Countries (50m resolution, medium detail)
+    local countries_50m_url="https://naciscdn.org/naturalearth/50m/cultural/ne_50m_admin_0_countries.zip"
+    local countries_50m_zip="$boundaries_dir/ne_50m_admin_0_countries.zip"
+
+    if download_file "$countries_50m_url" "$countries_50m_zip"; then
+        log_info "Extracting countries (50m resolution)..."
+        unzip -o -q "$countries_50m_zip" -d "$boundaries_dir/ne_50m_admin_0_countries"
+        log_success "Extracted: ne_50m_admin_0_countries/"
+    fi
+
+    # Create README
+    cat > "$boundaries_dir/README.txt" <<EOF
+Natural Earth Administrative Boundaries
+========================================
+
+Source: Natural Earth (https://www.naturalearthdata.com/)
+License: Public Domain
+
+This dataset contains global administrative boundary shapefiles from Natural Earth.
+Natural Earth is a public domain map dataset created by volunteer cartographers
+and GIS analysts.
+
+Downloaded Files
+----------------
+
+1. ne_10m_admin_0_countries/
+   - Country boundaries at 1:10 million scale (most detailed)
+   - ~250 countries and territories
+   - File: ne_10m_admin_0_countries.shp
+   - ~10 MB uncompressed
+
+2. ne_10m_admin_1_states_provinces/
+   - State/province boundaries at 1:10 million scale
+   - ~4,600 first-level administrative divisions
+   - File: ne_10m_admin_1_states_provinces.shp
+   - ~50 MB uncompressed
+
+3. ne_50m_admin_0_countries/
+   - Country boundaries at 1:50 million scale (medium detail)
+   - Smaller file size, good for testing
+   - File: ne_50m_admin_0_countries.shp
+   - ~2 MB uncompressed
+
+Usage with CountingGloBiMap
+---------------------------
+
+These shapefiles can be used to:
+1. Rasterize administrative boundaries into GloBiMap
+2. Test polygon masking and region queries
+3. Aggregate spatial data by country/state
+4. Benchmark polygon processing performance
+
+Example (Python):
+import geopandas as gpd
+countries = gpd.read_file('ne_10m_admin_0_countries/ne_10m_admin_0_countries.shp')
+# Use with rasterization or polygon masking
+
+Example (C++ experiments):
+Update POLYGON_DATASETS in dataset_config.hpp to include:
+  "admin_boundaries/ne_10m_admin_0_countries/ne_10m_admin_0_countries"
+
+Attribution
+-----------
+Made with Natural Earth. Free vector and raster map data @ naturalearthdata.com.
+
+Data Structure
+--------------
+Each shapefile includes attributes like:
+- NAME: Country/region name
+- ISO_A2/ISO_A3: ISO country codes
+- CONTINENT: Continent name
+- REGION_UN: UN region classification
+- POP_EST: Population estimate
+- GDP_MD: GDP in millions USD
+- And many more (50+ attributes)
+
+For full documentation, visit:
+https://www.naturalearthdata.com/downloads/
+
+EOF
+
+    # Count features in shapefiles
+    log_info "Dataset summary:"
+    for shp_dir in "$boundaries_dir"/ne_*_admin_*/; do
+        if [ -d "$shp_dir" ]; then
+            local shp_name=$(basename "$shp_dir")
+            local shp_file="$shp_dir${shp_name}.shp"
+            if [ -f "$shp_file" ]; then
+                log_success "  ✓ $shp_name"
+            fi
+        fi
+    done
+
+    log_success "Natural Earth admin boundaries downloaded: $boundaries_dir"
+    log_info "See $boundaries_dir/README.txt for usage information"
+}
+
 ###############################################################################
 # Additional Utility Functions
 ###############################################################################
@@ -903,10 +1031,15 @@ Available Datasets:
                          Sparse failures, hotspots in aging infrastructure
                          NYC sample auto-download, more sources in README
 
+5. admin_boundaries     - Natural Earth global administrative boundaries
+                         Vector data: country & state/province polygons
+                         ~60 MB total, shapefiles, auto-download
+
 Usage:
   ./download_datasets.sh                # Download all available datasets
   ./download_datasets.sh covid19        # Download specific dataset
   ./download_datasets.sh gdelt          # Download GDELT events data
+  ./download_datasets.sh admin_boundaries  # Download admin boundary shapefiles
   ./download_datasets.sh --list         # Show this list
 
 EOF
@@ -943,6 +1076,7 @@ main() {
         download_gdelt_data
         download_lightning_data
         download_infrastructure_failures
+        download_admin_boundaries
         create_dataset_converter
     else
         case "$1" in
@@ -957,6 +1091,9 @@ main() {
                 ;;
             infrastructure|infra)
                 download_infrastructure_failures
+                ;;
+            admin_boundaries|admin|boundaries)
+                download_admin_boundaries
                 ;;
             *)
                 log_error "Unknown dataset: $1"

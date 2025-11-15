@@ -113,7 +113,7 @@ python example_gdelt_analysis.py
 ```
 
 **Expected output**:
-- Loads 500K-2M global events from news media (30 days)
+- Loads 2-5M global events from news media (365 days)
 - Shows event type distribution (verbal/material conflict/cooperation)
 - Identifies top 20 event hotspots worldwide
 - Regional analysis for political centers and conflict zones

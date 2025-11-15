@@ -1,4 +1,5 @@
 #include "globimap_test_config.hpp"
+#include "dataset_config.hpp"  // Central dataset configuration
 #include "counting_globimap.hpp"
 #include <chrono>
 #include <fstream>
@@ -10,11 +11,11 @@
 #include <tqdm.hpp>
 #include <tqdm/tqdm.h>
 
-#include "globimap_test_config.hpp"
+// Use centrally configured paths (defined in global scope by dataset_config.hpp)
+using ::experiments_path;
 
-const std::string base_path = "/home/moritz/tf/pointclouds_2d/data/";
-const std::string experiments_path = "/home/moritz/tf/globimap/experiments/";
-
+// Note: Define your own HDF5 dataset list if you have datasets to test
+// Example datasets (not included):
 std::vector<std::string> datasets{
     "twitter_1mio_coords.h5",   "twitter_10mio_coords.h5",
     "twitter_100mio_coords.h5", "twitter_50mio_coords.h5",
@@ -24,7 +25,7 @@ std::vector<std::string> datasets{
 static std::string test_encode(globimap::CountingGloBiMap<> &g,
                                const std::string &name, const std::string &ds,
                                uint width, uint height, bool errord) {
-  auto filename = base_path + ds;
+  auto filename = ds;  // Dataset path should be full path or relative to working directory
   auto batch_size = 4096;
   std::cout << "Start test_h5 encode with {fn: \"" << filename
             << "\" } for: " << name << std::endl;

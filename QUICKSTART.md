@@ -173,11 +173,9 @@ python example_infrastructure_failures.py  # NYC 311 data
 
 Available datasets:
 - **COVID-19** (Johns Hopkins) - Auto-download ✓
-- **GDELT** (Global events, conflicts, protests) - Auto-download ✓
+- **GDELT** (Global events, 12 months, ~2M events) - Auto-download ✓
 - **Infrastructure Failures** (NYC 311) - Auto-download ✓
 - **Lightning Strikes** (NOAA) - Manual download instructions
-- **Wildlife Poaching** (CITES) - Manual download instructions
-- **Human Trafficking** (CTDC) - Manual download instructions
 
 ### Explore C++ Implementation
 

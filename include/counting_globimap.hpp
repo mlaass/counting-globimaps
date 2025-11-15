@@ -102,7 +102,7 @@ struct Layer {
       assert(false); // bits needs to be 1,8,16,32 or 64
     }
   }
-  template <typename T> T get(size_t i) const {
+  template <typename T> inline T get(size_t i) const {
     switch (bits) {
     case 1:
       return static_cast<T>(f1[i]);
@@ -125,7 +125,7 @@ struct Layer {
     return 1;
   }
 
-  template <typename T> T put(size_t i, T value) {
+  template <typename T> inline T put(size_t i, T value) {
     switch (bits) {
     case 1:
       f1[i] = static_cast<BITS1>(value);
@@ -146,7 +146,7 @@ struct Layer {
       assert(false); // bits needs to be 1,8,16,32 or 64
     }
   }
-  void increment(size_t i) {
+  inline void increment(size_t i) {
     switch (bits) {
     case 1:
       f1[i] = true;
@@ -173,7 +173,7 @@ struct Layer {
    * @param factor Cascade factor (0.0-1.0), where 1.0 is full threshold
    * @return True if counter >= factor * max_value
    */
-  bool threshold_factor(size_t i, double factor) const {
+  inline bool threshold_factor(size_t i, double factor) const {
     if (factor >= 1.0) {
       return threshold(i);  // Use original threshold for factor = 1.0
     }
@@ -200,7 +200,7 @@ struct Layer {
     }
   }
 
-  bool threshold(size_t i) const {
+  inline bool threshold(size_t i) const {
     switch (bits) {
     case 1:
       return f1[i] == THRESHOLD_1BIT;
@@ -481,6 +481,7 @@ struct CountingGloBiMap {
       // First pass: find minimum count across all hash positions
       uint64_t min_count = UINT64_MAX;
       std::vector<std::pair<size_t, uint64_t>> positions;  // (layer_idx, position)
+      positions.reserve(hashcount);  // Pre-allocate to avoid heap reallocation
 
       for (uint64_t i = 0; i < static_cast<uint64_t>(hashcount); i++) {
         uint64_t sum = 0;
@@ -527,14 +528,31 @@ struct CountingGloBiMap {
     } else {
       // Standard update with optional cascade_factor
       auto all_full = true;
-      for (uint64_t i = 0; i < static_cast<uint64_t>(hashcount); i++) {
-        for (auto &l : layers) {
-          uint64_t k = (h1 + (i + 1) * h2) & l.mask;
-          if (!l.threshold_factor(k, config.cascade_factor)) {
-            PARA_CRIT
-            l.increment(k);
-            all_full = false;
-            break;
+
+      // Fast path: when cascade_factor == 1.0, avoid threshold_factor() overhead
+      if (config.cascade_factor >= 1.0) {
+        for (uint64_t i = 0; i < static_cast<uint64_t>(hashcount); i++) {
+          for (auto &l : layers) {
+            uint64_t k = (h1 + (i + 1) * h2) & l.mask;
+            if (!l.threshold(k)) {
+              PARA_CRIT
+              l.increment(k);
+              all_full = false;
+              break;
+            }
+          }
+        }
+      } else {
+        // Cascade factor < 1.0: use threshold_factor for early cascade
+        for (uint64_t i = 0; i < static_cast<uint64_t>(hashcount); i++) {
+          for (auto &l : layers) {
+            uint64_t k = (h1 + (i + 1) * h2) & l.mask;
+            if (!l.threshold_factor(k, config.cascade_factor)) {
+              PARA_CRIT
+              l.increment(k);
+              all_full = false;
+              break;
+            }
           }
         }
       }

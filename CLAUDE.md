@@ -141,14 +141,13 @@ Need error bounds?          → Count-Min Sketch
 Need deletions?             → d-Left CBF or Spectral BF (RM variant)
 Need minimal memory?        → Count-Min Sketch (2.66 KB typical)
 Need best accuracy?         → Spectral BF (MI) or GloBiMap (MI)
-Need fastest inserts?       → Spectral BF (14M inserts/sec)
 Need cache efficiency?      → d-Left CBF
 Need membership only?       → Variable-Increment CBF (use get_bool(), NOT get_min())
 Need frequency estimation?  → Spectral BF (MI), Count-Min Sketch, or GloBiMap (MI)
 Need varying magnitudes?    → CountingGloBiMap (multi-layer)
 ```
 
-**Note**: Do NOT use Variable-Increment CBF for frequency estimation - it provides ~4-5x overcounting due to variable increments [L, 2L-1].
+**⚠️ WARNING**: Do NOT use Variable-Increment CBF for frequency estimation - it provides ~2-5x overcounting due to variable increments [L, 2L-1]. Use `get_bool()` for membership only.
 
 ### Building and Running Unit Tests
 
@@ -258,19 +257,6 @@ for (int i = 0; i < 100; ++i) gbm.put(point);
 uint64_t count = gbm.get_min(point);  // Very close to 100
 ```
 
-### Performance Comparison (from compare_all_implementations)
-
-On synthetic workload (100K uniform inserts, 10K Zipfian queries, α=1.5):
-
-| Implementation    | Memory  | Insert Speed     | Query Accuracy |
-|-------------------|---------|------------------|----------------|
-| Count-Min Sketch  | 2.66 KB | 40.5 M/sec       | 0.04% error    |
-| d-Left CBF        | 40 KB   | 24.6 M/sec       | 0.00% error    |
-| GloBiMap (MI)     | 96 KB   | 10.8 M/sec       | 0.00% error    |
-| VI-CBF            | 2 MB    | 17.7 M/sec       | 310% error*    |
-| Spectral BF (MI)  | 2 MB    | 19.5 M/sec       | 0.00% error    |
-
-\* **VI-CBF error is EXPECTED** - designed for membership testing (`get_bool()`), not frequency estimation. Use Spectral BF or Count-Min Sketch for accurate frequency queries.
 
 ### Experiments Structure
 

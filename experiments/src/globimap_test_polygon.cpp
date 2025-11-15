@@ -1,5 +1,6 @@
 #include "counting_globimap.hpp"
 #include "globimap_test_config.hpp"
+#include "dataset_config.hpp"  // Central dataset configuration
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -14,7 +15,8 @@
 #include <boost/geometry/geometries/point.hpp>
 #include <boost/geometry/geometries/polygon.hpp>
 
-#include "loc.hpp"
+// loc.hpp no longer needed - using dataset_config.hpp instead
+// #include "loc.hpp"
 #include "rasterizer.hpp"
 #include "shapefile.hpp"
 
@@ -27,14 +29,15 @@ typedef bg::model::polygon<point_t> polygon_t;
 
 typedef std::vector<polygon_t> poly_collection_t;
 
-std::vector<std::string> datasets{"twitter_1mio_coords.h5",
-                                  "twitter_10mio_coords.h5"};
+// Use centrally configured polygon datasets (defined in global scope by dataset_config.hpp)
+using ::polygon_sets;
 
-// std::vector<std::string> datasets{"twitter_200mio_coords.h5",
-//                                   "asia_200mio_coords.h5"};
-std::vector<std::string> polygon_sets{
-    "tl_2017_us_zcta510/tl_2017_us_zcta510",
-    "Global_LSIB_Polygons_Detailed/Global_LSIB_Polygons_Detailed"};
+// Note: Define your own HDF5 dataset list if you have datasets to test
+// Example datasets (not included):
+std::vector<std::string> datasets{
+    "twitter_1mio_coords.h5",
+    "twitter_10mio_coords.h5"
+};
 
 std::vector<polygon_t> get_polygons(const std::string &filename) {
   std::vector<polygon_t> res;
@@ -166,7 +169,8 @@ std::string test_polys(globimap::CountingGloBiMap<> &g,
 static void encode_dataset(globimap::CountingGloBiMap<> &g,
                            const std::string &name, const std::string &ds,
                            uint width, uint height) {
-  auto filename = base_path + ds;
+  // Note: 'ds' should be a full path or relative path to your HDF5 dataset
+  auto filename = ds;
   auto batch_size = 4096;
   std::cout << "Start test_h5 encode with {fn: \"" << filename
             << "\" } for: " << name << std::endl;
@@ -228,7 +232,7 @@ int main() {
       std::cout << "fc: " << fc.to_string() << std::endl;
       auto y = 0;
       for (auto shp : polygon_sets) {
-        shp = vector_base_path + shp;
+        shp = dataset_config::SHAPEFILES_PATH + "/" + shp;
         std::cout << shp << "... " << std::endl;
         auto polys = get_polygons_trans(shp, width, height);
         std::cout << shp << ": " << polys.size() << std::endl;

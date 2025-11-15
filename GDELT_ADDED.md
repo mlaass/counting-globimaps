@@ -20,8 +20,8 @@ GDELT monitors print, broadcast, and web news media in over 100 languages from a
 **download_datasets.sh** - Added `download_gdelt_data()` function
 
 **Features:**
-- Downloads 30 days of GDELT 2.0 events (500-800 MB compressed)
-- Samples every 6 hours (120 files) for manageable size
+- Downloads 365 days of GDELT 2.0 events (1.5-2 GB compressed)
+- Samples every 6 hours (1,460 files) for manageable size
 - Auto-extracts and combines into single CSV
 - Progress indicator during download
 - Comprehensive README with CAMEO event codes
@@ -34,8 +34,8 @@ GDELT monitors print, broadcast, and web news media in over 100 languages from a
 
 **Data downloaded:**
 - Source: http://data.gdeltproject.org/gdeltv2/
-- Time period: Last 30 days (6-hour intervals)
-- Expected events: 500K-2M global events
+- Time period: Last 12 months (6-hour intervals)
+- Expected events: 2-5M global events
 - File: `datasets/gdelt/gdelt_events_sample.csv`
 - Format: Tab-separated CSV with 47 columns
 

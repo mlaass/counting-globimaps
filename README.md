@@ -120,46 +120,19 @@ In addition to the original **CountingGloBiMap**, this project now includes 4 al
 \* With `minimal_increment=true` option
 † **WARNING**: 310% error for frequency queries - VI-CBF is designed for membership testing (`get_bool()`), NOT frequency estimation (`get_min()`)
 
-### Performance Comparison
-
-Benchmarked on 100K uniform inserts + 10K Zipfian queries (α=1.5):
-
-| Implementation | Memory Usage | Insert Throughput | Query Accuracy |
-|----------------|--------------|-------------------|----------------|
-| Count-Min Sketch | **2.66 KB** | 40.5 M/sec | 0.04% error |
-| d-Left CBF | 40 KB | 24.6 M/sec | **0.00% error** |
-| CountingGloBiMap (MI) | 96 KB | 10.8 M/sec | **0.00% error** |
-| Variable-Increment CBF | 2 MB | 17.7 M/sec | 310% error† |
-| Spectral BF (MI) | 2 MB | **19.5 M/sec** | **0.00% error** |
-
-† **Expected behavior** - VI-CBF is designed for membership testing (`get_bool()`), NOT frequency estimation. Use Spectral BF or Count-Min Sketch for accurate frequency queries.
-
 ### Quick Selection Guide
 
-Choose the right implementation for your needs:
+Choose based on your requirements:
 
 ```
-┌─────────────────────────────────────────┐
-│  What's most important?                 │
-└─────────────────────────────────────────┘
-         │
-         ├─ Need error bounds (ε, δ)?      → Count-Min Sketch
-         │
-         ├─ Need deletion support?         → d-Left CBF or Spectral BF (RM variant)
-         │
-         ├─ Minimal memory critical?       → Count-Min Sketch (2.66 KB)
-         │
-         ├─ Best accuracy needed?          → Spectral BF (MI) or CountingGloBiMap (MI)
-         │
-         ├─ Fastest inserts needed?        → Count-Min Sketch or Spectral BF (20-40M/sec)
-         │
-         ├─ Cache efficiency critical?     → d-Left CBF
-         │
-         ├─ Only membership testing?       → Variable-Increment CBF (use get_bool() only)
-         │
-         ├─ Need frequency estimation?     → Spectral BF (MI), Count-Min, or GloBiMap (MI)
-         │
-         └─ Varying count magnitudes?      → CountingGloBiMap (multi-layer)
+Need error bounds?          → Count-Min Sketch
+Need deletions?             → d-Left CBF or Spectral BF (RM variant)
+Need minimal memory?        → Count-Min Sketch (2.66 KB typical)
+Need best accuracy?         → Spectral BF (MI) or GloBiMap (MI)
+Need cache efficiency?      → d-Left CBF
+Need membership only?       → Variable-Increment CBF (use get_bool(), NOT get_min())
+Need frequency estimation?  → Spectral BF (MI), Count-Min Sketch, or GloBiMap (MI)
+Need varying magnitudes?    → CountingGloBiMap (multi-layer)
 ```
 
 **⚠️ Important**: Do NOT use Variable-Increment CBF for frequency estimation - it provides ~4x overcounting.
@@ -379,16 +352,20 @@ CountingGloBiMap is designed for sparse spatial datasets with hotspot patterns. 
 
 # Or download specific datasets
 ./download_datasets.sh covid19
+./download_datasets.sh gdelt
 ./download_datasets.sh infrastructure
+
+# Configure paths for C++ experiments
+./configure_datasets.sh
 ```
+
+**See [DATASET_SETUP.md](DATASET_SETUP.md) for complete dataset setup guide.**
 
 Available datasets:
 - **COVID-19 Case Data** (Johns Hopkins CSSE) - Auto-download
-- **GDELT Global Events** (Conflicts, protests, political events worldwide) - Auto-download
+- **GDELT Global Events** (Conflicts, protests, political events worldwide, 12 months) - Auto-download
 - **Infrastructure Failures** (NYC 311 Service Requests) - Auto-download
 - **Lightning Strike Data** (NOAA) - Manual download instructions provided
-- **Wildlife Poaching** (CITES Trade Database) - Manual download instructions provided
-- **Human Trafficking** (CTDC Database) - Manual download instructions with ethical guidelines
 
 See `datasets/README.txt` (created by download script) for details on each dataset.
 

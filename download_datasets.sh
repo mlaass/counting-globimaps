@@ -697,10 +697,10 @@ download_gdelt_data() {
     fi
 
     # GDELT 2.0 is updated every 15 minutes with global event data
-    # We'll download 30 days of data as a sample (about 500-800 MB compressed)
+    # We'll download last year of data sampled every 6 hours (about 1.5-2 GB compressed)
 
-    log_info "Downloading GDELT 2.0 Events (last 30 days)..."
-    log_info "This may take 5-10 minutes (500-800 MB compressed)..."
+    log_info "Downloading GDELT 2.0 Events (last 12 months)..."
+    log_info "This may take 10-20 minutes (1.5-2 GB compressed)..."
 
     # Get the master file list to find recent files
     local master_list="$gdelt_dir/masterfilelist.txt"
@@ -717,13 +717,13 @@ download_gdelt_data() {
         }
     fi
 
-    # Get last 30 days of export files (events data)
-    # GDELT publishes files every 15 minutes, so ~2880 files per 30 days
-    # We'll sample every 6 hours (4 files per day = 120 files per month) for manageable size
+    # Get last 365 days of export files (events data)
+    # GDELT publishes files every 15 minutes, so ~35,040 files per year
+    # We'll sample every 6 hours (4 files per day = 1,460 files per year) for manageable size
 
-    log_info "Selecting sample files (every 6 hours for 30 days)..."
+    log_info "Selecting sample files (every 6 hours for 365 days)..."
 
-    local sample_files=$(grep "\.export\.CSV\.zip" "$master_list" | tail -2880 | awk 'NR % 24 == 0' | head -120)
+    local sample_files=$(grep "\.export\.CSV\.zip" "$master_list" | tail -35040 | awk 'NR % 24 == 0' | head -1460)
     local file_count=$(echo "$sample_files" | wc -l)
 
     log_info "Downloading $file_count GDELT event files..."
@@ -770,7 +770,7 @@ download_gdelt_data() {
     log_success "Downloaded GDELT sample data"
     log_info "  Events: $((line_count - 1))"
     log_info "  File size: $file_size"
-    log_info "  Time period: Last 30 days (6-hour intervals)"
+    log_info "  Time period: Last 365 days (6-hour intervals)"
 
     # Create README
     cat > "$readme" <<'EOF'
@@ -779,7 +779,7 @@ GDELT: Global Database of Events, Language, and Tone
 
 Dataset: GDELT 2.0 Events Database (sample)
 Source: http://data.gdeltproject.org/
-Update Frequency: Every 15 minutes (this is a 30-day sample)
+Update Frequency: Every 15 minutes (this is a 12-month sample)
 
 DESCRIPTION:
 ------------
@@ -787,7 +787,7 @@ The GDELT Project monitors print, broadcast, and web news media in over 100
 languages from across every country in the world. It identifies people,
 locations, organizations, themes, emotions, and events driving global society.
 
-This sample contains 30 days of event data sampled at 6-hour intervals,
+This sample contains 12 months of event data sampled at 6-hour intervals,
 providing comprehensive global coverage of significant events including:
 - Political conflicts and cooperation
 - Protests and demonstrations
@@ -893,23 +893,15 @@ Available Datasets:
 
 2. gdelt                - GDELT global events database (conflicts, protests, etc.)
                          Highly sparse, strong hotspots in conflict/political zones
-                         ~500-800 MB compressed, 30-day sample, auto-download
+                         ~1.5-2 GB compressed, 365-day sample, auto-download
 
 3. lightning            - Lightning strike data (NOAA)
                          Sparse but concentrated in storm regions
                          Requires manual download (see README)
 
-4. wildlife_poaching    - Wildlife crime / CITES trade data
-                         Sparse poaching incidents, hotspots at borders
-                         Requires manual download (see README)
-
-5. infrastructure       - Infrastructure failures (power, water)
+4. infrastructure       - Infrastructure failures (power, water)
                          Sparse failures, hotspots in aging infrastructure
                          NYC sample auto-download, more sources in README
-
-6. human_trafficking    - Human trafficking database (CTDC)
-                         Sparse globally, hotspots at trafficking routes
-                         Requires registration (see README for ethics)
 
 Usage:
   ./download_datasets.sh                # Download all available datasets
@@ -950,9 +942,7 @@ main() {
         download_covid19_data
         download_gdelt_data
         download_lightning_data
-        download_wildlife_poaching_data
         download_infrastructure_failures
-        download_human_trafficking_data
         create_dataset_converter
     else
         case "$1" in
@@ -965,14 +955,8 @@ main() {
             lightning)
                 download_lightning_data
                 ;;
-            wildlife_poaching|wildlife|poaching)
-                download_wildlife_poaching_data
-                ;;
             infrastructure|infra)
                 download_infrastructure_failures
-                ;;
-            human_trafficking|trafficking)
-                download_human_trafficking_data
                 ;;
             *)
                 log_error "Unknown dataset: $1"
@@ -990,9 +974,15 @@ main() {
     log_info "Next steps:"
     echo "  1. Review README.txt files in each dataset directory"
     echo "  2. For datasets requiring manual download, follow instructions"
-    echo "  3. Convert CSV datasets to HDF5:"
+    echo "  3. Configure dataset paths for C++ experiments:"
+    echo "     ./configure_datasets.sh"
+    echo "  4. Run Python examples:"
+    echo "     python examples/example_gdelt_analysis.py"
+    echo "     python examples/example_covid19_analysis.py"
+    echo "  5. Convert CSV to HDF5 (optional, for C++ experiments):"
     echo "     python datasets/utils/csv_to_hdf5.py input.csv output.h5"
-    echo "  4. Update experiment paths in C++ code to point to datasets/"
+    echo "  6. Rebuild and run C++ experiments (optional):"
+    echo "     cd build && make && ./test_datasets"
     echo ""
 }
 

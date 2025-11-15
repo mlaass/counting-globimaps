@@ -104,24 +104,32 @@ void print_section(const std::string &title) {
     std::cout << "\n--- " << title << " ---\n";
 }
 
-// Test 1: Memory efficiency comparison
-void test_memory_efficiency() {
-    print_section("Memory Efficiency");
+void print_scenario_header(const std::string &title) {
+    std::cout << "\n\n";
+    std::cout << "╔════════════════════════════════════════════════════════════════╗\n";
+    std::cout << "║  " << std::setw(60) << std::left << title << "║\n";
+    std::cout << "╚════════════════════════════════════════════════════════════════╝\n";
+}
 
-    const size_t target_items = 100000;
+// ============================================================================
+// TINY SCENARIO (~3 KB) - IoT/Embedded Use Case
+// ============================================================================
+
+void test_memory_tiny() {
+    print_section("Memory Efficiency (Tiny Budget ~3 KB)");
 
     // Variable-Increment CBF
-    VICBFConfig vi_conf{8, 20, 16, 4};  // hash_k=8, logsize=20, counter_bits=16, increment_L=4
+    VICBFConfig vi_conf{8, 11, 8, 4};
     VariableIncrementBloomFilter vi_cbf(vi_conf);
     uint64_t vi_mem = vi_cbf.memory_usage();
 
-    // Spectral BF (MS variant)
-    SBFConfig sbf_conf{8, 20, 16, MINIMUM_SELECTION};
+    // Spectral BF (MI variant)
+    SBFConfig sbf_conf{8, 11, 8, MINIMAL_INCREMENT};
     SpectralBloomFilter sbf(sbf_conf);
     uint64_t sbf_mem = sbf.memory_usage();
 
-    // d-Left CBF (12-bit fingerprints to avoid collisions, 16-bit counters for high counts)
-    DLeftCBFConfig dleft_conf{2048, 4, 4, 12, 16};
+    // d-Left CBF
+    DLeftCBFConfig dleft_conf{128, 4, 4, 8, 8};
     DLeftCountingBloomFilter dleft(dleft_conf);
     uint64_t dleft_mem = dleft.memory_usage();
 
@@ -133,27 +141,259 @@ void test_memory_efficiency() {
     // Enhanced CountingGloBiMap
     FilterConfig gbm_conf;
     gbm_conf.hash_k = 8;
-    gbm_conf.layers = {{8, 16}, {16, 14}};
+    gbm_conf.layers = {{8, 11}, {16, 9}};
     gbm_conf.minimal_increment = true;
     CountingGloBiMap<> gbm(gbm_conf);
+    uint64_t gbm_mem = gbm.byte_size();
 
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "  Variable-Increment CBF: " << config_utils::format_memory(vi_mem) << "\n";
-    std::cout << "  Spectral BF (MS):       " << config_utils::format_memory(sbf_mem) << "\n";
+    std::cout << "  Spectral BF (MI):       " << config_utils::format_memory(sbf_mem) << "\n";
     std::cout << "  d-Left CBF:             " << config_utils::format_memory(dleft_mem) << "\n";
     std::cout << "  Count-Min Sketch:       " << config_utils::format_memory(cms_mem) << "\n";
-    std::cout << "  Enhanced GloBiMap:      ~" << config_utils::format_memory((1ULL << 16) + (1ULL << 14) * 2) << " (estimated)\n";
+    std::cout << "  Enhanced GloBiMap:      " << config_utils::format_memory(gbm_mem) << "\n";
 }
 
-// Test 2: Insert throughput comparison
-void test_insert_throughput() {
+void test_throughput_tiny() {
+    print_section("Insert Throughput (10K uniform items)");
+
+    auto dataset = generate_uniform_dataset(10000, 42);
+
+    // Variable-Increment CBF
+    {
+        VICBFConfig conf{8, 11, 8, 4};
+        VariableIncrementBloomFilter cbf(conf);
+        Timer timer;
+        for (const auto &point : dataset) {
+            cbf.put(point);
+        }
+        double elapsed = timer.elapsed_ms();
+        std::cout << "  VI-CBF:         " << std::setw(8) << std::fixed << std::setprecision(2)
+                  << (10000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
+    }
+
+    // Spectral BF
+    {
+        SBFConfig conf{8, 11, 8, MINIMAL_INCREMENT};
+        SpectralBloomFilter sbf(conf);
+        Timer timer;
+        for (const auto &point : dataset) {
+            sbf.put(point);
+        }
+        double elapsed = timer.elapsed_ms();
+        std::cout << "  Spectral BF:    " << std::setw(8) << std::fixed << std::setprecision(2)
+                  << (10000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
+    }
+
+    // d-Left CBF
+    {
+        DLeftCBFConfig conf{128, 4, 4, 8, 8};
+        DLeftCountingBloomFilter cbf(conf);
+        Timer timer;
+        for (const auto &point : dataset) {
+            cbf.put(point);
+        }
+        double elapsed = timer.elapsed_ms();
+        std::cout << "  d-Left CBF:     " << std::setw(8) << std::fixed << std::setprecision(2)
+                  << (10000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
+    }
+
+    // Count-Min Sketch
+    {
+        CMSConfig conf{0.01, 0.01, false, 16};
+        CountMinSketch cms(conf);
+        Timer timer;
+        for (const auto &point : dataset) {
+            cms.put(point);
+        }
+        double elapsed = timer.elapsed_ms();
+        std::cout << "  Count-Min:      " << std::setw(8) << std::fixed << std::setprecision(2)
+                  << (10000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
+    }
+
+    // Enhanced GloBiMap
+    {
+        FilterConfig conf;
+        conf.hash_k = 8;
+        conf.layers = {{8, 11}, {16, 9}};
+        conf.minimal_increment = true;
+        CountingGloBiMap<> gbm(conf);
+        Timer timer;
+        for (const auto &point : dataset) {
+            gbm.put(point);
+        }
+        double elapsed = timer.elapsed_ms();
+        std::cout << "  GloBiMap (MI):  " << std::setw(8) << std::fixed << std::setprecision(2)
+                  << (10000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
+    }
+}
+
+void test_accuracy_tiny() {
+    print_section("Query Accuracy (1K unique, 10K inserts, Zipfian α=1.5)");
+
+    auto dataset = generate_zipfian_dataset(1000, 10000, 1.5, 42);
+    auto truth = compute_ground_truth(dataset);
+
+    // Test on top-10 most frequent items
+    std::vector<std::pair<uint64_t, uint64_t>> sorted_truth(truth.begin(), truth.end());
+    std::sort(sorted_truth.begin(), sorted_truth.end(),
+              [](const auto &a, const auto &b) { return a.second > b.second; });
+
+    std::vector<std::vector<uint64_t>> test_points;
+    for (size_t i = 0; i < std::min<size_t>(10, sorted_truth.size()); ++i) {
+        test_points.push_back({sorted_truth[i].first, sorted_truth[i].first * 2});
+    }
+
+    // Variable-Increment CBF
+    {
+        VICBFConfig conf{8, 11, 8, 4};
+        VariableIncrementBloomFilter cbf(conf);
+        for (const auto &point : dataset) {
+            cbf.put(point);
+        }
+
+        double total_error = 0.0;
+        for (size_t i = 0; i < test_points.size(); ++i) {
+            uint64_t estimated = cbf.get_min(test_points[i]);
+            uint64_t actual = sorted_truth[i].second;
+            double error = std::abs((double)estimated - (double)actual) / (double)actual;
+            total_error += error;
+        }
+        std::cout << "  VI-CBF:         Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
+    }
+
+    // Spectral BF (MI variant)
+    {
+        SBFConfig conf{8, 11, 8, MINIMAL_INCREMENT};
+        SpectralBloomFilter sbf(conf);
+        for (const auto &point : dataset) {
+            sbf.put(point);
+        }
+
+        double total_error = 0.0;
+        for (size_t i = 0; i < test_points.size(); ++i) {
+            uint64_t estimated = sbf.get_min(test_points[i]);
+            uint64_t actual = sorted_truth[i].second;
+            double error = std::abs((double)estimated - (double)actual) / (double)actual;
+            total_error += error;
+        }
+        std::cout << "  Spectral (MI):  Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
+    }
+
+    // d-Left CBF
+    {
+        DLeftCBFConfig conf{128, 4, 4, 8, 8};
+        DLeftCountingBloomFilter cbf(conf);
+        for (const auto &point : dataset) {
+            cbf.put(point);
+        }
+
+        double total_error = 0.0;
+        for (size_t i = 0; i < test_points.size(); ++i) {
+            uint64_t estimated = cbf.get_min(test_points[i]);
+            uint64_t actual = sorted_truth[i].second;
+            double error = std::abs((double)estimated - (double)actual) / (double)actual;
+            total_error += error;
+        }
+        std::cout << "  d-Left CBF:     Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
+    }
+
+    // Count-Min Sketch
+    {
+        CMSConfig conf{0.01, 0.01, false, 16};
+        CountMinSketch cms(conf);
+        for (const auto &point : dataset) {
+            cms.put(point);
+        }
+
+        double total_error = 0.0;
+        for (size_t i = 0; i < test_points.size(); ++i) {
+            uint64_t estimated = cms.get_min(test_points[i]);
+            uint64_t actual = sorted_truth[i].second;
+            double error = std::abs((double)estimated - (double)actual) / (double)actual;
+            total_error += error;
+        }
+        std::cout << "  Count-Min:      Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
+    }
+
+    // Enhanced GloBiMap
+    {
+        FilterConfig conf;
+        conf.hash_k = 8;
+        conf.layers = {{8, 11}, {16, 9}};
+        conf.minimal_increment = true;
+        CountingGloBiMap<> gbm(conf);
+        for (const auto &point : dataset) {
+            gbm.put(point);
+        }
+
+        double total_error = 0.0;
+        for (size_t i = 0; i < test_points.size(); ++i) {
+            uint64_t estimated = gbm.get_min(test_points[i]);
+            uint64_t actual = sorted_truth[i].second;
+            double error = std::abs((double)estimated - (double)actual) / (double)actual;
+            total_error += error;
+        }
+        std::cout << "  GloBiMap (MI):  Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
+    }
+}
+
+// ============================================================================
+// MEDIUM SCENARIO (~96 KB) - General Use Case
+// ============================================================================
+
+void test_memory_medium() {
+    print_section("Memory Efficiency (Medium Budget ~96 KB)");
+
+    // Variable-Increment CBF (Fair: ~128 KB to match 96 KB budget)
+    VICBFConfig vi_conf{8, 16, 16, 4};  // hash_k=8, logsize=16 (was 20), counter_bits=16, increment_L=4
+    VariableIncrementBloomFilter vi_cbf(vi_conf);
+    uint64_t vi_mem = vi_cbf.memory_usage();
+
+    // Spectral BF (MS variant) (Fair: ~128 KB to match 96 KB budget)
+    SBFConfig sbf_conf{8, 16, 16, MINIMAL_INCREMENT};  // logsize=16 (was 20)
+    SpectralBloomFilter sbf(sbf_conf);
+    uint64_t sbf_mem = sbf.memory_usage();
+
+    // d-Left CBF (Fair: ~95 KB to match 96 KB budget)
+    DLeftCBFConfig dleft_conf{4864, 4, 4, 12, 16};  // buckets=4864 (was 2048)
+    DLeftCountingBloomFilter dleft(dleft_conf);
+    uint64_t dleft_mem = dleft.memory_usage();
+
+    // Count-Min Sketch (Fair: ~88.5 KB to match 96 KB budget)
+    CMSConfig cms_conf{0.0003, 0.01, false, 16};  // epsilon=0.0003 (was 0.01) for equal memory
+    CountMinSketch cms(cms_conf);
+    uint64_t cms_mem = cms.memory_usage();
+
+    // Enhanced CountingGloBiMap
+    FilterConfig gbm_conf;
+    gbm_conf.hash_k = 8;
+    gbm_conf.layers = {{8, 16}, {16, 14}};
+    gbm_conf.minimal_increment = true;
+    CountingGloBiMap<> gbm(gbm_conf);
+    uint64_t gbm_mem = gbm.byte_size();
+
+    std::cout << std::fixed << std::setprecision(2);
+    std::cout << "  Variable-Increment CBF: " << config_utils::format_memory(vi_mem) << "\n";
+    std::cout << "  Spectral BF (MI):       " << config_utils::format_memory(sbf_mem) << "\n";
+    std::cout << "  d-Left CBF:             " << config_utils::format_memory(dleft_mem) << "\n";
+    std::cout << "  Count-Min Sketch:       " << config_utils::format_memory(cms_mem) << "\n";
+    std::cout << "  Enhanced GloBiMap:      " << config_utils::format_memory(gbm_mem) << "\n";
+}
+
+void test_throughput_medium() {
     print_section("Insert Throughput (100K uniform items)");
 
     auto dataset = generate_uniform_dataset(100000, 42);
 
-    // Variable-Increment CBF
+    // Variable-Increment CBF (Fair: ~128 KB)
     {
-        VICBFConfig conf{8, 20, 16, 4};  // hash_k, logsize, counter_bits, increment_L
+        VICBFConfig conf{8, 16, 16, 4};  // logsize=16 (was 20) for fair comparison
         VariableIncrementBloomFilter cbf(conf);
         Timer timer;
         for (const auto &point : dataset) {
@@ -164,9 +404,9 @@ void test_insert_throughput() {
                   << (100000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
     }
 
-    // Spectral BF
+    // Spectral BF (Fair: ~128 KB)
     {
-        SBFConfig conf{8, 20, 16, MINIMUM_SELECTION};
+        SBFConfig conf{8, 16, 16, MINIMUM_SELECTION};  // logsize=16 (was 20) for fair comparison
         SpectralBloomFilter sbf(conf);
         Timer timer;
         for (const auto &point : dataset) {
@@ -177,9 +417,9 @@ void test_insert_throughput() {
                   << (100000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
     }
 
-    // d-Left CBF
+    // d-Left CBF (Fair: ~95 KB)
     {
-        DLeftCBFConfig conf{2048, 4, 4, 12, 16};  // 12-bit FP, 16-bit counters
+        DLeftCBFConfig conf{4864, 4, 4, 12, 16};  // buckets=4864 (was 2048) for fair comparison
         DLeftCountingBloomFilter cbf(conf);
         Timer timer;
         for (const auto &point : dataset) {
@@ -190,9 +430,9 @@ void test_insert_throughput() {
                   << (100000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
     }
 
-    // Count-Min Sketch
+    // Count-Min Sketch (Fair: ~88.5 KB)
     {
-        CMSConfig conf{0.01, 0.01, false, 16};
+        CMSConfig conf{0.0003, 0.01, false, 16};  // epsilon=0.0003 (was 0.01) for fair comparison
         CountMinSketch cms(conf);
         Timer timer;
         for (const auto &point : dataset) {
@@ -220,11 +460,242 @@ void test_insert_throughput() {
     }
 }
 
-// Test 3: Query accuracy on Zipfian distribution
-void test_query_accuracy() {
-    print_section("Query Accuracy (10K items, Zipfian α=1.5)");
+void test_accuracy_medium() {
+    print_section("Query Accuracy (100K unique, 100K inserts, Zipfian α=1.5)");
 
-    auto dataset = generate_zipfian_dataset(1000, 10000, 1.5, 42);
+    auto dataset = generate_zipfian_dataset(100000, 100000, 1.5, 42);
+    auto truth = compute_ground_truth(dataset);
+
+    // Test on top-10 most frequent items
+    std::vector<std::pair<uint64_t, uint64_t>> sorted_truth(truth.begin(), truth.end());
+    std::sort(sorted_truth.begin(), sorted_truth.end(),
+              [](const auto &a, const auto &b) { return a.second > b.second; });
+
+    std::vector<std::vector<uint64_t>> test_points;
+    for (size_t i = 0; i < std::min<size_t>(10, sorted_truth.size()); ++i) {
+        test_points.push_back({sorted_truth[i].first, sorted_truth[i].first * 2});
+    }
+
+    // Variable-Increment CBF (Fair: ~128 KB)
+    {
+        VICBFConfig conf{8, 16, 16, 4};  // logsize=16 (was 18) for fair comparison
+        VariableIncrementBloomFilter cbf(conf);
+        for (const auto &point : dataset) {
+            cbf.put(point);
+        }
+
+        double total_error = 0.0;
+        for (size_t i = 0; i < test_points.size(); ++i) {
+            uint64_t estimated = cbf.get_min(test_points[i]);
+            uint64_t actual = sorted_truth[i].second;
+            double error = std::abs((double)estimated - (double)actual) / (double)actual;
+            total_error += error;
+        }
+        std::cout << "  VI-CBF:         Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
+    }
+
+    // Spectral BF (MI variant for better accuracy) (Fair: ~128 KB)
+    {
+        SBFConfig conf{8, 16, 16, MINIMAL_INCREMENT};  // logsize=16 (was 18) for fair comparison
+        SpectralBloomFilter sbf(conf);
+        for (const auto &point : dataset) {
+            sbf.put(point);
+        }
+
+        double total_error = 0.0;
+        for (size_t i = 0; i < test_points.size(); ++i) {
+            uint64_t estimated = sbf.get_min(test_points[i]);
+            uint64_t actual = sorted_truth[i].second;
+            double error = std::abs((double)estimated - (double)actual) / (double)actual;
+            total_error += error;
+        }
+        std::cout << "  Spectral (MI):  Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
+    }
+
+    // d-Left CBF (Fair: ~95 KB)
+    {
+        DLeftCBFConfig conf{4864, 4, 4, 12, 16};  // buckets=4864 (was 2048) for fair comparison
+        DLeftCountingBloomFilter cbf(conf);
+        for (const auto &point : dataset) {
+            cbf.put(point);
+        }
+
+        double total_error = 0.0;
+        for (size_t i = 0; i < test_points.size(); ++i) {
+            uint64_t estimated = cbf.get_min(test_points[i]);
+            uint64_t actual = sorted_truth[i].second;
+            double error = std::abs((double)estimated - (double)actual) / (double)actual;
+            total_error += error;
+        }
+        std::cout << "  d-Left CBF:     Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
+    }
+
+    // Count-Min Sketch (Fair: ~88.5 KB)
+    {
+        CMSConfig conf{0.0003, 0.01, false, 16};  // epsilon=0.0003 (was 0.01) for fair comparison
+        CountMinSketch cms(conf);
+        for (const auto &point : dataset) {
+            cms.put(point);
+        }
+
+        double total_error = 0.0;
+        for (size_t i = 0; i < test_points.size(); ++i) {
+            uint64_t estimated = cms.get_min(test_points[i]);
+            uint64_t actual = sorted_truth[i].second;
+            double error = std::abs((double)estimated - (double)actual) / (double)actual;
+            total_error += error;
+        }
+        std::cout << "  Count-Min:      Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
+    }
+
+    // Enhanced GloBiMap (Baseline: 96 KB)
+    {
+        FilterConfig conf;
+        conf.hash_k = 8;
+        conf.layers = {{8, 16}, {16, 14}};  // 96 KB baseline (keep same for fair comparison)
+        conf.minimal_increment = true;
+        CountingGloBiMap<> gbm(conf);
+        for (const auto &point : dataset) {
+            gbm.put(point);
+        }
+
+        double total_error = 0.0;
+        for (size_t i = 0; i < test_points.size(); ++i) {
+            uint64_t estimated = gbm.get_min(test_points[i]);
+            uint64_t actual = sorted_truth[i].second;
+            double error = std::abs((double)estimated - (double)actual) / (double)actual;
+            total_error += error;
+        }
+        std::cout << "  GloBiMap (MI):  Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
+    }
+}
+
+// ============================================================================
+// LARGE SCENARIO (~2 MB) - High Accuracy Use Case
+// ============================================================================
+
+void test_memory_large() {
+    print_section("Memory Efficiency (Large Budget ~2 MB)");
+
+    // Variable-Increment CBF
+    VICBFConfig vi_conf{8, 20, 16, 4};
+    VariableIncrementBloomFilter vi_cbf(vi_conf);
+    uint64_t vi_mem = vi_cbf.memory_usage();
+
+    // Spectral BF (MI variant)
+    SBFConfig sbf_conf{8, 20, 16, MINIMAL_INCREMENT};
+    SpectralBloomFilter sbf(sbf_conf);
+    uint64_t sbf_mem = sbf.memory_usage();
+
+    // d-Left CBF
+    DLeftCBFConfig dleft_conf{102400, 4, 4, 12, 16};
+    DLeftCountingBloomFilter dleft(dleft_conf);
+    uint64_t dleft_mem = dleft.memory_usage();
+
+    // Count-Min Sketch
+    CMSConfig cms_conf{0.00001, 0.001, false, 16};
+    CountMinSketch cms(cms_conf);
+    uint64_t cms_mem = cms.memory_usage();
+
+    // Enhanced CountingGloBiMap
+    FilterConfig gbm_conf;
+    gbm_conf.hash_k = 8;
+    gbm_conf.layers = {{8, 20}, {16, 19}};  // 1 MB + 1 MB = 2 MB total
+    gbm_conf.minimal_increment = true;
+    CountingGloBiMap<> gbm(gbm_conf);
+    uint64_t gbm_mem = gbm.byte_size();
+
+    std::cout << std::fixed << std::setprecision(2);
+    std::cout << "  Variable-Increment CBF: " << config_utils::format_memory(vi_mem) << "\n";
+    std::cout << "  Spectral BF (MI):       " << config_utils::format_memory(sbf_mem) << "\n";
+    std::cout << "  d-Left CBF:             " << config_utils::format_memory(dleft_mem) << "\n";
+    std::cout << "  Count-Min Sketch:       " << config_utils::format_memory(cms_mem) << "\n";
+    std::cout << "  Enhanced GloBiMap:      " << config_utils::format_memory(gbm_mem) << "\n";
+}
+
+void test_throughput_large() {
+    print_section("Insert Throughput (1M uniform items)");
+
+    auto dataset = generate_uniform_dataset(1000000, 42);
+
+    // Variable-Increment CBF
+    {
+        VICBFConfig conf{8, 20, 16, 4};
+        VariableIncrementBloomFilter cbf(conf);
+        Timer timer;
+        for (const auto &point : dataset) {
+            cbf.put(point);
+        }
+        double elapsed = timer.elapsed_ms();
+        std::cout << "  VI-CBF:         " << std::setw(8) << std::fixed << std::setprecision(2)
+                  << (1000000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
+    }
+
+    // Spectral BF
+    {
+        SBFConfig conf{8, 20, 16, MINIMAL_INCREMENT};
+        SpectralBloomFilter sbf(conf);
+        Timer timer;
+        for (const auto &point : dataset) {
+            sbf.put(point);
+        }
+        double elapsed = timer.elapsed_ms();
+        std::cout << "  Spectral BF:    " << std::setw(8) << std::fixed << std::setprecision(2)
+                  << (1000000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
+    }
+
+    // d-Left CBF
+    {
+        DLeftCBFConfig conf{102400, 4, 4, 12, 16};
+        DLeftCountingBloomFilter cbf(conf);
+        Timer timer;
+        for (const auto &point : dataset) {
+            cbf.put(point);
+        }
+        double elapsed = timer.elapsed_ms();
+        std::cout << "  d-Left CBF:     " << std::setw(8) << std::fixed << std::setprecision(2)
+                  << (1000000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
+    }
+
+    // Count-Min Sketch
+    {
+        CMSConfig conf{0.00001, 0.001, false, 16};
+        CountMinSketch cms(conf);
+        Timer timer;
+        for (const auto &point : dataset) {
+            cms.put(point);
+        }
+        double elapsed = timer.elapsed_ms();
+        std::cout << "  Count-Min:      " << std::setw(8) << std::fixed << std::setprecision(2)
+                  << (1000000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
+    }
+
+    // Enhanced GloBiMap
+    {
+        FilterConfig conf;
+        conf.hash_k = 8;
+        conf.layers = {{8, 20}, {16, 19}};  // 1 MB + 1 MB = 2 MB total
+        conf.minimal_increment = true;
+        CountingGloBiMap<> gbm(conf);
+        Timer timer;
+        for (const auto &point : dataset) {
+            gbm.put(point);
+        }
+        double elapsed = timer.elapsed_ms();
+        std::cout << "  GloBiMap (MI):  " << std::setw(8) << std::fixed << std::setprecision(2)
+                  << (1000000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
+    }
+}
+
+void test_accuracy_large() {
+    print_section("Query Accuracy (100K unique, 1M inserts, Zipfian α=1.5)");
+
+    auto dataset = generate_zipfian_dataset(100000, 1000000, 1.5, 42);
     auto truth = compute_ground_truth(dataset);
 
     // Test on top-10 most frequent items
@@ -239,7 +710,7 @@ void test_query_accuracy() {
 
     // Variable-Increment CBF
     {
-        VICBFConfig conf{8, 18, 16, 4};  // hash_k, logsize, counter_bits, increment_L
+        VICBFConfig conf{8, 20, 16, 4};
         VariableIncrementBloomFilter cbf(conf);
         for (const auto &point : dataset) {
             cbf.put(point);
@@ -252,13 +723,13 @@ void test_query_accuracy() {
             double error = std::abs((double)estimated - (double)actual) / (double)actual;
             total_error += error;
         }
-        std::cout << "  VI-CBF:         Avg error = " << std::setw(6) << std::fixed
-                  << std::setprecision(2) << (total_error / test_points.size() * 100.0) << "%\n";
+        std::cout << "  VI-CBF:         Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
     }
 
-    // Spectral BF (MI variant for better accuracy)
+    // Spectral BF (MI variant)
     {
-        SBFConfig conf{8, 18, 16, MINIMAL_INCREMENT};
+        SBFConfig conf{8, 20, 16, MINIMAL_INCREMENT};
         SpectralBloomFilter sbf(conf);
         for (const auto &point : dataset) {
             sbf.put(point);
@@ -271,13 +742,13 @@ void test_query_accuracy() {
             double error = std::abs((double)estimated - (double)actual) / (double)actual;
             total_error += error;
         }
-        std::cout << "  Spectral (MI):  Avg error = " << std::setw(6) << std::fixed
-                  << std::setprecision(2) << (total_error / test_points.size() * 100.0) << "%\n";
+        std::cout << "  Spectral (MI):  Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
     }
 
     // d-Left CBF
     {
-        DLeftCBFConfig conf{2048, 4, 4, 12, 16};  // 12-bit FP, 16-bit counters
+        DLeftCBFConfig conf{102400, 4, 4, 12, 16};
         DLeftCountingBloomFilter cbf(conf);
         for (const auto &point : dataset) {
             cbf.put(point);
@@ -290,13 +761,13 @@ void test_query_accuracy() {
             double error = std::abs((double)estimated - (double)actual) / (double)actual;
             total_error += error;
         }
-        std::cout << "  d-Left CBF:     Avg error = " << std::setw(6) << std::fixed
-                  << std::setprecision(2) << (total_error / test_points.size() * 100.0) << "%\n";
+        std::cout << "  d-Left CBF:     Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
     }
 
     // Count-Min Sketch
     {
-        CMSConfig conf{0.01, 0.01, false, 16};
+        CMSConfig conf{0.00001, 0.001, false, 16};
         CountMinSketch cms(conf);
         for (const auto &point : dataset) {
             cms.put(point);
@@ -309,15 +780,15 @@ void test_query_accuracy() {
             double error = std::abs((double)estimated - (double)actual) / (double)actual;
             total_error += error;
         }
-        std::cout << "  Count-Min:      Avg error = " << std::setw(6) << std::fixed
-                  << std::setprecision(2) << (total_error / test_points.size() * 100.0) << "%\n";
+        std::cout << "  Count-Min:      Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
     }
 
     // Enhanced GloBiMap
     {
         FilterConfig conf;
         conf.hash_k = 8;
-        conf.layers = {{8, 18}, {16, 16}};
+        conf.layers = {{8, 20}, {16, 19}};  // 1 MB + 1 MB = 2 MB total
         conf.minimal_increment = true;
         CountingGloBiMap<> gbm(conf);
         for (const auto &point : dataset) {
@@ -331,12 +802,15 @@ void test_query_accuracy() {
             double error = std::abs((double)estimated - (double)actual) / (double)actual;
             total_error += error;
         }
-        std::cout << "  GloBiMap (MI):  Avg error = " << std::setw(6) << std::fixed
-                  << std::setprecision(2) << (total_error / test_points.size() * 100.0) << "%\n";
+        std::cout << "  GloBiMap (MI):  Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
     }
 }
 
-// Test 4: Summary table
+// ============================================================================
+// Feature Comparison Summary
+// ============================================================================
+
 void print_summary_table() {
     print_section("Feature Comparison");
 
@@ -355,9 +829,25 @@ void print_summary_table() {
 int main() {
     print_header();
 
-    test_memory_efficiency();
-    test_insert_throughput();
-    test_query_accuracy();
+    // TINY SCENARIO (~3 KB) - IoT/Embedded Use Case
+    print_scenario_header("SCENARIO 1: TINY BUDGET (~3 KB) - IoT/Embedded");
+    test_memory_tiny();
+    test_throughput_tiny();
+    test_accuracy_tiny();
+
+    // MEDIUM SCENARIO (~96 KB) - General Use Case
+    print_scenario_header("SCENARIO 2: MEDIUM BUDGET (~96 KB) - General Use");
+    test_memory_medium();
+    test_throughput_medium();
+    test_accuracy_medium();
+
+    // LARGE SCENARIO (~2 MB) - High Accuracy Use Case
+    print_scenario_header("SCENARIO 3: LARGE BUDGET (~2 MB) - High Accuracy");
+    test_memory_large();
+    test_throughput_large();
+    test_accuracy_large();
+
+    // Feature comparison table
     print_summary_table();
 
     std::cout << "\n========================================\n";

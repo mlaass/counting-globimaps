@@ -14,7 +14,7 @@
 
 using namespace globimap;
 
-const std::string experiments_path = "./results/";
+const std::string experiments_path = "./results/k_sensitivity/";
 
 struct KSensitivityResult {
     std::string impl_name;

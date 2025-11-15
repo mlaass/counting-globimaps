@@ -18,6 +18,11 @@
 #include <vector>
 #include <sys/stat.h>
 
+// For directory scanning
+#ifndef _WIN32
+#include <dirent.h>
+#endif
+
 namespace dataset_config {
 
 // ============================================================================
@@ -180,6 +185,72 @@ inline std::vector<std::string> get_available_datasets() {
     if (path_exists(INFRASTRUCTURE_PATH)) available.push_back("infrastructure");
 
     return available;
+}
+
+// ============================================================================
+// Results Directory Structure
+// ============================================================================
+
+// Base results directory (relative to project root)
+const std::string RESULTS_PATH = "./results";
+
+// Result subdirectories by experiment type
+const std::string RESULTS_DATASET_COMPARISON = RESULTS_PATH + "/dataset_comparison";
+const std::string RESULTS_K_SENSITIVITY = RESULTS_PATH + "/k_sensitivity";
+const std::string RESULTS_MULTICATEGORY = RESULTS_PATH + "/multicategory";
+const std::string RESULTS_IMPLEMENTATION_COMPARISON = RESULTS_PATH + "/implementation_comparison";
+const std::string RESULTS_COSINE = RESULTS_PATH + "/cosine";
+const std::string RESULTS_TIMING = RESULTS_PATH + "/timing";
+const std::string RESULTS_LOGS = RESULTS_PATH + "/logs";
+
+/**
+ * Get result file path for a given experiment type and dataset
+ */
+inline std::string get_result_path(const std::string& experiment_type, const std::string& dataset_name) {
+    return experiment_type + "/" + dataset_name + ".json";
+}
+
+/**
+ * Get all HDF5 datasets available in the HDF5 directory
+ * Returns vector of filenames (not full paths)
+ */
+inline std::vector<std::string> get_available_hdf5_datasets() {
+    std::vector<std::string> datasets;
+
+    // Use platform-specific directory scanning
+    #ifdef _WIN32
+        // Windows implementation
+        #include <windows.h>
+        WIN32_FIND_DATA findData;
+        std::string search_path = HDF5_PATH + "/*.h5";
+        HANDLE hFind = FindFirstFile(search_path.c_str(), &findData);
+
+        if (hFind != INVALID_HANDLE_VALUE) {
+            do {
+                if (!(findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+                    datasets.push_back(findData.cFileName);
+                }
+            } while (FindNextFile(hFind, &findData));
+            FindClose(hFind);
+        }
+    #else
+        // POSIX implementation (Linux, macOS)
+        DIR* dir = opendir(HDF5_PATH.c_str());
+        if (dir != nullptr) {
+            struct dirent* entry;
+            while ((entry = readdir(dir)) != nullptr) {
+                std::string filename(entry->d_name);
+                // Check if file ends with .h5
+                if (filename.length() > 3 &&
+                    filename.substr(filename.length() - 3) == ".h5") {
+                    datasets.push_back(filename);
+                }
+            }
+            closedir(dir);
+        }
+    #endif
+
+    return datasets;
 }
 
 } // namespace dataset_config

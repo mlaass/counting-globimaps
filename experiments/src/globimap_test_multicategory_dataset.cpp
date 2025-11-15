@@ -19,7 +19,7 @@
 using namespace globimap;
 
 const std::string data_path = "./datasets/hdf5/";
-const std::string results_path = "./results/";
+const std::string results_path = "./results/multicategory/";
 
 struct BenchmarkResult {
     std::string impl_name;

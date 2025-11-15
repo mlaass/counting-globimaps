@@ -14,7 +14,7 @@
 
 using namespace globimap;
 
-const std::string experiments_path = "./results/";
+const std::string experiments_path = "./results/cosine/";
 
 struct CosineResult {
     std::string impl_name;

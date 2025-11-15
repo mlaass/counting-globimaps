@@ -22,10 +22,9 @@ if [ ! -d "$BUILD_DIR" ]; then
     exit 1
 fi
 
-# Create timestamped results directory
-TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-RESULTS_DIR="results_$TIMESTAMP"
-mkdir -p "$RESULTS_DIR"
+# Create results directory structure
+RESULTS_DIR="results"
+mkdir -p "$RESULTS_DIR"/{dataset_comparison,k_sensitivity,multicategory,implementation_comparison,cosine,timing,logs}
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}Counting Bloom Filter Experiment Runner${NC}"
@@ -52,7 +51,7 @@ run_experiment() {
     EXP_START=$(date +%s)
 
     if [ -f "$BUILD_DIR/$executable" ]; then
-        if "$BUILD_DIR/$executable" > "$RESULTS_DIR/${name}_output.log" 2>&1; then
+        if "$BUILD_DIR/$executable" > "$RESULTS_DIR/logs/${name}_output.log" 2>&1; then
             EXP_END=$(date +%s)
             DURATION=$((EXP_END - EXP_START))
             echo -e "${GREEN}✓ PASSED${NC} (${DURATION}s)"
@@ -61,7 +60,7 @@ run_experiment() {
             EXP_END=$(date +%s)
             DURATION=$((EXP_END - EXP_START))
             echo -e "${RED}✗ FAILED${NC} (${DURATION}s)"
-            echo -e "${YELLOW}  See log: $RESULTS_DIR/${name}_output.log${NC}"
+            echo -e "${YELLOW}  See log: $RESULTS_DIR/logs/${name}_output.log${NC}"
             FAILED+=("$name")
         fi
     else
@@ -135,30 +134,14 @@ fi
 echo -e "Results saved to: ${GREEN}$RESULTS_DIR/${NC}"
 echo ""
 
-# Move JSON results to results directory
-echo -e "${BLUE}Collecting JSON results...${NC}"
-LOCAL_RESULTS="./results"
-if [ -d "$LOCAL_RESULTS" ]; then
-    # Find all compare_*.json files created in the last 5 minutes
-    find "$LOCAL_RESULTS" -name "compare_*.json" -mmin -5 -exec cp {} "$RESULTS_DIR/" \; 2>/dev/null
-    JSON_COUNT=$(find "$RESULTS_DIR" -name "compare_*.json" 2>/dev/null | wc -l)
-    if [ $JSON_COUNT -gt 0 ]; then
-        echo -e "${GREEN}Collected $JSON_COUNT JSON result files${NC}"
-    else
-        echo -e "${YELLOW}No JSON results found in $LOCAL_RESULTS${NC}"
-    fi
-else
-    echo -e "${YELLOW}Note: ./results directory will be created by experiments${NC}"
-fi
-echo ""
-
 # Create summary file
-SUMMARY_FILE="$RESULTS_DIR/summary.txt"
+TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
+SUMMARY_FILE="$RESULTS_DIR/logs/summary.txt"
 {
     echo "Counting Bloom Filter Experiments - Summary"
     echo "==========================================="
     echo ""
-    echo "Timestamp: $TIMESTAMP"
+    echo "Run date: $TIMESTAMP"
     echo "Total runtime: ${TOTAL_MINUTES}m ${TOTAL_SECONDS}s"
     echo ""
     echo "Passed: ${#PASSED[@]}"
@@ -173,6 +156,13 @@ SUMMARY_FILE="$RESULTS_DIR/summary.txt"
         done
         echo ""
     fi
+    echo ""
+    echo "Results organized by experiment type:"
+    echo "  - Dataset comparisons: $RESULTS_DIR/dataset_comparison/"
+    echo "  - K sensitivity: $RESULTS_DIR/k_sensitivity/"
+    echo "  - Multi-category: $RESULTS_DIR/multicategory/"
+    echo "  - Implementation comparison: $RESULTS_DIR/implementation_comparison/"
+    echo "  - Logs: $RESULTS_DIR/logs/"
 } > "$SUMMARY_FILE"
 
 echo -e "${GREEN}Summary written to: $SUMMARY_FILE${NC}"

@@ -24,7 +24,7 @@ const std::string base_path = []() {
     return env_path ? std::string(env_path) + "/" : std::string("./datasets/hdf5/");
 }();
 
-const std::string experiments_path = "./results/";
+const std::string experiments_path = "./results/dataset_comparison/";
 
 std::vector<std::string> datasets{"gdelt_events.h5", "covid19_cases.h5"};
 

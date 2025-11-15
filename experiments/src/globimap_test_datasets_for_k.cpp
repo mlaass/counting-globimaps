@@ -1,4 +1,5 @@
 #include "globimap_test_config.hpp"
+#include "dataset_config.hpp"
 #include "counting_globimap.hpp"
 #include <chrono>
 #include <fstream>
@@ -10,14 +11,13 @@
 #include <tqdm.hpp>
 #include <tqdm/tqdm.h>
 
-#include "globimap_test_config.hpp"
+using namespace dataset_config;
 
-const std::string base_path = "/home/moritz/tf/pointclouds_2d/data/";
-const std::string experiments_path = "/home/moritz/tf/globimap/experiments/";
+const std::string base_path = HDF5_PATH + "/";
+const std::string experiments_path = RESULTS_K_SENSITIVITY + "/";
 
-std::vector<std::string> datasets{
-    "twitter_100mio_coords.h5", "twitter_200mio_coords.h5",
-    "asia_200mio_coords.h5", "asia_500mio_coords.h5"};
+// Auto-discover available HDF5 datasets
+std::vector<std::string> datasets = get_available_hdf5_datasets();
 
 static std::string test_encode(globimap::CountingGloBiMap<> &g,
                                const std::string &name, const std::string &ds,
@@ -43,12 +43,15 @@ static std::string test_encode(globimap::CountingGloBiMap<> &g,
 
   std::vector<std::vector<double>> result;
   auto shape = dataset.getDimensions();
-  int batches = std::floor(shape[0] / batch_size);
+  size_t total_points = shape[0];
+  int batches = std::ceil((double)total_points / batch_size);
   std::cout << "Start test_h5 encode with {fn: \"" << filename
             << "\" } for: " << name << "\nbatches: " << batches
             << "\nbatchsize: " << batch_size << std::endl;
   for (auto i : tq::trange(batches)) {
-    dataset.select({i * batch_size, 0}, {batch_size, 2}).read(result);
+    size_t start = i * batch_size;
+    size_t count = std::min((size_t)batch_size, total_points - start);
+    dataset.select({start, 0}, {count, 2}).read(result);
 
     for (auto p : result) {
       double x = (double)width * (((double)p[0] + 180.0) / 360.0);

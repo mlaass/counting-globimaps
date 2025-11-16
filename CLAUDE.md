@@ -44,6 +44,28 @@ uv run datasets/utils/csv_to_hdf5.py --covid-sample-rate 0.05     # Sample 5% of
 
 Converted HDF5 files are saved to `datasets/hdf5/`.
 
+### Analyze Results with Jupyter Notebooks
+
+Use the modern dataset-agnostic notebook:
+
+```bash
+cd notebooks
+uv run jupyter notebook dataset_comparison_analysis.ipynb
+```
+
+**Key features:**
+- Auto-discovers all `.h5` datasets
+- Loads results from organized subdirectories
+- Works with any dataset without code changes
+- Provides summary tables and visualizations
+
+**Quick analysis:**
+```python
+from utils import quick_analysis
+datasets, results, summary = quick_analysis("dataset_comparison")
+print(summary)
+```
+
 ## Build Commands
 
 ### Initial Setup

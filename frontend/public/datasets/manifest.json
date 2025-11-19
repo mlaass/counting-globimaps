@@ -1,0 +1,50 @@
+{
+  "datasets": [
+    {
+      "id": "gdelt",
+      "name": "GDELT Global Events",
+      "description": "1.9M global news events with geographic coordinates (12-month sample)",
+      "filename": "gdelt.cbf",
+      "type": "Count-Min Sketch",
+      "bounds": {
+        "minLat": -90,
+        "maxLat": 90,
+        "minLng": -180,
+        "maxLng": 180,
+        "gridWidth": 3600,
+        "gridHeight": 1800
+      },
+      "categories": [
+        {
+          "id": 1,
+          "name": "Verbal Cooperation",
+          "description": "Cooperative verbal actions (statements, appeals, etc.)",
+          "color": "#4CAF50"
+        },
+        {
+          "id": 2,
+          "name": "Material Cooperation",
+          "description": "Cooperative material actions (aid, agreements, etc.)",
+          "color": "#2196F3"
+        },
+        {
+          "id": 3,
+          "name": "Verbal Conflict",
+          "description": "Conflictual verbal actions (threats, accusations, etc.)",
+          "color": "#FF9800"
+        },
+        {
+          "id": 4,
+          "name": "Material Conflict",
+          "description": "Conflictual material actions (attacks, sanctions, etc.)",
+          "color": "#F44336"
+        }
+      ],
+      "stats": {
+        "totalEvents": 1933835,
+        "encodedSize": 2757,
+        "compressionRatio": 701
+      }
+    }
+  ]
+}

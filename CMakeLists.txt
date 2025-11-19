@@ -191,4 +191,11 @@ PUBLIC HighFive
 PUBLIC OpenMP::OpenMP_CXX
 )
 
+# Dataset encoder for WASM frontend
+add_executable(encode_dataset encoder/encode_dataset.cpp)
+target_link_libraries(encode_dataset
+PUBLIC HighFive
+PUBLIC OpenMP::OpenMP_CXX
+)
+
 endif()

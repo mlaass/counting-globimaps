@@ -333,6 +333,12 @@ public:
     uint depth() const { return depth_; }
 
     /**
+     * @brief Get counter configuration
+     */
+    uint counter_bits() const { return config_.counter_bits; }
+    bool conservative() const { return config_.conservative_update; }
+
+    /**
      * @brief Detect heavy hitters (elements with frequency > threshold * total)
      *
      * Returns all elements from a candidate set that have estimated frequency
@@ -375,6 +381,142 @@ public:
             case 64: counter_bytes = 8; break;
         }
         return width_ * depth_ * counter_bytes;
+    }
+
+    /**
+     * @brief Serialize to binary format for WASM/storage
+     *
+     * Binary format:
+     * - Config (28 bytes): width(4) + depth(4) + counter_bits(1) + conservative(1) +
+     *                      epsilon(8) + delta(8) + total(8)
+     * - Counter data (width * depth * counter_bytes)
+     */
+    std::vector<uint8_t> to_bytes() const {
+        std::vector<uint8_t> buffer;
+
+        // Helper lambda to write values
+        auto write_val = [&buffer](const auto& val) {
+            const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&val);
+            buffer.insert(buffer.end(), bytes, bytes + sizeof(val));
+        };
+
+        // Write config
+        write_val(width_);
+        write_val(depth_);
+        write_val(config_.counter_bits);
+        uint8_t conservative_byte = config_.conservative_update ? 1 : 0;
+        write_val(conservative_byte);
+        write_val(config_.epsilon);
+        write_val(config_.delta);
+        write_val(total_);
+
+        // Write counter data
+        for (uint row = 0; row < depth_; ++row) {
+            for (uint col = 0; col < width_; ++col) {
+                uint64_t count = get_counter(row, col);
+                // Write in native counter size
+                switch (config_.counter_bits) {
+                    case 8: {
+                        uint8_t val = static_cast<uint8_t>(count);
+                        write_val(val);
+                        break;
+                    }
+                    case 16: {
+                        uint16_t val = static_cast<uint16_t>(count);
+                        write_val(val);
+                        break;
+                    }
+                    case 32: {
+                        uint32_t val = static_cast<uint32_t>(count);
+                        write_val(val);
+                        break;
+                    }
+                    case 64: {
+                        write_val(count);
+                        break;
+                    }
+                }
+            }
+        }
+
+        return buffer;
+    }
+
+    /**
+     * @brief Deserialize from binary format
+     *
+     * Constructs a CountMinSketch from binary data created by to_bytes()
+     */
+    static CountMinSketch from_bytes(const std::vector<uint8_t>& bytes) {
+        const uint8_t* ptr = bytes.data();
+
+        // Helper lambda to read values
+        auto read_val = [&ptr](auto& val) {
+            std::memcpy(&val, ptr, sizeof(val));
+            ptr += sizeof(val);
+        };
+
+        // Read config
+        uint width, depth, counter_bits;
+        uint8_t conservative_byte;
+        double epsilon, delta;
+        uint64_t total;
+
+        read_val(width);
+        read_val(depth);
+        read_val(counter_bits);
+        read_val(conservative_byte);
+        read_val(epsilon);
+        read_val(delta);
+        read_val(total);
+
+        bool conservative = conservative_byte != 0;
+
+        // Construct CMS with config
+        CMSConfig config{epsilon, delta, conservative, counter_bits};
+        CountMinSketch cms(config);
+
+        // Verify dimensions match
+        if (cms.width_ != width || cms.depth_ != depth) {
+            throw std::runtime_error("Dimension mismatch during deserialization");
+        }
+
+        // Restore total count
+        cms.total_ = total;
+
+        // Read counter data
+        for (uint row = 0; row < depth; ++row) {
+            for (uint col = 0; col < width; ++col) {
+                uint64_t count = 0;
+                switch (counter_bits) {
+                    case 8: {
+                        uint8_t val;
+                        read_val(val);
+                        count = val;
+                        break;
+                    }
+                    case 16: {
+                        uint16_t val;
+                        read_val(val);
+                        count = val;
+                        break;
+                    }
+                    case 32: {
+                        uint32_t val;
+                        read_val(val);
+                        count = val;
+                        break;
+                    }
+                    case 64: {
+                        read_val(count);
+                        break;
+                    }
+                }
+                cms.set_counter(row, col, count);
+            }
+        }
+
+        return cms;
     }
 
     /**

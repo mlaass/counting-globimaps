@@ -1,0 +1,275 @@
+/* Global Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.App {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #333;
+}
+
+/* Header */
+.App-header {
+  background-color: rgba(255, 255, 255, 0.95);
+  padding: 2rem;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.App-header h1 {
+  font-size: 2.5rem;
+  color: #667eea;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  color: #666;
+  font-size: 1.1rem;
+}
+
+/* Main Content */
+.App-main {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+/* Sections */
+.section {
+  background: white;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.section h2 {
+  color: #667eea;
+  margin-bottom: 1.5rem;
+  font-size: 1.8rem;
+}
+
+/* Status Boxes */
+.status-box {
+  background: white;
+  border-radius: 8px;
+  padding: 3rem;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.status-box.error {
+  border-left: 4px solid #e74c3c;
+}
+
+.status-box.loading {
+  border-left: 4px solid #3498db;
+}
+
+.status-box h2 {
+  margin-bottom: 1rem;
+}
+
+/* Loader Section */
+.loader-section .loader-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.loader-section button,
+.file-input-label {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.3s ease;
+}
+
+.loader-section button:hover,
+.file-input-label:hover {
+  background: #5568d3;
+}
+
+.loader-section button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.hint {
+  color: #666;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+/* Filter Info */
+.filter-info.empty p {
+  color: #999;
+  font-style: italic;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.info-item {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 4px;
+  border-left: 3px solid #667eea;
+}
+
+.info-item strong {
+  display: block;
+  color: #667eea;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-item span {
+  color: #333;
+  font-size: 1.1rem;
+}
+
+/* Query Panel */
+.query-panel.error,
+.query-panel.loading {
+  text-align: center;
+  color: #999;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #555;
+  font-weight: 500;
+}
+
+.form-group input[type="number"] {
+  width: 100%;
+  padding: 0.6rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 1rem;
+  transition: border-color 0.3s ease;
+}
+
+.form-group input[type="number"]:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.form-group.checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-group.checkbox input[type="checkbox"] {
+  width: auto;
+}
+
+.query-button {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.8rem 2rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  margin-top: 1rem;
+}
+
+.query-button:hover {
+  background: #5568d3;
+}
+
+/* Results */
+.result {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: #f0f7ff;
+  border-radius: 4px;
+  border-left: 4px solid #667eea;
+}
+
+.result h3 {
+  color: #667eea;
+  margin-bottom: 1rem;
+}
+
+.result-item {
+  margin-bottom: 0.8rem;
+  font-size: 1.05rem;
+}
+
+.result-item strong {
+  color: #555;
+  margin-right: 0.5rem;
+}
+
+.error-message {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #fee;
+  border-left: 4px solid #e74c3c;
+  border-radius: 4px;
+  color: #c0392b;
+}
+
+/* Footer */
+.App-footer {
+  background-color: rgba(255, 255, 255, 0.95);
+  padding: 1.5rem;
+  text-align: center;
+  margin-top: 3rem;
+  color: #666;
+}
+
+.App-footer a {
+  color: #667eea;
+  text-decoration: none;
+}
+
+.App-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .App-header h1 {
+    font-size: 2rem;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+  }
+
+  .section {
+    padding: 1.5rem;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .loader-section .loader-buttons {
+    flex-direction: column;
+  }
+}

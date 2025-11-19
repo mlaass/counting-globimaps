@@ -13,6 +13,7 @@
 #include <memory>
 #include <stdexcept>
 #include <cmath>
+#include <ctime>
 
 // HDF5 support
 #include <highfive/H5File.hpp>
@@ -185,9 +186,20 @@ std::vector<std::vector<uint64_t>> load_dataset(
         double x = config.width * ((longitude + 180.0) / 360.0);
         double y = config.height * ((latitude + 90.0) / 180.0);
 
+        // Clamp to valid grid range [0, width-1] and [0, height-1]
+        // This handles edge cases like lon=180.0 or lat=90.0
+        uint64_t grid_x = std::min(
+            static_cast<uint64_t>(config.width - 1),
+            static_cast<uint64_t>(std::floor(x))
+        );
+        uint64_t grid_y = std::min(
+            static_cast<uint64_t>(config.height - 1),
+            static_cast<uint64_t>(std::floor(y))
+        );
+
         std::vector<uint64_t> point;
-        point.push_back(static_cast<uint64_t>(x));
-        point.push_back(static_cast<uint64_t>(y));
+        point.push_back(grid_x);
+        point.push_back(grid_y);
 
         // Add category if present
         if (num_dims >= 3) {
@@ -198,6 +210,66 @@ std::vector<std::vector<uint64_t>> load_dataset(
     }
 
     return points;
+}
+
+// ============================================================================
+// JSON Metadata Generation
+// ============================================================================
+
+void write_json_metadata(const std::string& cbf_file,
+                         const EncoderConfig& config,
+                         const globimap::CountMinSketch& cms,
+                         size_t total_points)
+{
+    std::string json_file = cbf_file + ".json";
+    std::ofstream json_out(json_file);
+
+    if (!json_out) {
+        throw std::runtime_error("Failed to open JSON metadata file: " + json_file);
+    }
+
+    // Get current timestamp
+    auto now = std::time(nullptr);
+    char timestamp[100];
+    std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%SZ", std::gmtime(&now));
+
+    // Calculate resolution in degrees
+    double resolution_degrees = 360.0 / config.width;
+
+    // Build JSON manually (avoiding external dependencies)
+    json_out << "{\n";
+    json_out << "  \"version\": \"1.0\",\n";
+    json_out << "  \"grid\": {\n";
+    json_out << "    \"width\": " << config.width << ",\n";
+    json_out << "    \"height\": " << config.height << ",\n";
+    json_out << "    \"resolution_degrees\": " << resolution_degrees << ",\n";
+    json_out << "    \"bounds\": {\n";
+    json_out << "      \"min_lat\": -90.0,\n";
+    json_out << "      \"max_lat\": 90.0,\n";
+    json_out << "      \"min_lng\": -180.0,\n";
+    json_out << "      \"max_lng\": 180.0\n";
+    json_out << "    }\n";
+    json_out << "  },\n";
+    json_out << "  \"filter\": {\n";
+    json_out << "    \"type\": \"" << config.filter_type << "\",\n";
+    json_out << "    \"epsilon\": " << cms.epsilon_actual() << ",\n";
+    json_out << "    \"delta\": " << cms.delta_actual() << ",\n";
+    json_out << "    \"conservative\": " << (cms.conservative() ? "true" : "false") << ",\n";
+    json_out << "    \"counter_bits\": " << cms.counter_bits() << ",\n";
+    json_out << "    \"width\": " << cms.width() << ",\n";
+    json_out << "    \"depth\": " << cms.depth() << "\n";
+    json_out << "  },\n";
+    json_out << "  \"dataset\": {\n";
+    json_out << "    \"total_points\": " << total_points << ",\n";
+    json_out << "    \"encoded_date\": \"" << timestamp << "\"\n";
+    json_out << "  }\n";
+    json_out << "}\n";
+
+    json_out.close();
+
+    if (config.verbose) {
+        std::cout << "\n✓ Metadata written to: " << json_file << "\n";
+    }
 }
 
 // ============================================================================
@@ -259,6 +331,9 @@ void encode_cms(const std::vector<std::vector<uint64_t>>& points,
         std::cout << "\n✓ Encoding complete!\n";
         std::cout << "  Output: " << output_file << " (" << binary_data.size() << " bytes)\n";
     }
+
+    // Write JSON metadata sidecar
+    write_json_metadata(output_file, config, cms, points.size());
 }
 
 // ============================================================================

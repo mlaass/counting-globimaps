@@ -29,6 +29,7 @@ export interface ScanConfig {
 
 export interface ScanResult {
   points: DensityPoint[];
+  resolution: number;
   stats: {
     totalQueries: number;
     nonZeroPoints: number;
@@ -79,9 +80,17 @@ export async function scanGrid(config: ScanConfig): Promise<ScanResult> {
   // Determine which categories to query
   const categoriesToQuery = categories || [undefined];
 
-  // Scan the grid
-  for (let x = gridBounds.minX; x <= gridBounds.maxX; x += resolution) {
-    for (let y = gridBounds.minY; y <= gridBounds.maxY; y += resolution) {
+  // Align grid bounds to resolution multiples
+  // This ensures queries always hit the same grid coordinates (e.g., 0, 10, 20, ...)
+  // regardless of viewport position, matching how data was encoded
+  const alignedMinX = Math.floor(gridBounds.minX / resolution) * resolution;
+  const alignedMaxX = Math.ceil(gridBounds.maxX / resolution) * resolution;
+  const alignedMinY = Math.floor(gridBounds.minY / resolution) * resolution;
+  const alignedMaxY = Math.ceil(gridBounds.maxY / resolution) * resolution;
+
+  // Scan the grid with aligned coordinates
+  for (let x = alignedMinX; x <= alignedMaxX; x += resolution) {
+    for (let y = alignedMinY; y <= alignedMaxY; y += resolution) {
       // Query each category
       for (const category of categoriesToQuery) {
         const result = filter.query({
@@ -91,11 +100,15 @@ export async function scanGrid(config: ScanConfig): Promise<ScanResult> {
         });
 
         if (result.count > 0) {
-          const { lat, lng } = gridToLatLng(x, y, datasetBounds);
+          // Convert grid coordinates to cell center for display
+          const { lat, lng } = gridToLatLng(x, y, datasetBounds, true);
 
           points.push({
             lat,
             lng,
+            gridX: x,           // Store original grid coordinate
+            gridY: y,           // Store original grid coordinate
+            resolution,         // Store resolution used
             value: result.count,
             category,
           });
@@ -124,6 +137,7 @@ export async function scanGrid(config: ScanConfig): Promise<ScanResult> {
 
   return {
     points,
+    resolution,
     stats: {
       totalQueries: queriesDone,
       nonZeroPoints,
@@ -147,7 +161,7 @@ export async function scanGrid(config: ScanConfig): Promise<ScanResult> {
 export async function scanGridAuto(
   config: Omit<ScanConfig, 'resolution'>,
   maxQueries: number = 5000
-): Promise<ScanResult & { resolution: number }> {
+): Promise<ScanResult> {
   const { bounds, datasetBounds } = config;
 
   // Convert to grid bounds
@@ -174,10 +188,7 @@ export async function scanGridAuto(
     resolution: optimalResolution,
   });
 
-  return {
-    ...result,
-    resolution: optimalResolution,
-  };
+  return result;
 }
 
 /**

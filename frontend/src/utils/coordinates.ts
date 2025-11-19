@@ -67,16 +67,22 @@ export function latLngToGrid(
  * @param x Grid X coordinate
  * @param y Grid Y coordinate
  * @param bounds Dataset bounds with grid dimensions
+ * @param centered If true, return cell center; if false, return top-left corner (default: true)
  * @returns Geographic coordinates {lat, lng}
  */
 export function gridToLatLng(
   x: number,
   y: number,
-  bounds: DatasetBounds
+  bounds: DatasetBounds,
+  centered: boolean = true
 ): LatLng {
+  // Offset by 0.5 to get cell center instead of corner
+  const xOffset = centered ? 0.5 : 0;
+  const yOffset = centered ? 0.5 : 0;
+
   // Convert grid to normalized coordinates
-  const lng = (x / bounds.gridWidth) * 360 - 180;
-  const lat = (y / bounds.gridHeight) * 180 - 90;
+  const lng = ((x + xOffset) / bounds.gridWidth) * 360 - 180;
+  const lat = ((y + yOffset) / bounds.gridHeight) * 180 - 90;
 
   return { lat, lng };
 }

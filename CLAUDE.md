@@ -66,6 +66,29 @@ datasets, results, summary = quick_analysis("dataset_comparison")
 print(summary)
 ```
 
+### Generate Reports
+
+Generate structured markdown reports with graphs and tables:
+
+```bash
+# Generate all reports
+./reports/generate_reports.sh
+```
+
+**Reports generated:**
+- `output/dataset_comparison_report.md` - Performance comparison on GDELT/COVID-19 datasets
+- `output/multicategory_report.md` - Category isolation and accuracy analysis
+- `output/k_sensitivity_report.md` - K parameter sensitivity (placeholder)
+- `output/cosine_report.md` - Cosine distribution benchmark (placeholder)
+- `output/implementation_comparison_report.md` - Quick baseline comparison (placeholder)
+
+Each report includes:
+- Embedded PNG figures in markdown
+- Companion PDF with all figures (`*_figures.pdf`)
+- Summary tables and key findings
+
+Reports are saved to `reports/output/`, figures to `reports/figures/`.
+
 ## Build Commands
 
 ### Initial Setup

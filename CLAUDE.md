@@ -188,7 +188,7 @@ Layers are ordered from finest (typically 1-bit or 8-bit) to coarsest (typically
 
 ## Bloom Filter Implementations
 
-The project includes 6 bloom filter implementations, each with different trade-offs. All are header-only and located in `include/`:
+The project includes 10 bloom filter implementations, each with different trade-offs. All are header-only and located in `include/`:
 
 ### Implementation Overview
 
@@ -232,6 +232,35 @@ The project includes 6 bloom filter implementations, each with different trade-o
    - Optional conservative update
    - Best for: When you need provable error guarantees, minimal memory
 
+### Cache-Optimal Bloom Filters
+
+Additional membership-only bloom filters optimized for cache efficiency. From [save-buffer/bloomfilter_benchmarks](https://github.com/save-buffer/bloomfilter_benchmarks).
+
+7. **BlockedBloomFilter** (`blocked_bloom_filter.hpp`) - Cache-line aligned
+   - 256-bit blocks aligned to cache lines
+   - First hash selects block, remaining hashes probe within block
+   - Reduces cache misses through spatial locality
+   - Best for: Memory-constrained systems with cache sensitivity
+
+8. **RegisterBlockedBloomFilter** (`register_blocked_bf.hpp`) - 64-bit atomic masks
+   - Uses 64-bit registers as atomic units
+   - Single mask operation per lookup
+   - Compensation parameter tunes memory/FPR tradeoff
+   - Best for: Very fast membership testing
+
+9. **SimdBloomFilter** (`simd_bloom_filter.hpp`) - AVX2 vectorized
+   - Processes 8 elements in parallel using AVX-256
+   - Uses gather instructions for efficient block lookups
+   - Batch operations for maximum throughput
+   - Requires AVX2 support (compile with `-march=native`)
+   - Best for: High-throughput applications with SIMD support
+
+10. **PatternedSimdBloomFilter** (`simd_bloom_filter.hpp`) - Advanced SIMD
+    - Pre-generated mask patterns with rotation
+    - Better FPR than standard SimdBloomFilter
+    - Also requires AVX2 support
+    - Best for: Best balance of throughput and accuracy
+
 ### Quick Selection Guide
 
 Choose based on your requirements:
@@ -241,8 +270,9 @@ Need error bounds?          → Count-Min Sketch
 Need deletions?             → d-Left CBF or Spectral BF (RM variant)
 Need minimal memory?        → Count-Min Sketch (2.66 KB typical)
 Need best accuracy?         → Spectral BF (MI) or CountingGloBiMap (MI)
-Need cache efficiency?      → d-Left CBF
-Need membership only?       → GloBiMap (binary) or Variable-Increment CBF
+Need cache efficiency?      → d-Left CBF, BlockedBF, or RegisterBlockedBF
+Need SIMD throughput?       → SimdBloomFilter or PatternedSimdBloomFilter
+Need membership only?       → GloBiMap, BlockedBF, or RegisterBlockedBF
 Need frequency estimation?  → Spectral BF (MI), Count-Min Sketch, or CountingGloBiMap (MI)
 Need varying magnitudes?    → CountingGloBiMap (multi-layer)
 Need spatial rasterization? → GloBiMap (binary)
@@ -262,6 +292,7 @@ make test_spectral_bloom_filter
 make test_dleft_counting_bf
 make test_count_min_sketch
 make test_enhanced_globimap
+make test_cache_optimal_bf        # Cache-optimal BF (requires AVX2)
 
 # Run tests
 ./test_globimap                   # 14 tests - Binary bloom filter
@@ -270,10 +301,14 @@ make test_enhanced_globimap
 ./test_dleft_counting_bf          # 14 tests - d-Left hashing & deletions
 ./test_count_min_sketch           # 17 tests - Error bounds & accuracy
 ./test_enhanced_globimap          # 10 tests - Conservative updates
+./test_cache_optimal_bf           # 22 tests - Cache-optimal implementations
 
-# Build and run comparison experiment
+# Build and run comparison experiments
 make compare_all_implementations
 ./compare_all_implementations     # Side-by-side performance comparison
+
+make bloom_filter_benchmark
+./bloom_filter_benchmark          # Cache-optimal BF benchmark with SIMD
 ```
 
 ### Usage Examples

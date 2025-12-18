@@ -183,6 +183,18 @@ target_link_libraries(test_multicategory
 PUBLIC OpenMP::OpenMP_CXX
 )
 
+# Cache-optimal bloom filter tests (requires AVX2 via -march=native)
+add_executable(test_cache_optimal_bf tests/test_cache_optimal_bf.cpp)
+target_link_libraries(test_cache_optimal_bf
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+# Cache-optimal bloom filter benchmark
+add_executable(bloom_filter_benchmark experiments/src/bloom_filter_benchmark.cpp)
+target_link_libraries(bloom_filter_benchmark
+PUBLIC OpenMP::OpenMP_CXX
+)
+
 # Multi-category performance experiment
 add_executable(globimap_test_multicategory experiments/src/globimap_test_multicategory.cpp)
 target_link_libraries(globimap_test_multicategory

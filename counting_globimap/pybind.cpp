@@ -8,11 +8,17 @@
 
 namespace py = pybind11;
 
+// Include binary GloBiMap implementation (must be first due to hashfn.hpp)
+#include "globimap.hpp"
+
 // Include CountingGloBiMap implementation
 #include "counting_globimap.hpp"
 
 // Type alias for the default CountingGloBiMap
 using CountingGloBiMapDefault = globimap::CountingGloBiMap<>;
+
+// Type alias for binary GloBiMap
+using GloBiMapDefault = GloBiMap<bool>;
 
 // Python module definition
 PYBIND11_MODULE(counting_globimap, m) {
@@ -220,4 +226,117 @@ PYBIND11_MODULE(counting_globimap, m) {
           "    FilterConfig: Configuration with multiple layers\n"
           "Example:\n"
           "    config = make_multi_layer_config(8, [(8, 24), (16, 20), (32, 16)])");
+
+    // ========================================================================
+    // Binary GloBiMap (simple bloom filter) bindings
+    // ========================================================================
+
+    py::class_<GloBiMapDefault>(m, "GloBiMap")
+        .def(py::init<>(), "Create an empty binary bloom filter")
+
+        .def("configure", &GloBiMapDefault::configure,
+             py::arg("k"), py::arg("logm"),
+             "Configure the filter with k hash functions and 2^logm bits")
+
+        .def("put", &GloBiMapDefault::put,
+             py::arg("point"),
+             "Insert a point into the filter")
+
+        .def("get", &GloBiMapDefault::get,
+             py::arg("point"),
+             "Check if a point exists in the filter")
+
+        .def("clear", &GloBiMapDefault::clear,
+             "Clear the filter and error correction data")
+
+        .def("summary", &GloBiMapDefault::summary,
+             "Get JSON summary of filter state")
+
+        .def("add_error", &GloBiMapDefault::add_error,
+             py::arg("point"),
+             "Register a false positive for error correction")
+
+        // Map a 2D numpy array to the filter
+        .def("map", [](GloBiMapDefault &self, py::array_t<double> arr, uint64_t x, uint64_t y) {
+            auto buf = arr.request();
+            if (buf.ndim != 2) {
+                throw std::runtime_error("Input array must be 2D");
+            }
+            double *ptr = static_cast<double*>(buf.ptr);
+            size_t rows = buf.shape[0];
+            size_t cols = buf.shape[1];
+
+            for (size_t i = 0; i < rows; ++i) {
+                for (size_t j = 0; j < cols; ++j) {
+                    if (ptr[i * cols + j] != 0) {
+                        self.put({x + i, y + j});
+                    }
+                }
+            }
+        }, py::arg("arr"), py::arg("x"), py::arg("y"),
+           "Map non-zero values from a 2D array into the filter")
+
+        // Add error correction for false positives
+        .def("enforce", [](GloBiMapDefault &self, py::array_t<double> arr, uint64_t x, uint64_t y) {
+            auto buf = arr.request();
+            if (buf.ndim != 2) {
+                throw std::runtime_error("Input array must be 2D");
+            }
+            double *ptr = static_cast<double*>(buf.ptr);
+            size_t rows = buf.shape[0];
+            size_t cols = buf.shape[1];
+
+            // Find false positives (filter says yes, but array says no)
+            for (size_t i = 0; i < rows; ++i) {
+                for (size_t j = 0; j < cols; ++j) {
+                    if (ptr[i * cols + j] == 0 && self.get({x + i, y + j})) {
+                        self.add_error({static_cast<uint32_t>(x + i), static_cast<uint32_t>(y + j)});
+                    }
+                }
+            }
+        }, py::arg("arr"), py::arg("x"), py::arg("y"),
+           "Find and register false positives for error correction")
+
+        // Rasterize returns a numpy array
+        .def("rasterize", [](GloBiMapDefault &self, uint64_t x, uint64_t y, uint32_t width, uint32_t height) {
+            auto &storage = self.rasterize(x, y, width, height);
+            py::array_t<double> result({height, width});
+            auto buf = result.request();
+            double *ptr = static_cast<double*>(buf.ptr);
+            std::copy(storage.begin(), storage.end(), ptr);
+            return result;
+        }, py::arg("x"), py::arg("y"), py::arg("width"), py::arg("height"),
+           "Rasterize a rectangular region into a numpy array")
+
+        // Apply correction and return numpy array
+        .def("correct", [](GloBiMapDefault &self, uint64_t x, uint64_t y, uint32_t width, uint32_t height) {
+            auto &storage = self.apply_correction(x, y, width, height);
+            py::array_t<double> result({height, width});
+            auto buf = result.request();
+            double *ptr = static_cast<double*>(buf.ptr);
+            std::copy(storage.begin(), storage.end(), ptr);
+            return result;
+        }, py::arg("x"), py::arg("y"), py::arg("width"), py::arg("height"),
+           "Apply error correction to rasterized region")
+
+        // Serialization
+        .def("get_buffer", [](GloBiMapDefault &self) {
+            std::string buf;
+            self.tobuffer(buf);
+            return py::bytes(buf);
+        }, "Serialize filter to bytes")
+
+        .def("from_buffer", [](GloBiMapDefault &self, py::bytes data) {
+            std::string buf = data;
+            self._frombuffer(buf);
+        }, py::arg("data"),
+           "Deserialize filter from bytes")
+
+        .def("__repr__", [](const GloBiMapDefault &g) {
+            return "<GloBiMap size=" + std::to_string(g.filter.size()) + " bits>";
+        });
+
+    // Alias for compatibility with original globimap API
+    m.def("globimap", []() { return GloBiMapDefault(); },
+          "Create a new binary bloom filter (alias for GloBiMap())");
 }

@@ -60,8 +60,8 @@ parallel)
 
 */
 
-#ifndef GLOBIMAP_HPP_INC
-#define GLOBIMAP_HPP_INC
+#ifndef BINARY_GLOBIMAP_HPP_INC
+#define BINARY_GLOBIMAP_HPP_INC
 #include <limits>
 #include <list>
 #include <set>

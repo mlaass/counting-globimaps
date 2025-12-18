@@ -162,6 +162,7 @@ This reduces computation and improves cache efficiency while maintaining good di
 
 ### Key Files
 
+- `include/globimap.hpp` - Simple binary bloom filter (header-only)
 - `include/counting_globimap.hpp` - Main CountingGloBiMap implementation (header-only)
 - `include/murmur.hpp` - MurmurHash3 implementation for hashing
 - `include/hashfn.hpp` - Hash function interface
@@ -185,39 +186,47 @@ struct FilterConfig {
 
 Layers are ordered from finest (typically 1-bit or 8-bit) to coarsest (typically 32-bit or 64-bit).
 
-## Alternative Counting Bloom Filter Implementations
+## Bloom Filter Implementations
 
-The project includes 5 counting bloom filter implementations, each with different trade-offs. All are header-only and located in `include/`:
+The project includes 6 bloom filter implementations, each with different trade-offs. All are header-only and located in `include/`:
 
 ### Implementation Overview
 
-1. **CountingGloBiMap** (`counting_globimap.hpp`) - Multi-layer hierarchical filter
+1. **GloBiMap** (`globimap.hpp`) - Simple binary bloom filter
+   - Classic bloom filter with single bit per position
+   - Membership testing only (no counting)
+   - Includes rasterization for spatial queries
+   - Includes error correction for false positive suppression
+   - Serialization support (tobuffer/frombuffer)
+   - Best for: Simple membership testing, spatial rasterization
+
+2. **CountingGloBiMap** (`counting_globimap.hpp`) - Multi-layer hierarchical filter
    - Original implementation with cascading layers
    - NEW: Optional `minimal_increment` for conservative updates (reduces overcounting)
    - NEW: Optional `cascade_factor` for early cascade (prevents saturation)
    - Best for: Highly skewed data with varying count magnitudes
 
-2. **Variable-Increment CBF** (`variable_increment_bf.hpp`) - Simple single-layer filter
+3. **Variable-Increment CBF** (`variable_increment_bf.hpp`) - Simple single-layer filter
    - Based on Rottenstreich et al. (2014)
    - Uses variable increments [L, 2L-1] for 50% memory savings
    - Simple 4-parameter configuration
    - **⚠️ WARNING**: Provides ~4-5x overcounting for frequency queries (310% error)
    - Best for: **Membership testing only** (`get_bool()`), NOT frequency estimation
 
-3. **Spectral Bloom Filter** (`spectral_bloom_filter.hpp`) - Multiple variants
+4. **Spectral Bloom Filter** (`spectral_bloom_filter.hpp`) - Multiple variants
    - Based on Cohen & Matias (2003)
    - Three variants: MS (Minimum Selection), MI (Minimal Increment), RM (Recurring Minimum)
    - MI variant provides conservative updates for better accuracy
    - RM variant supports deletions
    - Best for: High-frequency item detection with accuracy
 
-4. **d-Left Counting Bloom Filter** (`dleft_counting_bf.hpp`) - Deterministic lookups
+5. **d-Left Counting Bloom Filter** (`dleft_counting_bf.hpp`) - Deterministic lookups
    - Based on Bonomi et al. (2006)
    - Uses d-left hashing with fingerprints for cache-friendly design
    - Supports deletions
    - Best for: Cache-sensitive applications, deterministic query time
 
-5. **Count-Min Sketch** (`count_min_sketch.hpp`) - Probabilistic guarantees
+6. **Count-Min Sketch** (`count_min_sketch.hpp`) - Probabilistic guarantees
    - Based on Cormode & Muthukrishnan (2005)
    - Provides error bounds (epsilon, delta parameters)
    - Optional conservative update
@@ -231,11 +240,12 @@ Choose based on your requirements:
 Need error bounds?          → Count-Min Sketch
 Need deletions?             → d-Left CBF or Spectral BF (RM variant)
 Need minimal memory?        → Count-Min Sketch (2.66 KB typical)
-Need best accuracy?         → Spectral BF (MI) or GloBiMap (MI)
+Need best accuracy?         → Spectral BF (MI) or CountingGloBiMap (MI)
 Need cache efficiency?      → d-Left CBF
-Need membership only?       → Variable-Increment CBF (use get_bool(), NOT get_min())
-Need frequency estimation?  → Spectral BF (MI), Count-Min Sketch, or GloBiMap (MI)
+Need membership only?       → GloBiMap (binary) or Variable-Increment CBF
+Need frequency estimation?  → Spectral BF (MI), Count-Min Sketch, or CountingGloBiMap (MI)
 Need varying magnitudes?    → CountingGloBiMap (multi-layer)
+Need spatial rasterization? → GloBiMap (binary)
 ```
 
 **⚠️ WARNING**: Do NOT use Variable-Increment CBF for frequency estimation - it provides ~2-5x overcounting due to variable increments [L, 2L-1]. Use `get_bool()` for membership only.
@@ -246,6 +256,7 @@ Need varying magnitudes?    → CountingGloBiMap (multi-layer)
 # From build/ directory
 
 # Build individual test suites
+make test_globimap
 make test_variable_increment_bf
 make test_spectral_bloom_filter
 make test_dleft_counting_bf
@@ -253,6 +264,7 @@ make test_count_min_sketch
 make test_enhanced_globimap
 
 # Run tests
+./test_globimap                   # 14 tests - Binary bloom filter
 ./test_variable_increment_bf      # 15 tests - VI-CBF correctness
 ./test_spectral_bloom_filter      # 17 tests - All SBF variants
 ./test_dleft_counting_bf          # 14 tests - d-Left hashing & deletions
@@ -265,6 +277,28 @@ make compare_all_implementations
 ```
 
 ### Usage Examples
+
+**GloBiMap (Binary Bloom Filter):**
+```cpp
+#include "globimap.hpp"
+
+GloBiMap<> bf;
+bf.configure(8, 20);  // 8 hash functions, 2^20 bits (128 KB)
+
+std::vector<uint64_t> point = {123, 456};
+bf.put(point);
+bool present = bf.get(point);  // true
+
+// Rasterize a region for spatial queries
+auto &raster = bf.rasterize(100, 100, 50, 50);  // 50x50 region starting at (100,100)
+
+// Serialization
+std::string buf;
+bf.tobuffer(buf);
+GloBiMap<> bf2;
+bf2.configure(8, 20);
+bf2._frombuffer(buf, bf.filter.size());
+```
 
 **Variable-Increment CBF:**
 ```cpp

@@ -84,6 +84,7 @@ add_executable(test_spectral_bloom_filter tests/test_spectral_bloom_filter.cpp)
 add_executable(test_dleft_counting_bf tests/test_dleft_counting_bf.cpp)
 add_executable(test_count_min_sketch tests/test_count_min_sketch.cpp)
 add_executable(test_enhanced_globimap tests/test_enhanced_globimap.cpp)
+add_executable(test_globimap tests/test_globimap.cpp)
 
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)
@@ -169,6 +170,10 @@ PUBLIC OpenMP::OpenMP_CXX
 )
 
 target_link_libraries(test_enhanced_globimap
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+target_link_libraries(test_globimap
 PUBLIC OpenMP::OpenMP_CXX
 )
 

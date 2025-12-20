@@ -74,7 +74,7 @@ void print_usage(const char* prog) {
     std::cout << "  --min-iters N     Minimum iterations per epoch (default: 1000)\n";
     std::cout << "  --warmup N        Warmup iterations (default: 100)\n";
     std::cout << "  --epoch-time MS   Max time per epoch in ms (default: 100)\n";
-    std::cout << "  --scenario S      Run only: 2d, 3d, all (default: all)\n";
+    std::cout << "  --scenario S      Run only: 2d, 3d, strategy, all (default: all)\n";
     std::cout << "  --help            Show this help\n";
 }
 
@@ -792,6 +792,188 @@ void run_3d_benchmark(size_t n, uint32_t max_coord, unsigned log_blocks) {
 }
 
 // ============================================================================
+// Strategy Comparison Benchmark
+// ============================================================================
+
+struct StrategyResult {
+    std::string strategy;
+    unsigned k;
+    std::string param;
+    double insert_ns;
+    double query_ns;
+    double neighbor_ns;
+    uint64_t query_ins;
+    uint64_t query_cyc;
+    uint64_t neighbor_ins;
+    uint64_t neighbor_cyc;
+    double fpr;
+    size_t memory;
+};
+
+std::vector<StrategyResult> g_strategy_results;
+
+template <unsigned SFCBits>
+void benchmark_strategy(ankerl::nanobench::Bench& bench,
+                        const std::string& name,
+                        SBBFConfig conf,
+                        const std::vector<Point3D>& insert_data,
+                        const std::vector<Point3D>& query_data) {
+    SpatialBlockedBloomFilter64<SFCBits> filter(conf);
+    StrategyResult result;
+    result.strategy = name;
+    result.k = conf.hash_k;
+    result.memory = filter.memory_usage();
+
+    // Set param string based on strategy
+    if (conf.intra_strategy == IntraBlockStrategy::PATTERN_LOOKUP) {
+        result.param = std::to_string(conf.pattern_table_size);
+    } else if (conf.intra_strategy == IntraBlockStrategy::MULTIPLEXED) {
+        result.param = "x" + std::to_string(conf.multiplex_count);
+    } else {
+        result.param = "-";
+    }
+
+    std::string bench_name = name + " k=" + std::to_string(conf.hash_k);
+    if (result.param != "-") bench_name += " " + result.param;
+
+    // Insert benchmark
+    size_t insert_idx = 0;
+    bench.run(bench_name + " insert", [&]() {
+        const auto& p = insert_data[insert_idx++ % insert_data.size()];
+        filter.put3D(p.x, p.y, p.z);
+    });
+    result.insert_ns = bench.results().back().median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+
+    // Reset and fill
+    filter.clear();
+    for (const auto& p : insert_data) {
+        filter.put3D(p.x, p.y, p.z);
+    }
+
+    // Query benchmark
+    size_t query_idx = 0;
+    bench.run(bench_name + " query", [&]() {
+        const auto& p = insert_data[query_idx++ % insert_data.size()];
+        ankerl::nanobench::doNotOptimizeAway(filter.get_bool_3D(p.x, p.y, p.z));
+    });
+    auto& query_res = bench.results().back();
+    result.query_ns = query_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+    result.query_ins = static_cast<uint64_t>(query_res.median(ankerl::nanobench::Result::Measure::instructions));
+    result.query_cyc = static_cast<uint64_t>(query_res.median(ankerl::nanobench::Result::Measure::cpucycles));
+
+    // Neighbor benchmark (26-connected, per-neighbor time)
+    size_t nbr_idx = 0;
+    bench.batch(26).run(bench_name + " neighbor", [&]() {
+        const auto& p = insert_data[nbr_idx++ % insert_data.size()];
+        ankerl::nanobench::doNotOptimizeAway(filter.query_neighborhood_3D(p.x, p.y, p.z, true));
+    });
+    bench.batch(1);
+    auto& nbr_res = bench.results().back();
+    result.neighbor_ns = nbr_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+    result.neighbor_ins = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::instructions));
+    result.neighbor_cyc = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::cpucycles));
+
+    // FPR measurement
+    size_t false_positives = 0;
+    for (const auto& p : query_data) {
+        if (filter.get_bool_3D(p.x, p.y, p.z)) ++false_positives;
+    }
+    result.fpr = static_cast<double>(false_positives) / query_data.size();
+
+    g_strategy_results.push_back(result);
+}
+
+void print_strategy_table() {
+    if (g_strategy_results.empty()) return;
+
+    std::cout << "\n";
+    std::cout << std::left << std::setw(18) << "Strategy"
+              << std::right
+              << std::setw(4) << "k"
+              << std::setw(6) << "Param"
+              << std::setw(8) << "Query"
+              << std::setw(6) << "ins"
+              << std::setw(6) << "cyc"
+              << std::setw(8) << "Neighb"
+              << std::setw(6) << "ins"
+              << std::setw(6) << "cyc"
+              << std::setw(8) << "FPR" << "\n";
+    std::cout << std::string(82, '-') << "\n";
+
+    for (const auto& r : g_strategy_results) {
+        std::cout << std::left << std::setw(18) << r.strategy
+                  << std::right
+                  << std::setw(4) << r.k
+                  << std::setw(6) << r.param
+                  << std::setw(6) << std::fixed << std::setprecision(1) << r.query_ns << " ns"
+                  << std::setw(6) << r.query_ins
+                  << std::setw(6) << r.query_cyc
+                  << std::setw(6) << r.neighbor_ns << " ns"
+                  << std::setw(6) << r.neighbor_ins
+                  << std::setw(6) << r.neighbor_cyc
+                  << std::setw(7) << std::setprecision(3) << (r.fpr * 100) << "%\n";
+    }
+    std::cout << "\n";
+    g_strategy_results.clear();
+}
+
+void run_strategy_comparison(size_t n, uint32_t max_coord, unsigned log_blocks) {
+    std::cout << "\n========================================\n";
+    std::cout << "Intra-Block Strategy Comparison\n";
+    std::cout << "========================================\n";
+    std::cout << "Memory: " << ((1ULL << log_blocks) * 8 / 1024) << " KB, Elements: " << n << "\n";
+
+    auto insert_data = generate_uniform_3d(n, max_coord, 42);
+    auto query_data = generate_uniform_3d(n, max_coord, 123);
+
+    ankerl::nanobench::Bench bench;
+    bench.performanceCounters(true)
+         .epochs(g_config.epochs)
+         .minEpochIterations(g_config.min_iters)
+         .warmup(g_config.warmup)
+         .maxEpochTime(std::chrono::milliseconds(g_config.epoch_time_ms))
+         .relative(true);
+
+    // Base config
+    SBBFConfig base_conf;
+    base_conf.sfc_type = SFCType::HILBERT_3D;
+    base_conf.sfc_bits = 10;
+    base_conf.log_num_blocks = log_blocks;
+    base_conf.bits_per_block = 64;
+
+    std::cout << "\n--- DOUBLE_HASH (varying k) ---\n\n";
+
+    for (unsigned k : {2, 4, 6, 8}) {
+        SBBFConfig conf = base_conf;
+        conf.intra_strategy = IntraBlockStrategy::DOUBLE_HASH;
+        conf.hash_k = k;
+        benchmark_strategy<10>(bench, "DOUBLE_HASH", conf, insert_data, query_data);
+    }
+
+    std::cout << "\n--- PATTERN_LOOKUP (k=4, varying table_size) ---\n\n";
+
+    for (size_t table_size : {256, 512, 1024, 2048}) {
+        SBBFConfig conf = base_conf;
+        conf.intra_strategy = IntraBlockStrategy::PATTERN_LOOKUP;
+        conf.hash_k = 4;
+        conf.pattern_table_size = table_size;
+        benchmark_strategy<10>(bench, "PATTERN_LOOKUP", conf, insert_data, query_data);
+    }
+
+    std::cout << "\n--- MULTIPLEXED (k=4, varying multiplex_count) ---\n\n";
+
+    for (unsigned mux : {1, 2, 4}) {
+        SBBFConfig conf = base_conf;
+        conf.intra_strategy = IntraBlockStrategy::MULTIPLEXED;
+        conf.hash_k = 4;
+        conf.multiplex_count = mux;
+        benchmark_strategy<10>(bench, "MULTIPLEXED", conf, insert_data, query_data);
+    }
+
+    print_strategy_table();
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 
@@ -813,6 +995,7 @@ int main(int argc, char* argv[]) {
 
     bool run_2d = (g_config.scenario == "all" || g_config.scenario == "2d");
     bool run_3d = (g_config.scenario == "all" || g_config.scenario == "3d");
+    bool run_strategy = (g_config.scenario == "strategy");
 
     if (run_2d) {
         // 2D Benchmarks
@@ -823,6 +1006,11 @@ int main(int argc, char* argv[]) {
     if (run_3d) {
         // 3D Benchmarks
         run_3d_benchmark(100000, 1023, 17);
+    }
+
+    if (run_strategy) {
+        // Intra-block strategy comparison
+        run_strategy_comparison(100000, 1023, 17);
     }
 
     std::cout << "\n=================================================\n";

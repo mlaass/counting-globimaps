@@ -20,10 +20,13 @@ Where $N$ is the number of blocks. Because SFCs map multidimensional data to 1D 
 
 ### 2.2 Intra-Block Membership
 
-Each block is a Register-Blocked Bloom Filter (typically 64 or 256 bits).
+Each block is a Register-Blocked Bloom Filter (typically  register size  or cachline size (usually multiples of 64 bits on modern systems)).
 
 - **Block Selection:** Determined by the SFC value mapped to the range of available blocks $[0, N-1]$.
-- **Bit Pattern:** Generated using a secondary derivation from the SFC value, such as $m = f(SFC(v)) \pmod{M}$, where $M$ is the register size.
+- **Bit Pattern:** Multiple strategies will be explored, inspired by SIMD-optimized Bloom filters [Putze09]:
+  - *Direct derivation:* $m = f(SFC(v)) \pmod{M}$, where $M$ is the register size.
+  - *Precomputed patterns (pat):* Lookup table of k-bit patterns indexed by SFC value, enabling SIMD vectorization.
+  - *Multiplexed patterns (pat[x]):* OR-ing x patterns with k/x bits each for better FPR with smaller tables.
 
 ### 2.3
 
@@ -37,7 +40,7 @@ flowchart TB
     V --> SFC
 
     SFC --> Index["Index: SFC(v) % N<br/>Selects Memory Block / Cache Line"]
-    SFC --> Mask["Mask: f(SFC(v)) % M<br/>Selects bits within 64/256-bit register"]
+    SFC --> Mask["Mask: f(SFC(v)) or pattern lookup<br/>Selects bits within block"]
 
     Index --> Bi
     Mask --> Bi
@@ -118,6 +121,7 @@ struct SpatialBlockedBloomFilter {
 
 ## 6. References
 
-- Putze et al.: Cache-, Hash-, and Space-Efficient Bloom Filters (2010).
-- Lang et al.: Performance-Optimal Filtering (2019).
-- Morton, G. M.: A Computer Oriented Geodetic Data Base and a New Technique in File Sequencing (1966).
+- [Putze09] Putze, Sanders, Singler: Cache-, Hash-, and Space-Efficient Bloom Filters. ACM JEA, 2009.
+- [Lang19] Lang et al.: Performance-Optimal Filtering: Bloom Overtakes Cuckoo at High Throughput. PVLDB, 2019.
+- [Hilbert3D] Various: 3D Hilbert Curves for locality-preserving spatial indexing. See summary_3d_hilbert_curves.md.
+- [Morton66] Morton, G. M.: A Computer Oriented Geodetic Data Base and a New Technique in File Sequencing. IBM, 1966.

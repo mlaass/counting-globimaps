@@ -516,6 +516,191 @@ TEST(test_performance_comparison) {
 }
 
 // ============================================================================
+// Hilbert3D LUT Tests
+// ============================================================================
+
+TEST(test_hilbert3d_lut_bijection_small) {
+    // Test that all 8x8x8 = 512 coordinates map to unique Hilbert codes
+    constexpr unsigned Bits = 3;
+    std::vector<uint64_t> codes;
+    codes.reserve(512);
+
+    for (uint32_t x = 0; x < 8; ++x) {
+        for (uint32_t y = 0; y < 8; ++y) {
+            for (uint32_t z = 0; z < 8; ++z) {
+                codes.push_back(Hilbert3D<Bits>::encode(x, y, z));
+            }
+        }
+    }
+
+    // Check all codes are unique
+    std::sort(codes.begin(), codes.end());
+    for (size_t i = 1; i < codes.size(); ++i) {
+        if (codes[i] == codes[i-1]) {
+            std::cout << "FAIL\n    Duplicate code: " << codes[i] << std::endl;
+            return;
+        }
+    }
+
+    // Check codes span [0, 511]
+    ASSERT_EQ(codes[0], 0ULL);
+    ASSERT_EQ(codes[511], 511ULL);
+
+    PASS();
+}
+
+TEST(test_hilbert3d_lut_bijection_16x16x16) {
+    // Test 16x16x16 = 4096 coordinates with 4-bit encoding
+    constexpr unsigned Bits = 4;
+    std::vector<uint64_t> codes;
+    codes.reserve(4096);
+
+    for (uint32_t x = 0; x < 16; ++x) {
+        for (uint32_t y = 0; y < 16; ++y) {
+            for (uint32_t z = 0; z < 16; ++z) {
+                codes.push_back(Hilbert3D<Bits>::encode(x, y, z));
+            }
+        }
+    }
+
+    // Check all codes are unique
+    std::sort(codes.begin(), codes.end());
+    for (size_t i = 1; i < codes.size(); ++i) {
+        if (codes[i] == codes[i-1]) {
+            std::cout << "FAIL\n    Duplicate code at index " << i << ": " << codes[i] << std::endl;
+            return;
+        }
+    }
+
+    // Check codes span [0, 4095]
+    ASSERT_EQ(codes[0], 0ULL);
+    ASSERT_EQ(codes[4095], 4095ULL);
+
+    PASS();
+}
+
+TEST(test_hilbert3d_decode_roundtrip) {
+    // Test decode(encode(x,y,z)) = (x,y,z) for all 8x8x8 coordinates
+    constexpr unsigned Bits = 3;
+
+    for (uint32_t x = 0; x < 8; ++x) {
+        for (uint32_t y = 0; y < 8; ++y) {
+            for (uint32_t z = 0; z < 8; ++z) {
+                uint64_t code = Hilbert3D<Bits>::encode(x, y, z);
+                uint32_t dx, dy, dz;
+                Hilbert3D<Bits>::decode(code, dx, dy, dz);
+
+                if (dx != x || dy != y || dz != z) {
+                    std::cout << "FAIL\n    Roundtrip failed for (" << x << "," << y << "," << z << ")" << std::endl;
+                    std::cout << "    Code: " << code << ", Decoded: (" << dx << "," << dy << "," << dz << ")" << std::endl;
+                    return;
+                }
+            }
+        }
+    }
+
+    PASS();
+}
+
+TEST(test_hilbert3d_spatial_locality) {
+    // Test that spatially adjacent points have Hilbert codes within reasonable distance
+    // (This verifies the curve has good spatial locality)
+    constexpr unsigned Bits = 4;
+    int locality_violations = 0;
+    int total_tests = 0;
+
+    for (uint32_t x = 1; x < 15; ++x) {
+        for (uint32_t y = 1; y < 15; ++y) {
+            for (uint32_t z = 1; z < 15; ++z) {
+                uint64_t center = Hilbert3D<Bits>::encode(x, y, z);
+
+                // Check 6 face-adjacent neighbors
+                uint64_t neighbors[6] = {
+                    Hilbert3D<Bits>::encode(x-1, y, z),
+                    Hilbert3D<Bits>::encode(x+1, y, z),
+                    Hilbert3D<Bits>::encode(x, y-1, z),
+                    Hilbert3D<Bits>::encode(x, y+1, z),
+                    Hilbert3D<Bits>::encode(x, y, z-1),
+                    Hilbert3D<Bits>::encode(x, y, z+1)
+                };
+
+                // At least some neighbors should be close in Hilbert space
+                int close_neighbors = 0;
+                for (int i = 0; i < 6; ++i) {
+                    int64_t diff = static_cast<int64_t>(neighbors[i]) - static_cast<int64_t>(center);
+                    if (std::abs(diff) <= 64) close_neighbors++;  // Within 64 positions
+                }
+
+                if (close_neighbors < 2) locality_violations++;
+                total_tests++;
+            }
+        }
+    }
+
+    // Allow up to 10% violations (edge effects and curve structure)
+    double violation_rate = 100.0 * locality_violations / total_tests;
+    if (violation_rate > 10.0) {
+        std::cout << "FAIL\n    Locality violation rate: " << std::fixed << std::setprecision(1) << violation_rate << "%" << std::endl;
+        return;
+    }
+
+    std::cout << "OK (locality violations: " << std::fixed << std::setprecision(1) << violation_rate << "%)" << std::endl;
+    tests_passed++;
+}
+
+TEST(test_hilbert3d_lut_performance) {
+    constexpr unsigned Bits = 10;
+    constexpr uint32_t max_coord = (1 << Bits) - 1;
+    constexpr int iterations = 100000;
+
+    std::mt19937 rng(42);
+    std::uniform_int_distribution<uint32_t> dist(0, max_coord);
+
+    std::vector<uint32_t> xs(iterations), ys(iterations), zs(iterations);
+    for (int i = 0; i < iterations; ++i) {
+        xs[i] = dist(rng);
+        ys[i] = dist(rng);
+        zs[i] = dist(rng);
+    }
+
+    // Benchmark LUT encode
+    volatile uint64_t sink = 0;
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < iterations; ++i) {
+        sink ^= Hilbert3D<Bits>::encode(xs[i], ys[i], zs[i]);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+    double lut_ns = std::chrono::duration<double, std::nano>(end - start).count() / iterations;
+
+    // Benchmark reference encode
+    start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < iterations; ++i) {
+        sink ^= Hilbert3D<Bits>::encode_reference(xs[i], ys[i], zs[i]);
+    }
+    end = std::chrono::high_resolution_clock::now();
+    double ref_ns = std::chrono::duration<double, std::nano>(end - start).count() / iterations;
+
+    // Benchmark Morton3D for comparison
+    start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < iterations; ++i) {
+        sink ^= Morton3D<Bits>::encode(xs[i], ys[i], zs[i]);
+    }
+    end = std::chrono::high_resolution_clock::now();
+    double morton_ns = std::chrono::duration<double, std::nano>(end - start).count() / iterations;
+
+    (void)sink;
+
+    std::cout << "\n    Performance Results:" << std::endl;
+    std::cout << "    Hilbert3D LUT:       " << std::fixed << std::setprecision(2) << lut_ns << " ns/op" << std::endl;
+    std::cout << "    Hilbert3D Reference: " << std::fixed << std::setprecision(2) << ref_ns << " ns/op" << std::endl;
+    std::cout << "    Morton3D:            " << std::fixed << std::setprecision(2) << morton_ns << " ns/op" << std::endl;
+    std::cout << "    LUT vs Reference:    " << std::fixed << std::setprecision(1) << (ref_ns / lut_ns) << "x speedup" << std::endl;
+    std::cout << "    LUT vs Morton3D:     " << std::fixed << std::setprecision(1) << (lut_ns / morton_ns) << "x slower" << std::endl;
+
+    tests_passed++;
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 

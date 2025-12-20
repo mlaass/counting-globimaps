@@ -561,6 +561,36 @@ void run_3d_benchmark(size_t n, uint32_t max_coord, unsigned log_blocks) {
     auto insert_data = generate_uniform_3d(n, max_coord, 42);
     auto query_data = generate_uniform_3d(n, max_coord, 123);
 
+    // First, benchmark raw SFC encoding performance
+    {
+        std::cout << "\n--- 3D Space-Filling Curve Encoding Comparison ---\n\n";
+        ankerl::nanobench::Bench bench;
+        bench.performanceCounters(true)
+             .epochs(g_config.epochs)
+             .minEpochIterations(g_config.min_iters)
+             .warmup(g_config.warmup)
+             .relative(true);
+
+        size_t idx = 0;
+        bench.run("Morton3D encode", [&]() {
+            const auto& p = insert_data[idx++ % insert_data.size()];
+            ankerl::nanobench::doNotOptimizeAway(sfc::Morton3D<10>::encode(p.x, p.y, p.z));
+        });
+
+        idx = 0;
+        bench.run("Hilbert3D LUT encode", [&]() {
+            const auto& p = insert_data[idx++ % insert_data.size()];
+            ankerl::nanobench::doNotOptimizeAway(sfc::Hilbert3D<10>::encode(p.x, p.y, p.z));
+        });
+
+        idx = 0;
+        bench.run("Hilbert3D ref encode", [&]() {
+            const auto& p = insert_data[idx++ % insert_data.size()];
+            ankerl::nanobench::doNotOptimizeAway(sfc::Hilbert3D<10>::encode_reference(p.x, p.y, p.z));
+        });
+    }
+
+    // Then, benchmark SBBF operations
     ankerl::nanobench::Bench bench;
     bench.performanceCounters(true)
          .epochs(g_config.epochs)
@@ -569,7 +599,7 @@ void run_3d_benchmark(size_t n, uint32_t max_coord, unsigned log_blocks) {
          .maxEpochTime(std::chrono::milliseconds(g_config.epoch_time_ms))
          .relative(true);
 
-    std::cout << "\nRunning benchmarks with hardware performance counters...\n\n";
+    std::cout << "\n--- SBBF Operations ---\n\n";
 
     benchmark_sbbf_3d<10>(bench, "SBBF-Morton3D", SFCType::MORTON_3D,
                           insert_data, query_data, log_blocks, 4);

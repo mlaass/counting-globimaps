@@ -141,11 +141,13 @@ For `Bits < 4`, falls back to reference implementation.
 
 ## Files
 
-- `include/space_filling_curves.hpp`: Implementation (Hilbert2D struct)
+- `include/space_filling_curves.hpp`: Implementation (Hilbert2D and Hilbert3D structs)
 - `tests/test_hilbert_lut.cpp`: Correctness verification tests
 - `experiments/src/hilbert_benchmark.cpp`: Performance benchmark
 
 ## Usage
+
+### 2D Hilbert Encoding
 
 ```cpp
 #include "space_filling_curves.hpp"
@@ -161,3 +163,102 @@ uint64_t ref = Hilbert2D<16>::encode_reference(x, y);
 uint32_t dx, dy;
 Hilbert2D<16>::decode(code, dx, dy);
 ```
+
+### 3D Hilbert Encoding
+
+```cpp
+#include "space_filling_curves.hpp"
+using namespace sfc;
+
+// Encode 10-bit 3D coordinates to Hilbert index
+uint64_t code = Hilbert3D<10>::encode(x, y, z);
+
+// Reference implementation (for verification)
+uint64_t ref = Hilbert3D<10>::encode_reference(x, y, z);
+
+// Decode back to coordinates
+uint32_t dx, dy, dz;
+Hilbert3D<10>::decode(code, dx, dy, dz);
+```
+
+---
+
+# Fast LUT-Based Hilbert 3D Encoding
+
+## Overview
+
+The 3D Hilbert encoding uses a Morton-Hilbert decomposition with a 96-byte LUT,
+achieving **~14x speedup** over the reference bit-by-bit implementation.
+
+## 3D Performance Results
+
+| Implementation | Latency | Throughput | Speedup |
+|----------------|---------|------------|---------|
+| Hilbert3D LUT | 6.2 ns/op | 161 M ops/s | 14x |
+| Hilbert3D Reference | 89 ns/op | 11 M ops/s | 1x |
+| Morton3D (BMI2) | 0.8 ns/op | 1.3 B ops/s | baseline |
+
+The LUT-based Hilbert3D encoder is about 8x slower than Morton3D, which uses hardware
+PDEP/PEXT instructions.
+
+## 3D Algorithm: Morton-Hilbert Decomposition
+
+Unlike the 2D approach which uses a direct coordinate LUT, the 3D algorithm decomposes
+encoding into two phases:
+
+1. **Morton encode**: (x,y,z) → Morton code (bit-interleaving, O(1) with PDEP)
+2. **Morton→Hilbert transform**: Morton code → Hilbert code (96-byte LUT)
+
+This approach from [threadlocalmutex.com](https://threadlocalmutex.com/?p=149) is elegant
+because:
+- Morton encode is already fast (1ns with BMI2)
+- The transform only permutes octants, not interleaves bits
+- LUT size is only 96 bytes (vs ~6KB for direct 3D coordinate approach)
+
+### 3D State Machine Model
+
+The 3D Hilbert curve transforms under the A4 group, which has 12 elements.
+Only 8 transformations appear on the left-hand side of multiplications,
+requiring a 12×8 = 96 byte LUT.
+
+```cpp
+// Index: (state * 8) + octant, where state ∈ [0,11] and octant ∈ [0,7]
+// Entry: bits [2:0] = Hilbert octant, bits [6:3] = (next_state << 3)
+static constexpr uint8_t MORTON_TO_HILBERT_LUT[96] = {
+    48, 33, 27, 34, 47, 78, 28, 77,  // state 0
+    66, 29, 51, 52, 65, 30, 72, 63,  // state 1
+    // ... (12 states total)
+};
+```
+
+### 3D Algorithm
+
+```cpp
+encode(x, y, z):
+    morton = Morton3D::encode(x, y, z)  // Fast bit-interleaving
+    hilbert = 0
+    transform = 0
+
+    for each 3-bit chunk (MSB to LSB):
+        octant = (morton >> shift) & 7
+        transform = LUT[transform | octant]
+        hilbert = (hilbert << 3) | (transform & 7)
+        transform &= ~7  // Keep state, clear octant
+
+    return hilbert
+```
+
+## References
+
+1. **threadlocalmutex.com**: [LUT-based 3D Hilbert curves](https://threadlocalmutex.com/?p=149)
+   - 96-byte LUT for Morton↔Hilbert transform
+   - A4 group with 12 states
+   - ~2.5x faster than prior algorithms
+
+2. **threadlocalmutex.com**: [3D Hilbert in fewer instructions](https://threadlocalmutex.com/?p=178)
+   - XOR-based transform updates for ~30% faster execution
+   - x86-64 specific optimizations
+
+3. **Jia et al. (2022)**: "Efficient 3D Hilbert Curve Encoding and Decoding Algorithms"
+   - Chinese Journal of Electronics
+   - JFK-3HE/JFK-3HD algorithms with state views

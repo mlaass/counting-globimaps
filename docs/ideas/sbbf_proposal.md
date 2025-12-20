@@ -6,7 +6,7 @@
 
 ## Abstract
 
-Traditional Bloom filters use cryptographic or uniform hash functions to distribute elements across a bit vector, intentionally destroying locality to minimize collisions. However, for 3D voxel data, spatial locality is a feature, not a bug. We propose the Spatial-Blocked Bloom Filter (SBBF). By replacing the standard hash-based block indexing with a Space-Filling Curve (SFC) (e.g., Morton/Z-order or Hilbert), we map 3D coordinates ($x, y, z$) to specific blocks in a contiguous array. This approach maintains cache locality for neighborhood queries, enables efficient SIMD-accelerated probing, and allows for predictive cache preloading during full-volume traversal.
+Traditional Bloom filters use cryptographic or uniform hash functions to distribute elements across a bit vector, intentionally destroying locality to minimize collisions. However, for 3D voxel data, spatial locality is a feature, not a bug. We propose the Spatial-Blocked Bloom Filter (SBBF). By replacing the standard hash-based block indexing with a Space-Filling Curve ($SFC$) (e.g., Morton/Z-order or Hilbert), we map 3D coordinates $(x, y, z)$ to specific blocks in a contiguous array. This approach maintains cache locality for neighborhood queries, enables efficient SIMD-accelerated probing, and allows for predictive cache preloading during full-volume traversal.
 
 ## 2. Architectural Design
 
@@ -123,5 +123,7 @@ struct SpatialBlockedBloomFilter {
 
 - [Putze09] Putze, Sanders, Singler: Cache-, Hash-, and Space-Efficient Bloom Filters. ACM JEA, 2009.
 - [Lang19] Lang et al.: Performance-Optimal Filtering: Bloom Overtakes Cuckoo at High Throughput. PVLDB, 2019.
-- [Hilbert3D] Various: 3D Hilbert Curves for locality-preserving spatial indexing. See summary_3d_hilbert_curves.md.
+- [Chen22] Chen et al.: Efficient Point Cloud Analysis Using Hilbert Curve (HilbertNet). ECCV, 2022.
+- [Jia22] Jia et al.: Efficient 3D Hilbert Curve Encoding and Decoding Algorithms. Chinese J. of Electronics, 2022.
+- [Ujang14] Ujang et al.: 3D Hilbert Space Filling Curves in 3D City Modeling for Faster Spatial Queries. Int. J. 3-D Info. Modeling, 2014.
 - [Morton66] Morton, G. M.: A Computer Oriented Geodetic Data Base and a New Technique in File Sequencing. IBM, 1966.

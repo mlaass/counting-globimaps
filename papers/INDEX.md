@@ -36,6 +36,7 @@ This directory contains research papers related to probabilistic data structures
 | Paper | Authors | Year | Summary |
 |-------|---------|------|---------|
 | **3D Hilbert Curves** (3 papers) | Various | 2014-2022 | [summary_3d_hilbert_curves.md](summary_3d_hilbert_curves.md) |
+| **SIMD Hilbert Curve Transposition** | Alves, Russo, Francisco | 2022 | [simd_sfc/summary_simd_hilbert_transposition.md](simd_sfc/summary_simd_hilbert_transposition.md) |
 
 ---
 
@@ -58,6 +59,7 @@ This directory contains research papers related to probabilistic data structures
 
 ### Spatial Applications
 - [3D Hilbert Curves](summary_3d_hilbert_curves.md) - Locality-preserving spatial indexing
+- [SIMD Hilbert Transposition](simd_sfc/summary_simd_hilbert_transposition.md) - Cache-oblivious SIMD curve generation, 6.90× faster
 
 ---
 
@@ -71,7 +73,7 @@ This directory contains research papers related to probabilistic data structures
 | `variable_increment_bf.hpp` | [Variable-Increment CBF](summary_variable_increment_cbf.md) |
 | `dleft_counting_bf.hpp` | [d-Left CBF](summary_dleft_hashing.md), [Dynamic d-Left](summary_aller2006_dynamic_dleft.md) |
 | `blocked_bloom_filter.hpp` | [Cache-Efficient BF](summary_cache_efficient_bf.md) |
-| `simd_bloom_filter.hpp` | [Cache-Efficient BF](summary_cache_efficient_bf.md), [Performance-Optimal](summary_performance_optimal_filtering.md) |
+| `simd_bloom_filter.hpp` | [Cache-Efficient BF](summary_cache_efficient_bf.md), [Performance-Optimal](summary_performance_optimal_filtering.md), [SIMD Hilbert](simd_sfc/summary_simd_hilbert_transposition.md) |
 
 ---
 
@@ -92,3 +94,6 @@ This directory contains research papers related to probabilistic data structures
 - `136620717.pdf` - HilbertNet (ECCV 2022)
 - `Chinese J of Electronics - 2022 - JIA - Efficient 3D Hilbert Curve...pdf` - JFK-3HE/JFK-3HD
 - `ij3dim.2014040101.pdf` - 3D Hilbert for CityGML
+
+### simd_sfc/
+- `3555353.pdf` - Cache-oblivious Hilbert Curve Transposition (ACM TOMS 2022)

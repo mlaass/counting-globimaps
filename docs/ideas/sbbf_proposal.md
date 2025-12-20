@@ -20,43 +20,48 @@ Where $N$ is the number of blocks. Because SFCs map multidimensional data to 1D 
 
 ### 2.2 Intra-Block Membership
 
-Each block is a Register-Blocked Bloom Filter (typically  register size  or cachline size (usually multiples of 64 bits on modern systems)).
+Each block is a Bloom filter of $B$ bits (typically register size 64 bits, or cache-line size 512 bits). Within each block, $k$ bits are set per element, where $k$ is the number of hash functions.
 
 - **Block Selection:** Determined by the SFC value mapped to the range of available blocks $[0, N-1]$.
-- **Bit Pattern:** Multiple strategies will be explored, inspired by SIMD-optimized Bloom filters [Putze09]:
-  - *Direct derivation:* $m = f(SFC(v)) \pmod{M}$, where $M$ is the register size.
-  - *Precomputed patterns (pat):* Lookup table of k-bit patterns indexed by SFC value, enabling SIMD vectorization.
-  - *Multiplexed patterns (pat[x]):* OR-ing x patterns with k/x bits each for better FPR with smaller tables.
+- **Intra-Block Hashing:** The $k$ bit positions within a block can be derived via multiple strategies, inspired by SIMD-optimized Bloom filters [Putze09, Lang19]:
+  - *Direct derivation:* Generate $k$ positions from SFC bits using double-hashing: $h_i = (h_1 + i \cdot h_2) \mod B$.
+  - *Precomputed patterns (pat):* Lookup table of $\Omega$ precomputed $k$-bit patterns, indexed by SFC value, enabling SIMD vectorization.
+  - *Multiplexed patterns (pat[x]):* OR-ing $x$ patterns with $k/x$ bits each for better FPR with smaller tables.
 
 ### 2.3 Bit-Splitting for Index Derivation
 
 Rather than using modulo operations, we exploit the structure of the SFC value directly by splitting it into disjoint bit ranges. Given an SFC value $s = SFC(x, y, z)$, we partition its bits into two components:
 
-$$s = s_{\text{high}} \cdot 2^b + s_{\text{low}}$$
+$$s = s_{\text{high}} \cdot 2^q + s_{\text{low}}$$
 
-where $b$ is the split point. This yields:
+where $q$ is the split point (number of low bits). This yields:
 
-- **Block index:** $\text{block\_idx} = s_{\text{high}} = \lfloor s / 2^b \rfloor$
-- **Intra-block bits:** $s_{\text{low}} = s \mod 2^b$
+- **Block index:** $\text{block\_idx} = s_{\text{high}} = \lfloor s / 2^q \rfloor$
+- **Intra-block seed:** $s_{\text{low}} = s \mod 2^q$ (used to derive $k$ bit positions)
 
-**Choosing the split point.** For $N$ blocks, we require $\lceil \log_2 N \rceil$ bits to address all blocks. To ensure exact coverage without wasted address space, we constrain:
+**Choosing the split point.** For $N$ blocks, we require $p = \lceil \log_2 N \rceil$ bits to address all blocks. To ensure exact coverage without wasted address space, we constrain:
 
-$$N = 2^k, \quad k \in \mathbb{N}$$
+$$N = 2^p, \quad p \in \mathbb{N}$$
 
-This gives a clean split at bit position $b$, where $b$ determines the intra-block address space. For a block of $M = 2^m$ bits:
+The remaining bits form the intra-block seed. For a block of $B$ bits and $k$ hash functions, we need sufficient bits to derive $k$ independent positions. Using double-hashing [Putze09], we extract two sub-seeds $h_1, h_2$ from $s_{\text{low}}$:
 
-$$b = m, \quad k = \lceil \log_2 N \rceil$$
+$$h_1 = s_{\text{low}} \mod B, \quad h_2 = \lfloor s_{\text{low}} / B \rfloor \mod B$$
+$$\text{bit}_i = (h_1 + i \cdot h_2) \mod B, \quad i \in [1, k]$$
 
-**Example.** With $N = 2^{10} = 1024$ blocks and $M = 64$-bit registers ($m = 6$):
-- Bits $[0, 5]$ → intra-block bit position (6 bits for 64 positions)
-- Bits $[6, 15]$ → block index (10 bits for 1024 blocks)
-- Remaining high bits are unused or can seed additional hash functions
+**Example.** With $N = 2^{10} = 1024$ blocks ($p = 10$) and $B = 64$-bit registers:
+- Low bits $s_{\text{low}}$: at least 12 bits recommended (to derive two 6-bit seeds for $h_1, h_2$)
+- High bits: $p = 10$ bits for block index
+- For a 32-bit SFC value: bits $[0, 11]$ → intra-block hashing, bits $[12, 21]$ → block index
 
-This approach eliminates modulo operations entirely, replacing them with efficient bit shifts and masks:
+This approach eliminates modulo operations for block selection, replacing them with efficient bit shifts and masks:
 
 ```c
-block_idx = sfc >> b;           // Extract high bits
-bit_pos   = sfc & ((1 << b) - 1); // Extract low bits
+block_idx = sfc >> q;                      // Extract high bits
+uint32_t seed = sfc & ((1 << q) - 1);      // Extract low bits
+uint32_t h1 = seed % B;                    // First hash
+uint32_t h2 = (seed / B) % B;              // Second hash
+for (int i = 1; i <= k; i++)
+    set_bit(block[block_idx], (h1 + i * h2) % B);
 ```
 
 ### Conceptual Diagram 3D
@@ -69,10 +74,10 @@ flowchart TB
     V --> SFC
 
     SFC --> Index["Index: SFC(v) % N<br/>Selects Memory Block / Cache Line"]
-    SFC --> Mask["Mask: f(SFC(v)) or pattern lookup<br/>Selects bits within block"]
+    SFC --> Seed["Seed: s_low = SFC(v) mod 2^q<br/>Input for intra-block k-bit hashing"]
 
     Index --> Bi
-    Mask --> Bi
+    Seed --> Bi
 
     subgraph MainArray["Main Array"]
         direction LR
@@ -84,6 +89,25 @@ flowchart TB
     SIMD["SIMD Probing Window<br/>Voxels in neighborhood<br/>share this cache line"]
 
     Bi <-.-> SIMD
+```
+
+### Intra-Block Hashing Detail
+```mermaid
+flowchart LR
+    Seed["s_low (q bits)"]
+
+    subgraph HashDerivation["Hash Derivation (one of)"]
+        direction TB
+        DH["Double-Hashing<br/>h₁, h₂ = split(s_low)<br/>bit_i = (h₁ + i·h₂) mod B"]
+        PAT["Pattern Lookup<br/>pattern = table[s_low mod Ω]"]
+        MUX["Multiplexed<br/>OR x patterns of k/x bits"]
+        DH ~~~ PAT ~~~ MUX
+    end
+
+    Seed --> HashDerivation
+    HashDerivation --> Block
+
+    Block["Block i (B bits)<br/>⬛<br/>⬜<br/>⬛<br/>⬜<br/>⋮<br/>⬛"]
 ```
 
 ## 4. Pseudo-code Implementation

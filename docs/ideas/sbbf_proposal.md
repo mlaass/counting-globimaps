@@ -28,7 +28,36 @@ Each block is a Register-Blocked Bloom Filter (typically  register size  or cach
   - *Precomputed patterns (pat):* Lookup table of k-bit patterns indexed by SFC value, enabling SIMD vectorization.
   - *Multiplexed patterns (pat[x]):* OR-ing x patterns with k/x bits each for better FPR with smaller tables.
 
-### 2.3
+### 2.3 Bit-Splitting for Index Derivation
+
+Rather than using modulo operations, we exploit the structure of the SFC value directly by splitting it into disjoint bit ranges. Given an SFC value $s = SFC(x, y, z)$, we partition its bits into two components:
+
+$$s = s_{\text{high}} \cdot 2^b + s_{\text{low}}$$
+
+where $b$ is the split point. This yields:
+
+- **Block index:** $\text{block\_idx} = s_{\text{high}} = \lfloor s / 2^b \rfloor$
+- **Intra-block bits:** $s_{\text{low}} = s \mod 2^b$
+
+**Choosing the split point.** For $N$ blocks, we require $\lceil \log_2 N \rceil$ bits to address all blocks. To ensure exact coverage without wasted address space, we constrain:
+
+$$N = 2^k, \quad k \in \mathbb{N}$$
+
+This gives a clean split at bit position $b$, where $b$ determines the intra-block address space. For a block of $M = 2^m$ bits:
+
+$$b = m, \quad k = \lceil \log_2 N \rceil$$
+
+**Example.** With $N = 2^{10} = 1024$ blocks and $M = 64$-bit registers ($m = 6$):
+- Bits $[0, 5]$ → intra-block bit position (6 bits for 64 positions)
+- Bits $[6, 15]$ → block index (10 bits for 1024 blocks)
+- Remaining high bits are unused or can seed additional hash functions
+
+This approach eliminates modulo operations entirely, replacing them with efficient bit shifts and masks:
+
+```c
+block_idx = sfc >> b;           // Extract high bits
+bit_pos   = sfc & ((1 << b) - 1); // Extract low bits
+```
 
 ### Conceptual Diagram 3D
 ```mermaid

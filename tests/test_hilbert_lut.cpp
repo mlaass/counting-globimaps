@@ -701,6 +701,143 @@ TEST(test_hilbert3d_lut_performance) {
 }
 
 // ============================================================================
+// Hilbert3D Neighborhood Tests
+// ============================================================================
+
+TEST(test_hilbert3d_neighborhood_correctness) {
+    // Test that batch encoding matches individual encodes
+    constexpr unsigned Bits = 6;  // 64x64x64 grid
+
+    int mismatches = 0;
+    int same_block_count = 0;
+    int boundary_count = 0;
+
+    // Test a sample of positions including same-block and boundary cases
+    for (uint32_t z = 1; z < 62; z += 7) {
+        for (uint32_t y = 1; y < 62; y += 7) {
+            for (uint32_t x = 1; x < 62; x += 7) {
+                bool same_block = (x & 1) && (y & 1) && (z & 1);
+                if (same_block) same_block_count++;
+                else boundary_count++;
+
+                uint64_t batch_codes[27];
+                Hilbert3D<Bits>::encode_neighborhood_3d(x, y, z, batch_codes);
+
+                // Compare with individual encodes
+                int idx = 0;
+                for (int dz = -1; dz <= 1; ++dz) {
+                    for (int dy = -1; dy <= 1; ++dy) {
+                        for (int dx = -1; dx <= 1; ++dx) {
+                            uint64_t expected = Hilbert3D<Bits>::encode(x + dx, y + dy, z + dz);
+                            if (batch_codes[idx] != expected) {
+                                if (mismatches < 5) {
+                                    std::cout << "\n    Mismatch at (" << x << "," << y << "," << z << ") + ("
+                                              << dx << "," << dy << "," << dz << "): "
+                                              << "batch=" << batch_codes[idx] << ", expected=" << expected;
+                                }
+                                mismatches++;
+                            }
+                            idx++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (mismatches > 0) {
+        std::cout << "\nFAIL\n    " << mismatches << " mismatches found" << std::endl;
+        return;
+    }
+
+    std::cout << "OK (same_block=" << same_block_count << ", boundary=" << boundary_count << ")" << std::endl;
+    tests_passed++;
+}
+
+TEST(test_hilbert3d_neighborhood_exhaustive_small) {
+    // Exhaustive test for 8x8x8 grid
+    constexpr unsigned Bits = 3;
+    int mismatches = 0;
+
+    for (uint32_t z = 1; z < 7; ++z) {
+        for (uint32_t y = 1; y < 7; ++y) {
+            for (uint32_t x = 1; x < 7; ++x) {
+                uint64_t batch_codes[27];
+                Hilbert3D<Bits>::encode_neighborhood_3d(x, y, z, batch_codes);
+
+                int idx = 0;
+                for (int dz = -1; dz <= 1; ++dz) {
+                    for (int dy = -1; dy <= 1; ++dy) {
+                        for (int dx = -1; dx <= 1; ++dx) {
+                            uint64_t expected = Hilbert3D<Bits>::encode(x + dx, y + dy, z + dz);
+                            if (batch_codes[idx] != expected) {
+                                mismatches++;
+                            }
+                            idx++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    ASSERT_EQ(mismatches, 0);
+    PASS();
+}
+
+TEST(test_hilbert3d_neighborhood_performance) {
+    constexpr unsigned Bits = 10;
+    constexpr uint32_t max_coord = (1 << Bits) - 2;  // Avoid boundaries
+    constexpr int iterations = 50000;
+
+    std::mt19937 rng(42);
+    std::uniform_int_distribution<uint32_t> dist(1, max_coord);
+
+    std::vector<uint32_t> xs(iterations), ys(iterations), zs(iterations);
+    for (int i = 0; i < iterations; ++i) {
+        xs[i] = dist(rng);
+        ys[i] = dist(rng);
+        zs[i] = dist(rng);
+    }
+
+    // Benchmark batch encoding
+    volatile uint64_t sink = 0;
+    uint64_t codes[27];
+
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < iterations; ++i) {
+        Hilbert3D<Bits>::encode_neighborhood_3d(xs[i], ys[i], zs[i], codes);
+        sink ^= codes[13];
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+    double batch_ns = std::chrono::duration<double, std::nano>(end - start).count() / iterations;
+
+    // Benchmark individual encodes
+    start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < iterations; ++i) {
+        uint32_t x = xs[i], y = ys[i], z = zs[i];
+        for (int dz = -1; dz <= 1; ++dz) {
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dx = -1; dx <= 1; ++dx) {
+                    sink ^= Hilbert3D<Bits>::encode(x + dx, y + dy, z + dz);
+                }
+            }
+        }
+    }
+    end = std::chrono::high_resolution_clock::now();
+    double individual_ns = std::chrono::duration<double, std::nano>(end - start).count() / iterations;
+
+    (void)sink;
+
+    std::cout << "\n    3D Neighborhood Encoding Performance:" << std::endl;
+    std::cout << "    Batch (27 codes):      " << std::fixed << std::setprecision(2) << batch_ns << " ns" << std::endl;
+    std::cout << "    Individual (27 calls): " << std::fixed << std::setprecision(2) << individual_ns << " ns" << std::endl;
+    std::cout << "    Speedup:               " << std::fixed << std::setprecision(2) << (individual_ns / batch_ns) << "x" << std::endl;
+
+    tests_passed++;
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 

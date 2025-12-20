@@ -345,6 +345,15 @@ public:
      */
     unsigned query_neighborhood_3D(uint32_t x, uint32_t y, uint32_t z,
                                    bool full_26_connected = false) const {
+        // Use optimized batch encoding for 26-connected Hilbert3D
+        if (full_26_connected && config.sfc_type == SFCType::HILBERT_3D &&
+            x > 0 && y > 0 && z > 0 &&
+            x < sfc::Hilbert3D<SFCBits>::max_coord &&
+            y < sfc::Hilbert3D<SFCBits>::max_coord &&
+            z < sfc::Hilbert3D<SFCBits>::max_coord) {
+            return query_neighborhood_3D_hilbert_batch(x, y, z);
+        }
+
         unsigned count = 0;
 
         // 6-connected: face neighbors
@@ -386,6 +395,30 @@ public:
         }
         return count;
     }
+
+private:
+    /// Optimized 26-connected 3D neighborhood query using batch Hilbert encoding
+    unsigned query_neighborhood_3D_hilbert_batch(uint32_t x, uint32_t y, uint32_t z) const {
+        uint64_t codes[27];
+        sfc::Hilbert3D<SFCBits>::encode_neighborhood_3d(x, y, z, codes);
+
+        unsigned count = 0;
+        // Check all 27 codes, skip center (index 13)
+        for (unsigned i = 0; i < 27; ++i) {
+            if (i == 13) continue;  // Skip center
+
+            uint64_t block_idx, seed;
+            compute_location(codes[i], block_idx, seed);
+            uint64_t mask = construct_mask(seed);
+
+            if ((blocks_[block_idx] & mask) == mask) {
+                ++count;
+            }
+        }
+        return count;
+    }
+
+public:
 
     /// Check if any neighbor exists (faster than full neighborhood query)
     bool has_any_neighbor_2D(uint32_t x, uint32_t y, unsigned radius = 1) const {

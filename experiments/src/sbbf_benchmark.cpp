@@ -237,12 +237,13 @@ void benchmark_sbbf_2d(ankerl::nanobench::Bench& bench,
     result.query_ins = static_cast<uint64_t>(query_res.median(ankerl::nanobench::Result::Measure::instructions));
     result.query_cyc = static_cast<uint64_t>(query_res.median(ankerl::nanobench::Result::Measure::cpucycles));
 
-    // Neighborhood query benchmark
+    // Neighborhood query benchmark (8 neighbors, excluding center)
     size_t nbr_idx = 0;
-    bench.run(name + " neighbor", [&]() {
+    bench.batch(8).run(name + " neighbor", [&]() {
         const auto& p = insert_data[nbr_idx++ % insert_data.size()];
         ankerl::nanobench::doNotOptimizeAway(filter.query_neighborhood_2D(p.x, p.y, 1));
     });
+    bench.batch(1);
     auto& nbr_res = bench.results().back();
     result.neighbor_ns = nbr_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
 
@@ -303,12 +304,13 @@ void benchmark_sbbf_3d(ankerl::nanobench::Bench& bench,
     result.query_ins = static_cast<uint64_t>(query_res.median(ankerl::nanobench::Result::Measure::instructions));
     result.query_cyc = static_cast<uint64_t>(query_res.median(ankerl::nanobench::Result::Measure::cpucycles));
 
-    // Neighborhood query
+    // Neighborhood query (26-connected for batch optimization with Hilbert3D)
     size_t nbr_idx = 0;
-    bench.run(name + " neighbor", [&]() {
+    bench.batch(26).run(name + " neighbor", [&]() {
         const auto& p = insert_data[nbr_idx++ % insert_data.size()];
-        ankerl::nanobench::doNotOptimizeAway(filter.query_neighborhood_3D(p.x, p.y, p.z, false));
+        ankerl::nanobench::doNotOptimizeAway(filter.query_neighborhood_3D(p.x, p.y, p.z, true));
     });
+    bench.batch(1);
     auto& nbr_res = bench.results().back();
     result.neighbor_ns = nbr_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
 
@@ -447,6 +449,154 @@ void benchmark_register_bf_2d(ankerl::nanobench::Bench& bench,
     size_t false_positives = 0;
     for (const auto& p : query_data) {
         if (filter.get_bool({static_cast<uint64_t>(p.x), static_cast<uint64_t>(p.y)}))
+            ++false_positives;
+    }
+    result.fpr = static_cast<double>(false_positives) / query_data.size();
+
+    g_results.push_back(result);
+}
+
+void benchmark_blocked_bf_3d(ankerl::nanobench::Bench& bench,
+                              const std::vector<Point3D>& insert_data,
+                              const std::vector<Point3D>& query_data,
+                              size_t expected_items, double target_fpr) {
+    BlockedBFConfig conf{expected_items, target_fpr};
+    BlockedBloomFilter filter(conf);
+    BenchResult result;
+    result.name = "BlockedBF";
+    result.memory = filter.memory_usage();
+
+    // Insert
+    size_t insert_idx = 0;
+    bench.run("BlockedBF insert", [&]() {
+        const auto& p = insert_data[insert_idx++ % insert_data.size()];
+        filter.put({static_cast<uint64_t>(p.x), static_cast<uint64_t>(p.y),
+                    static_cast<uint64_t>(p.z)});
+    });
+    auto& insert_res = bench.results().back();
+    result.insert_ns = insert_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+    result.insert_ins = static_cast<uint64_t>(insert_res.median(ankerl::nanobench::Result::Measure::instructions));
+    result.insert_cyc = static_cast<uint64_t>(insert_res.median(ankerl::nanobench::Result::Measure::cpucycles));
+
+    // Reset and fill
+    filter.clear();
+    for (const auto& p : insert_data) {
+        filter.put({static_cast<uint64_t>(p.x), static_cast<uint64_t>(p.y),
+                    static_cast<uint64_t>(p.z)});
+    }
+
+    // Query
+    size_t query_idx = 0;
+    bench.run("BlockedBF query", [&]() {
+        const auto& p = insert_data[query_idx++ % insert_data.size()];
+        ankerl::nanobench::doNotOptimizeAway(
+            filter.get_bool({static_cast<uint64_t>(p.x), static_cast<uint64_t>(p.y),
+                             static_cast<uint64_t>(p.z)}));
+    });
+    auto& query_res = bench.results().back();
+    result.query_ns = query_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+    result.query_ins = static_cast<uint64_t>(query_res.median(ankerl::nanobench::Result::Measure::instructions));
+    result.query_cyc = static_cast<uint64_t>(query_res.median(ankerl::nanobench::Result::Measure::cpucycles));
+
+    // Neighborhood (3x3x3 - 1 = 26 neighbors, excluding center)
+    size_t nbr_idx = 0;
+    bench.batch(26).run("BlockedBF neighbor", [&]() {
+        const auto& p = insert_data[nbr_idx++ % insert_data.size()];
+        for (int dz = -1; dz <= 1; ++dz) {
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dx = -1; dx <= 1; ++dx) {
+                    if (dx == 0 && dy == 0 && dz == 0) continue;
+                    ankerl::nanobench::doNotOptimizeAway(
+                        filter.get_bool({static_cast<uint64_t>(p.x + dx),
+                                         static_cast<uint64_t>(p.y + dy),
+                                         static_cast<uint64_t>(p.z + dz)}));
+                }
+            }
+        }
+    });
+    bench.batch(1);
+    auto& nbr_res = bench.results().back();
+    result.neighbor_ns = nbr_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+
+    // FPR
+    size_t false_positives = 0;
+    for (const auto& p : query_data) {
+        if (filter.get_bool({static_cast<uint64_t>(p.x), static_cast<uint64_t>(p.y),
+                             static_cast<uint64_t>(p.z)}))
+            ++false_positives;
+    }
+    result.fpr = static_cast<double>(false_positives) / query_data.size();
+
+    g_results.push_back(result);
+}
+
+void benchmark_register_bf_3d(ankerl::nanobench::Bench& bench,
+                               const std::vector<Point3D>& insert_data,
+                               const std::vector<Point3D>& query_data,
+                               size_t expected_items, double target_fpr) {
+    RegisterBlockedBFConfig conf{expected_items, target_fpr, 0};
+    RegisterBlockedBloomFilter<0> filter(conf);
+    BenchResult result;
+    result.name = "RegisterBF";
+    result.memory = filter.memory_usage();
+
+    // Insert
+    size_t insert_idx = 0;
+    bench.run("RegisterBF insert", [&]() {
+        const auto& p = insert_data[insert_idx++ % insert_data.size()];
+        filter.put({static_cast<uint64_t>(p.x), static_cast<uint64_t>(p.y),
+                    static_cast<uint64_t>(p.z)});
+    });
+    auto& insert_res = bench.results().back();
+    result.insert_ns = insert_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+    result.insert_ins = static_cast<uint64_t>(insert_res.median(ankerl::nanobench::Result::Measure::instructions));
+    result.insert_cyc = static_cast<uint64_t>(insert_res.median(ankerl::nanobench::Result::Measure::cpucycles));
+
+    // Reset and fill
+    filter.clear();
+    for (const auto& p : insert_data) {
+        filter.put({static_cast<uint64_t>(p.x), static_cast<uint64_t>(p.y),
+                    static_cast<uint64_t>(p.z)});
+    }
+
+    // Query
+    size_t query_idx = 0;
+    bench.run("RegisterBF query", [&]() {
+        const auto& p = insert_data[query_idx++ % insert_data.size()];
+        ankerl::nanobench::doNotOptimizeAway(
+            filter.get_bool({static_cast<uint64_t>(p.x), static_cast<uint64_t>(p.y),
+                             static_cast<uint64_t>(p.z)}));
+    });
+    auto& query_res = bench.results().back();
+    result.query_ns = query_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+    result.query_ins = static_cast<uint64_t>(query_res.median(ankerl::nanobench::Result::Measure::instructions));
+    result.query_cyc = static_cast<uint64_t>(query_res.median(ankerl::nanobench::Result::Measure::cpucycles));
+
+    // Neighborhood (3x3x3 - 1 = 26 neighbors, excluding center)
+    size_t nbr_idx = 0;
+    bench.batch(26).run("RegisterBF neighbor", [&]() {
+        const auto& p = insert_data[nbr_idx++ % insert_data.size()];
+        for (int dz = -1; dz <= 1; ++dz) {
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dx = -1; dx <= 1; ++dx) {
+                    if (dx == 0 && dy == 0 && dz == 0) continue;
+                    ankerl::nanobench::doNotOptimizeAway(
+                        filter.get_bool({static_cast<uint64_t>(p.x + dx),
+                                         static_cast<uint64_t>(p.y + dy),
+                                         static_cast<uint64_t>(p.z + dz)}));
+                }
+            }
+        }
+    });
+    bench.batch(1);
+    auto& nbr_res = bench.results().back();
+    result.neighbor_ns = nbr_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+
+    // FPR
+    size_t false_positives = 0;
+    for (const auto& p : query_data) {
+        if (filter.get_bool({static_cast<uint64_t>(p.x), static_cast<uint64_t>(p.y),
+                             static_cast<uint64_t>(p.z)}))
             ++false_positives;
     }
     result.fpr = static_cast<double>(false_positives) / query_data.size();
@@ -606,6 +756,11 @@ void run_3d_benchmark(size_t n, uint32_t max_coord, unsigned log_blocks) {
 
     benchmark_sbbf_3d<10>(bench, "SBBF-Hilbert3D", SFCType::HILBERT_3D,
                           insert_data, query_data, log_blocks, 4);
+
+    std::cout << "\n--- Baseline Bloom Filters ---\n\n";
+
+    benchmark_blocked_bf_3d(bench, insert_data, query_data, n, 0.01);
+    benchmark_register_bf_3d(bench, insert_data, query_data, n, 0.01);
 
     print_summary_table();
 }

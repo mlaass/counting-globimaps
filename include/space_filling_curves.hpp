@@ -772,6 +772,140 @@ public:
     }
 
     /**
+     * Batch encode a 3×3×3 neighborhood around (x, y, z).
+     * Optimized for the common case where all 27 points share upper transform state.
+     *
+     * @param x Center x coordinate
+     * @param y Center y coordinate
+     * @param z Center z coordinate
+     * @param codes Output array of 27 Hilbert codes in z-major order:
+     *              [0-8] = z-1 plane, [9-17] = z plane, [18-26] = z+1 plane
+     *              Within each plane: row-major (y varies, then x)
+     *              Center point is at index 13.
+     */
+    static inline void encode_neighborhood_3d(uint32_t x, uint32_t y, uint32_t z,
+                                               uint64_t codes[27]) {
+        // Check if all 27 points share the same upper Morton bits (upper 24 bits).
+        // This happens when all of x-1,x,x+1 and y-1,y,y+1 and z-1,z,z+1 have same upper bits.
+        // For coordinates: (coord & 3) must be 1 or 2 (middle of 4-block, no carry/borrow to bit 2)
+        // Covers (2/4)³ = 12.5% of positions
+        bool same_block = ((x & 3) >= 1 && (x & 3) <= 2) &&
+                          ((y & 3) >= 1 && (y & 3) <= 2) &&
+                          ((z & 3) >= 1 && (z & 3) <= 2);
+
+        if (same_block) {
+            encode_neighborhood_3d_same_block(x, y, z, codes);
+        } else {
+            encode_neighborhood_3d_boundary(x, y, z, codes);
+        }
+    }
+
+private:
+    /**
+     * Helper: Transform Morton code to Hilbert, processing upper iterations only.
+     * Processes iterations from bit position 3*(Bits-1) down to stop_bit (exclusive).
+     * Returns the intermediate Hilbert prefix and transform state.
+     */
+    static inline void transform_upper_chunks(uint64_t morton, int stop_bit,
+                                               uint64_t& prefix, uint32_t& state) {
+        prefix = 0;
+        state = 0;
+
+        for (int i = 3 * (static_cast<int>(Bits) - 1); i >= stop_bit; i -= 3) {
+            state = MORTON_TO_HILBERT_LUT[state | ((morton >> i) & 7)];
+            prefix = (prefix << 3) | (state & 7);
+            state &= ~7U;
+        }
+    }
+
+    /**
+     * Helper: Complete the transform for remaining iterations.
+     */
+    static inline uint64_t transform_final_chunks(uint64_t morton, int stop_bit,
+                                                   uint64_t prefix, uint32_t state) {
+        for (int i = stop_bit - 3; i >= 0; i -= 3) {
+            state = MORTON_TO_HILBERT_LUT[state | ((morton >> i) & 7)];
+            prefix = (prefix << 3) | (state & 7);
+            state &= ~7U;
+        }
+        return prefix;
+    }
+
+    /**
+     * Fast path: all 27 neighbors share the same upper transform state.
+     * Shares first (Bits-2) iterations, does 2 final iterations per neighbor.
+     */
+    static inline void encode_neighborhood_3d_same_block(uint32_t x, uint32_t y, uint32_t z,
+                                                          uint64_t codes[27]) {
+        // Compute center's Morton code and upper transform (first Bits-2 iterations)
+        uint64_t morton_center = Morton3D<Bits>::encode(x, y, z);
+        uint64_t prefix;
+        uint32_t state;
+        // Stop at bit 6 (2 remaining iterations for bits 5:3 and 2:0)
+        transform_upper_chunks(morton_center, 6, prefix, state);
+
+        // Process all 27 neighbors - only final 2 chunks (6 bits) differ
+        int idx = 0;
+        for (int dz = -1; dz <= 1; ++dz) {
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dx = -1; dx <= 1; ++dx) {
+                    uint64_t morton = Morton3D<Bits>::encode(x + dx, y + dy, z + dz);
+
+                    // Final 2 transform iterations
+                    codes[idx++] = transform_final_chunks(morton, 6, prefix, state);
+                }
+            }
+        }
+    }
+
+    /**
+     * Boundary path: neighbors may span different transform prefixes.
+     * Group by upper Morton bits to minimize redundant prefix computations.
+     */
+    static inline void encode_neighborhood_3d_boundary(uint32_t x, uint32_t y, uint32_t z,
+                                                        uint64_t codes[27]) {
+        // Compute prefixes for up to 8 different upper Morton groups
+        // Groups are indexed by (dz_cross << 2) | (dy_cross << 1) | dx_cross
+        // where d*_cross indicates whether neighbor has different upper coord bits
+        uint64_t prefixes[8];
+        uint32_t states[8];
+        bool computed[8] = {false};
+
+        int idx = 0;
+        for (int dz = -1; dz <= 1; ++dz) {
+            uint32_t nz = z + dz;
+
+            for (int dy = -1; dy <= 1; ++dy) {
+                uint32_t ny = y + dy;
+
+                for (int dx = -1; dx <= 1; ++dx) {
+                    uint32_t nx = x + dx;
+
+                    // Compute Morton code
+                    uint64_t morton = Morton3D<Bits>::encode(nx, ny, nz);
+
+                    // Find or compute the prefix for this group
+                    // Group by upper coordinate bits (bit 1 and above)
+                    int group = 0;
+                    if ((nx >> 2) != (x >> 2)) group |= 1;
+                    if ((ny >> 2) != (y >> 2)) group |= 2;
+                    if ((nz >> 2) != (z >> 2)) group |= 4;
+
+                    if (!computed[group]) {
+                        // Share first (Bits-2) iterations
+                        transform_upper_chunks(morton, 6, prefixes[group], states[group]);
+                        computed[group] = true;
+                    }
+
+                    // Final 2 transform iterations
+                    codes[idx++] = transform_final_chunks(morton, 6, prefixes[group], states[group]);
+                }
+            }
+        }
+    }
+
+public:
+    /**
      * Decode 3D Hilbert code to (x, y, z) using LUT-based Hilbert→Morton transform.
      */
     static inline void decode(uint64_t hilbert, uint32_t &x, uint32_t &y, uint32_t &z) {

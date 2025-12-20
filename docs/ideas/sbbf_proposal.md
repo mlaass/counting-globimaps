@@ -32,34 +32,42 @@ Each block is a Bloom filter of $B$ bits (typically register size 64 bits, or ca
 
 Rather than using modulo operations, we exploit the structure of the SFC value directly by splitting it into disjoint bit ranges. Given an SFC value $s = SFC(x, y, z)$, we partition its bits into two components:
 
-$$s = s_{\text{high}} \cdot 2^q + s_{\text{low}}$$
+$$s = s_{\text{high}} \cdot 2^p + s_{\text{low}}$$
 
-where $q$ is the split point (number of low bits). This yields:
+where $p$ is the number of low bits used for block indexing. **Crucially, we use low bits for block selection and high bits for the bit mask:**
 
-- **Block index:** $\text{block\_idx} = s_{\text{high}} = \lfloor s / 2^q \rfloor$
-- **Intra-block seed:** $s_{\text{low}} = s \mod 2^q$ (used to derive $k$ bit positions)
+- **Block index:** $\text{block\_idx} = s_{\text{low}} = s \mod 2^p$
+- **Bit mask seed:** $s_{\text{high}} = \lfloor s / 2^p \rfloor$ (used to derive $k$ bit positions)
 
-**Choosing the split point.** For $N$ blocks, we require $p = \lceil \log_2 N \rceil$ bits to address all blocks. To ensure exact coverage without wasted address space, we constrain:
+**Why low bits for block index?** The low-order bits of an SFC (like Morton/Z-curve) change with every unit step in 3D space. This means spatial neighbors map to $Block_i, Block_{i+1}, \dots$, enabling the CPU to leverage L1/L2 prefetching during neighborhood searches and volume traversals.
+
+**Why high bits for bit mask?** The high-order bits represent coarse regional volumes. Using them as a "structural signature" prevents local clusters from saturating a single bit index — spatially close voxels share the same block but have different bit patterns.
+
+**Choosing the split point.** For $N = 2^p$ blocks, we use $p$ low bits for block indexing:
 
 $$N = 2^p, \quad p \in \mathbb{N}$$
 
-The remaining bits form the intra-block seed. For a block of $B$ bits and $k$ hash functions, we need sufficient bits to derive $k$ independent positions. Using double-hashing [Putze09], we extract two sub-seeds $h_1, h_2$ from $s_{\text{low}}$:
+The remaining high bits form the bit mask seed. For a block of $B$ bits and $k$ hash functions:
 
-$$h_1 = s_{\text{low}} \mod B, \quad h_2 = \lfloor s_{\text{low}} / B \rfloor \mod B$$
+$$\text{mask} = f(s_{\text{high}}) \pmod{B}$$
+
+Or using double-hashing to derive $k$ positions from the high bits:
+
+$$h_1 = s_{\text{high}} \mod B, \quad h_2 = \lfloor s_{\text{high}} / B \rfloor \mod B$$
 $$\text{bit}_i = (h_1 + i \cdot h_2) \mod B, \quad i \in [1, k]$$
 
 **Example.** With $N = 2^{10} = 1024$ blocks ($p = 10$) and $B = 64$-bit registers:
-- Low bits $s_{\text{low}}$: at least 12 bits recommended (to derive two 6-bit seeds for $h_1, h_2$)
-- High bits: $p = 10$ bits for block index
-- For a 32-bit SFC value: bits $[0, 11]$ → intra-block hashing, bits $[12, 21]$ → block index
+- Low bits: $p = 10$ bits for block index (sequential memory access)
+- High bits: remaining bits for bit mask derivation (regional signature)
+- For a 32-bit SFC value: bits $[0, 9]$ → block index, bits $[10, 31]$ → bit mask seed
 
-This approach eliminates modulo operations for block selection, replacing them with efficient bit shifts and masks:
+This approach ensures linear memory walks through 3D space:
 
 ```c
-block_idx = sfc >> q;                      // Extract high bits
-uint32_t seed = sfc & ((1 << q) - 1);      // Extract low bits
-uint32_t h1 = seed % B;                    // First hash
-uint32_t h2 = (seed / B) % B;              // Second hash
+block_idx = sfc & ((1 << p) - 1);          // Extract low bits → block index
+uint32_t coarse = sfc >> p;                // Extract high bits → mask seed
+uint32_t h1 = coarse % B;                  // First hash
+uint32_t h2 = (coarse / B) % B;            // Second hash
 for (int i = 1; i <= k; i++)
     set_bit(block[block_idx], (h1 + i * h2) % B);
 ```
@@ -73,11 +81,11 @@ flowchart TB
 
     V --> SFC
 
-    SFC --> Index["Index: SFC(v) % N<br/>Selects Memory Block / Cache Line"]
-    SFC --> Seed["Seed: s_low = SFC(v) mod 2^q<br/>Input for intra-block k-bit hashing"]
+    SFC --> Index["Low Bits: s & (N-1)<br/>Block Index (sequential access)"]
+    SFC --> Mask["High Bits: s >> p<br/>Bit Mask Seed (regional signature)"]
 
     Index --> Bi
-    Seed --> Bi
+    Mask --> Bi
 
     subgraph MainArray["Main Array"]
         direction LR
@@ -86,7 +94,7 @@ flowchart TB
         BN["Block N"]
     end
 
-    SIMD["SIMD Probing Window<br/>Voxels in neighborhood<br/>share this cache line"]
+    SIMD["SIMD Probing Window<br/>Sequential SFC traversal<br/>enables hardware prefetching"]
 
     Bi <-.-> SIMD
 ```
@@ -94,12 +102,12 @@ flowchart TB
 ### Intra-Block Hashing Detail
 ```mermaid
 flowchart LR
-    Seed["s_low (q bits)"]
+    Seed["s_high (high bits)<br/>Regional signature"]
 
     subgraph HashDerivation["Hash Derivation (one of)"]
         direction TB
-        DH["Double-Hashing<br/>h₁, h₂ = split(s_low)<br/>bit_i = (h₁ + i·h₂) mod B"]
-        PAT["Pattern Lookup<br/>pattern = table[s_low mod Ω]"]
+        DH["Double-Hashing<br/>h₁, h₂ = split(s_high)<br/>bit_i = (h₁ + i·h₂) mod B"]
+        PAT["Pattern Lookup<br/>pattern = table[s_high mod Ω]"]
         MUX["Multiplexed<br/>OR x patterns of k/x bits"]
         DH ~~~ PAT ~~~ MUX
     end
@@ -114,23 +122,31 @@ flowchart LR
 
 ```C
 struct SpatialBlockedBloomFilter {
-    uint64_t* blocks;
-    size_t num_blocks;
+    uint64_t* blocks;      // Array of N blocks, each B bits
+    size_t N;              // Number of blocks (must be 2^p)
+    int p;                 // log2(N) - bits for block index
+    int k;                 // Number of hash functions per element
+    int B;                 // Block size in bits (e.g., 64)
 
-    // Maps 3D coordinates to a 1D curve value
-    uint64_t GetSFCValue(int x, int y, int z) {
-        return MortonCode3D(x, y, z); // or Hilbert
+    uint64_t GetSFCValue<SFC>(int x, int y, int z) {
+        return SFC(x, y, z);  // Morton or Hilbert
     }
 
-    // Identify the block and the internal bit mask
+    // Derive block index (low bits) and k bit positions (from high bits)
     void GetLocation(uint64_t sfc, uint64_t& block_idx, uint64_t& mask) {
-        // Use modulo for generalized indexing when N is not a power of 2
-        block_idx = sfc % num_blocks;
+        // Low bits → block index (sequential memory access)
+        block_idx = sfc & (N - 1);
 
-        // Derive bit position. Using a permutation or shift
-        // helps decorrelate the block index from the bit mask.
-        uint64_t internal_pos = (sfc >> 10) % 64;
-        mask = (1ULL << internal_pos);
+        // High bits → regional signature for k-bit mask
+        uint64_t coarse = sfc >> p;
+        uint64_t h1 = coarse % B;
+        uint64_t h2 = (coarse / B) % B;
+        if (h2 == 0) h2 = 1;  // Ensure h2 != 0 for double-hashing
+
+        mask = 0;
+        for (int i = 1; i <= k; i++) {
+            mask |= (1ULL << ((h1 + i * h2) % B));
+        }
     }
 
     void Insert(int x, int y, int z) {
@@ -147,18 +163,17 @@ struct SpatialBlockedBloomFilter {
         return (blocks[idx] & mask) == mask;
     }
 
-    // Neighborhood Query: Optimized for locality
-    bool QueryNeighborhood(int x, int y, int z) {
-        uint64_t center_sfc = GetSFCValue(x, y, z);
-        uint64_t idx = center_sfc % num_blocks;
-
-        // Pre-fetch the block once for all neighbors
-        uint64_t cached_block = blocks[idx];
-
-        // Check neighbors (simplified logic)
-        // Many will resolve to the same 'cached_block'
-        // resulting in 0 additional cache misses.
-        ...
+    // Streaming traversal: iterate in SFC order for sequential block access
+    void StreamingScan(size_t max_sfc) {
+        for (uint64_t sfc = 0; sfc < max_sfc; ++sfc) {
+            uint64_t idx, mask;
+            GetLocation(sfc, idx, mask);
+            // Sequential sfc values → sequential block indices
+            // Hardware prefetcher loads blocks[idx+1], blocks[idx+2], ...
+            if ((blocks[idx] & mask) == mask) {
+                EmitCandidate(sfc);
+            }
+        }
     }
 };
 ```

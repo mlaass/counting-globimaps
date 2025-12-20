@@ -226,4 +226,16 @@ target_link_libraries(sbbf_benchmark
 PUBLIC OpenMP::OpenMP_CXX
 )
 
+# Hilbert LUT verification tests
+add_executable(test_hilbert_lut tests/test_hilbert_lut.cpp)
+target_link_libraries(test_hilbert_lut
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+# Hilbert performance benchmark
+add_executable(hilbert_benchmark experiments/src/hilbert_benchmark.cpp)
+target_link_libraries(hilbert_benchmark
+PUBLIC OpenMP::OpenMP_CXX
+)
+
 endif()

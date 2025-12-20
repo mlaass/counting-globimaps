@@ -29,6 +29,17 @@
 #define SFC_HAS_BMI2 0
 #endif
 
+// Detect AVX2 support for SIMD operations
+// Define SFC_FORCE_SCALAR=1 to disable SIMD even when available
+#if defined(__AVX2__) && defined(__x86_64__) && !defined(SFC_FORCE_SCALAR)
+#define SFC_HAS_AVX2 1
+#ifndef SFC_HAS_BMI2
+#include <immintrin.h>
+#endif
+#else
+#define SFC_HAS_AVX2 0
+#endif
+
 namespace sfc {
 
 // ============================================================================
@@ -380,7 +391,256 @@ public:
         }
     }
 
+    /**
+     * Encode all chunks except the last one.
+     * Returns the code prefix and the state after processing upper chunks.
+     * Used for batch neighborhood encoding optimization.
+     */
+    static inline void encode_upper_chunks(uint32_t x, uint32_t y,
+                                            uint64_t& prefix, uint8_t& state_out) {
+        if constexpr (Bits < 4) {
+            prefix = 0;
+            state_out = 0;
+            return;
+        }
+
+        const auto& lut = get_lut().data;
+        uint64_t code = 0;
+        uint8_t state = 0;
+
+        // Process all chunks except the last one
+        constexpr unsigned chunks = Bits / 4;
+        constexpr unsigned upper_chunks = chunks > 1 ? chunks - 1 : 0;
+
+        for (unsigned i = 0; i < upper_chunks; ++i) {
+            unsigned shift = Bits - 4 - i * 4;
+            uint8_t x4 = (x >> shift) & 0xF;
+            uint8_t y4 = (y >> shift) & 0xF;
+
+            size_t idx = (static_cast<size_t>(state) << 8) | (x4 << 4) | y4;
+            uint16_t entry = lut[idx];
+
+            code = (code << 8) | (entry & 0xFF);
+            state = (entry >> 8) & 0x3;
+        }
+
+        prefix = code;
+        state_out = state;
+    }
+
+    /**
+     * Batch encode a 3x3 neighborhood around (x, y).
+     * Optimized for the common case where all 9 points share the same upper chunks.
+     *
+     * @param x Center x coordinate
+     * @param y Center y coordinate
+     * @param codes Output array of 9 Hilbert codes in row-major order:
+     *              [0,1,2] = row y-1, [3,4,5] = row y, [6,7,8] = row y+1
+     *              Center point is at index 4.
+     */
+    static inline void encode_neighborhood_2d(uint32_t x, uint32_t y, uint64_t codes[9]) {
+        if constexpr (Bits < 4) {
+            // Fallback for small bit widths
+            int idx = 0;
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dx = -1; dx <= 1; ++dx) {
+                    codes[idx++] = encode(x + dx, y + dy);
+                }
+            }
+            return;
+        }
+
+        const auto& lut = get_lut().data;
+
+        // Check if all 9 points are in the same 16x16 block (77% of cases)
+        // This is true when x and y are not at the edges of their 4-bit chunk
+        bool same_block = ((x & 0xF) >= 1 && (x & 0xF) <= 14 &&
+                           (y & 0xF) >= 1 && (y & 0xF) <= 14);
+
+        if (same_block) {
+#if SFC_HAS_AVX2
+            // SIMD fast path: gather 8 LUT entries in parallel
+            encode_neighborhood_2d_simd(x, y, codes, lut);
+#else
+            // Scalar fast path: compute upper chunks once, vary only the last chunk
+            encode_neighborhood_2d_scalar(x, y, codes, lut);
+#endif
+        } else {
+            // Block boundary path: neighbors span up to 4 different 16x16 blocks
+            // Group neighbors by their upper chunks and batch within each group
+            encode_neighborhood_2d_boundary(x, y, codes, lut);
+        }
+    }
+
+    /// Encode neighborhood when center is at a 16x16 block boundary
+    /// Optimized: only compute 1-4 upper chunk encodings as needed
+    static inline void encode_neighborhood_2d_boundary(
+        uint32_t x, uint32_t y, uint64_t codes[9], const uint16_t* lut) {
+
+        const uint8_t x4 = x & 0xF;
+        const uint8_t y4 = y & 0xF;
+
+        // Determine boundary type
+        const bool x_low = (x4 == 0);
+        const bool x_high = (x4 == 15);
+        const bool y_low = (y4 == 0);
+        const bool y_high = (y4 == 15);
+
+        // Compute prefix/state for center (always needed, covers 4-6 neighbors)
+        uint64_t prefix_cc;
+        uint8_t state_cc;
+        encode_upper_chunks(x, y, prefix_cc, state_cc);
+
+        // Compute alternative prefixes only when crossing boundaries
+        uint64_t prefix_xc = prefix_cc, prefix_cy = prefix_cc, prefix_xy = prefix_cc;
+        uint8_t state_xc = state_cc, state_cy = state_cc, state_xy = state_cc;
+
+        const uint32_t x_alt = x_low ? (x - 1) : (x_high ? (x + 1) : x);
+        const uint32_t y_alt = y_low ? (y - 1) : (y_high ? (y + 1) : y);
+
+        if (x_low || x_high) {
+            encode_upper_chunks(x_alt, y, prefix_xc, state_xc);
+        }
+        if (y_low || y_high) {
+            encode_upper_chunks(x, y_alt, prefix_cy, state_cy);
+        }
+        if ((x_low || x_high) && (y_low || y_high)) {
+            encode_upper_chunks(x_alt, y_alt, prefix_xy, state_xy);
+        }
+
+        // Helper to select correct prefix/state based on neighbor position
+        auto get_prefix_state = [&](int dx, int dy) -> std::pair<uint64_t, uint8_t> {
+            bool use_alt_x = (dx == -1 && x_low) || (dx == 1 && x_high);
+            bool use_alt_y = (dy == -1 && y_low) || (dy == 1 && y_high);
+            if (use_alt_x && use_alt_y) return {prefix_xy, state_xy};
+            if (use_alt_x) return {prefix_xc, state_xc};
+            if (use_alt_y) return {prefix_cy, state_cy};
+            return {prefix_cc, state_cc};
+        };
+
+        // Encode all 9 neighbors
+        int idx = 0;
+        for (int dy = -1; dy <= 1; ++dy) {
+            for (int dx = -1; dx <= 1; ++dx) {
+                auto [pref, st] = get_prefix_state(dx, dy);
+                uint8_t nx4 = (x + dx) & 0xF;
+                uint8_t ny4 = (y + dy) & 0xF;
+                size_t lut_idx = (static_cast<size_t>(st) << 8) | (nx4 << 4) | ny4;
+                codes[idx++] = (pref << 8) | (lut[lut_idx] & 0xFF);
+            }
+        }
+    }
+
 private:
+    /// Scalar implementation of same-block fast path
+    static inline void encode_neighborhood_2d_scalar(
+        uint32_t x, uint32_t y, uint64_t codes[9], const uint16_t* lut) {
+
+        uint64_t prefix;
+        uint8_t state;
+        encode_upper_chunks(x, y, prefix, state);
+
+        // Process all 9 points using only the final chunk lookup
+        int idx = 0;
+        for (int dy = -1; dy <= 1; ++dy) {
+            for (int dx = -1; dx <= 1; ++dx) {
+                uint8_t x4 = (x + dx) & 0xF;
+                uint8_t y4 = (y + dy) & 0xF;
+
+                size_t lut_idx = (static_cast<size_t>(state) << 8) | (x4 << 4) | y4;
+                uint16_t entry = lut[lut_idx];
+
+                // Combine prefix with final chunk (ignore final state, we don't need it)
+                codes[idx++] = (prefix << 8) | (entry & 0xFF);
+            }
+        }
+    }
+
+#if SFC_HAS_AVX2
+    /// SIMD implementation using AVX2 gather for 8 parallel LUT lookups
+    static inline void encode_neighborhood_2d_simd(
+        uint32_t x, uint32_t y, uint64_t codes[9], const uint16_t* lut) {
+
+        uint64_t prefix;
+        uint8_t state;
+        encode_upper_chunks(x, y, prefix, state);
+
+        // Compute base offset for state
+        const int32_t state_offset = static_cast<int32_t>(state) << 8;
+
+        // Neighbor offsets in row-major order: (dx, dy) for indices 0-8
+        // Index: 0=(-1,-1), 1=(0,-1), 2=(1,-1), 3=(-1,0), 4=(0,0),
+        //        5=(1,0), 6=(-1,1), 7=(0,1), 8=(1,1)
+
+        // Compute x4 and y4 for center
+        const int32_t x4_center = static_cast<int32_t>(x & 0xF);
+        const int32_t y4_center = static_cast<int32_t>(y & 0xF);
+
+        // Create SIMD vectors for the 8 neighbors (excluding center at index 4)
+        // We'll handle index 4 (center) separately
+        // Indices in codes array: 0,1,2,3, (4=center), 5,6,7,8
+        // We gather indices 0,1,2,3,5,6,7,8 with SIMD
+
+        // dx offsets for indices 0,1,2,3,5,6,7,8: -1,0,1,-1,1,-1,0,1
+        // dy offsets for indices 0,1,2,3,5,6,7,8: -1,-1,-1,0,0,1,1,1
+
+        __m256i dx_vec = _mm256_setr_epi32(-1, 0, 1, -1, 1, -1, 0, 1);
+        __m256i dy_vec = _mm256_setr_epi32(-1, -1, -1, 0, 0, 1, 1, 1);
+
+        // Compute x4 and y4 for all 8 neighbors
+        __m256i x4_vec = _mm256_add_epi32(_mm256_set1_epi32(x4_center), dx_vec);
+        __m256i y4_vec = _mm256_add_epi32(_mm256_set1_epi32(y4_center), dy_vec);
+
+        // Mask to 4 bits (not needed if same_block is true, but safe)
+        x4_vec = _mm256_and_si256(x4_vec, _mm256_set1_epi32(0xF));
+        y4_vec = _mm256_and_si256(y4_vec, _mm256_set1_epi32(0xF));
+
+        // Compute LUT indices: state_offset | (x4 << 4) | y4
+        __m256i lut_indices = _mm256_or_si256(
+            _mm256_set1_epi32(state_offset),
+            _mm256_or_si256(
+                _mm256_slli_epi32(x4_vec, 4),
+                y4_vec
+            )
+        );
+
+        // The LUT is uint16_t, but gather works on int32_t
+        // We need to gather from the 32-bit aligned view
+        // LUT index i corresponds to 16-bit offset i, or 32-bit offset i/2
+        // We use scale=2 to read uint16_t values
+
+        // Gather 8 entries (as 32-bit values, but we only use low 16 bits)
+        // Note: _mm256_i32gather_epi32 reads 32-bit values at base + index*scale
+        // For uint16_t array, we use scale=2 and cast base pointer
+        __m256i entries = _mm256_i32gather_epi32(
+            reinterpret_cast<const int32_t*>(lut),
+            lut_indices,
+            2  // scale=2 for uint16_t
+        );
+
+        // Extract low 8 bits of each entry (Hilbert code chunk)
+        __m256i chunks = _mm256_and_si256(entries, _mm256_set1_epi32(0xFF));
+
+        // Store results - we need to combine prefix with each chunk
+        alignas(32) int32_t chunk_array[8];
+        _mm256_store_si256(reinterpret_cast<__m256i*>(chunk_array), chunks);
+
+        // Map back to codes array (indices 0,1,2,3,5,6,7,8)
+        codes[0] = (prefix << 8) | static_cast<uint64_t>(chunk_array[0]);
+        codes[1] = (prefix << 8) | static_cast<uint64_t>(chunk_array[1]);
+        codes[2] = (prefix << 8) | static_cast<uint64_t>(chunk_array[2]);
+        codes[3] = (prefix << 8) | static_cast<uint64_t>(chunk_array[3]);
+        codes[5] = (prefix << 8) | static_cast<uint64_t>(chunk_array[4]);
+        codes[6] = (prefix << 8) | static_cast<uint64_t>(chunk_array[5]);
+        codes[7] = (prefix << 8) | static_cast<uint64_t>(chunk_array[6]);
+        codes[8] = (prefix << 8) | static_cast<uint64_t>(chunk_array[7]);
+
+        // Handle center (index 4) with scalar lookup
+        size_t center_idx = (static_cast<size_t>(state) << 8) | (x4_center << 4) | y4_center;
+        codes[4] = (prefix << 8) | (lut[center_idx] & 0xFF);
+    }
+#endif
+
     /// Rotate/flip quadrant appropriately
     static inline void rotate(uint32_t n, uint32_t &x, uint32_t &y, uint32_t rx, uint32_t ry) {
         if (ry == 0) {

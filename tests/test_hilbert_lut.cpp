@@ -196,6 +196,278 @@ TEST(test_encode_decode_roundtrip) {
 }
 
 // ============================================================================
+// Neighborhood Encoding Tests
+// ============================================================================
+
+TEST(test_neighborhood_2d_same_block) {
+    // Test points in the middle of a 16x16 block (same_block fast path)
+    // For these points, all 9 neighbors stay within the same block
+    std::vector<std::pair<uint32_t, uint32_t>> test_points = {
+        {100, 100},   // Well inside a block
+        {1000, 2000}, // Larger coordinates
+        {5, 5},       // Near origin but not at edge
+        {255, 255},   // At block interior
+    };
+
+    for (const auto& [x, y] : test_points) {
+        uint64_t batch_codes[9];
+        Hilbert2D<16>::encode_neighborhood_2d(x, y, batch_codes);
+
+        // Verify each code matches individual encode
+        int idx = 0;
+        for (int dy = -1; dy <= 1; ++dy) {
+            for (int dx = -1; dx <= 1; ++dx) {
+                uint64_t expected = Hilbert2D<16>::encode(x + dx, y + dy);
+                if (batch_codes[idx] != expected) {
+                    std::cout << "FAIL\n    Mismatch at (" << x << "+" << dx
+                              << ", " << y << "+" << dy << "): "
+                              << "batch=" << batch_codes[idx]
+                              << ", expected=" << expected << std::endl;
+                    return;
+                }
+                idx++;
+            }
+        }
+    }
+    PASS();
+}
+
+TEST(test_neighborhood_2d_block_boundary) {
+    // Test points at block boundaries (slow path with full encode)
+    // These are at positions where (x & 0xF) == 0, 15 or (y & 0xF) == 0, 15
+    std::vector<std::pair<uint32_t, uint32_t>> test_points = {
+        {16, 16},     // At block boundary
+        {0, 0},       // Corner (needs bounds handling)
+        {15, 15},     // Edge of first block
+        {256, 0},     // Y at boundary
+        {0, 256},     // X at boundary
+        {255, 256},   // Both near boundaries
+        {1000, 1024}, // At 1024 boundary (power of 2)
+    };
+
+    for (const auto& [x, y] : test_points) {
+        // Skip if any neighbor would underflow
+        if (x == 0 || y == 0) continue;
+
+        uint64_t batch_codes[9];
+        Hilbert2D<16>::encode_neighborhood_2d(x, y, batch_codes);
+
+        int idx = 0;
+        for (int dy = -1; dy <= 1; ++dy) {
+            for (int dx = -1; dx <= 1; ++dx) {
+                uint64_t expected = Hilbert2D<16>::encode(x + dx, y + dy);
+                if (batch_codes[idx] != expected) {
+                    std::cout << "FAIL\n    Boundary mismatch at (" << x << "+" << dx
+                              << ", " << y << "+" << dy << "): "
+                              << "batch=" << batch_codes[idx]
+                              << ", expected=" << expected << std::endl;
+                    return;
+                }
+                idx++;
+            }
+        }
+    }
+    PASS();
+}
+
+TEST(test_neighborhood_2d_random_comprehensive) {
+    // Random test covering both fast and slow paths
+    std::mt19937 gen(42);
+    std::uniform_int_distribution<uint32_t> dist(1, 65534);  // Avoid 0 and max
+
+    int mismatches = 0;
+    int fast_path_count = 0;
+    int slow_path_count = 0;
+
+    for (int i = 0; i < 10000; ++i) {
+        uint32_t x = dist(gen);
+        uint32_t y = dist(gen);
+
+        // Track which path we're testing
+        bool is_fast = ((x & 0xF) >= 1 && (x & 0xF) <= 14 &&
+                        (y & 0xF) >= 1 && (y & 0xF) <= 14);
+        if (is_fast) fast_path_count++;
+        else slow_path_count++;
+
+        uint64_t batch_codes[9];
+        Hilbert2D<16>::encode_neighborhood_2d(x, y, batch_codes);
+
+        int idx = 0;
+        for (int dy = -1; dy <= 1; ++dy) {
+            for (int dx = -1; dx <= 1; ++dx) {
+                uint64_t expected = Hilbert2D<16>::encode(x + dx, y + dy);
+                if (batch_codes[idx] != expected) {
+                    if (mismatches < 5) {
+                        std::cout << "\n    Mismatch at (" << x << "+" << dx
+                                  << ", " << y << "+" << dy << "): "
+                                  << "batch=" << batch_codes[idx]
+                                  << ", expected=" << expected
+                                  << " [" << (is_fast ? "fast" : "slow") << " path]";
+                    }
+                    mismatches++;
+                }
+                idx++;
+            }
+        }
+    }
+
+    if (mismatches > 0) {
+        std::cout << "\n    Total mismatches: " << mismatches << " / 90000" << std::endl;
+    }
+
+    std::cout << "OK" << std::endl;
+    std::cout << "    Fast path tests: " << fast_path_count
+              << " (" << (100.0 * fast_path_count / 10000) << "%)" << std::endl;
+    std::cout << "    Slow path tests: " << slow_path_count
+              << " (" << (100.0 * slow_path_count / 10000) << "%)" << std::endl;
+
+    ASSERT_EQ(mismatches, 0);
+    tests_passed++;
+}
+
+TEST(test_neighborhood_2d_8bit) {
+    // Test 8-bit version exhaustively
+    int mismatches = 0;
+
+    for (uint32_t x = 1; x < 255; ++x) {
+        for (uint32_t y = 1; y < 255; ++y) {
+            uint64_t batch_codes[9];
+            Hilbert2D<8>::encode_neighborhood_2d(x, y, batch_codes);
+
+            int idx = 0;
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dx = -1; dx <= 1; ++dx) {
+                    uint64_t expected = Hilbert2D<8>::encode(x + dx, y + dy);
+                    if (batch_codes[idx] != expected) mismatches++;
+                    idx++;
+                }
+            }
+        }
+    }
+
+    ASSERT_EQ(mismatches, 0);
+    PASS();
+}
+
+TEST(test_neighborhood_2d_boundary_performance) {
+    // Performance test specifically for boundary cases
+    // These are points where (x & 0xF) == 0 or 15, or (y & 0xF) == 0 or 15
+    const int N = 100000;
+    std::vector<uint32_t> xs(N), ys(N);
+
+    std::mt19937 gen(99);
+    // Generate only boundary points
+    for (int i = 0; i < N; ++i) {
+        // Pick a random 16x16 block
+        uint32_t block_x = gen() % 4096;
+        uint32_t block_y = gen() % 4096;
+        // Pick edge position (0 or 15)
+        uint32_t edge_x = (gen() % 2) * 15;
+        uint32_t edge_y = (gen() % 2) * 15;
+        xs[i] = (block_x << 4) | edge_x;
+        ys[i] = (block_y << 4) | edge_y;
+        // Clamp to valid range
+        if (xs[i] == 0) xs[i] = 16;
+        if (ys[i] == 0) ys[i] = 16;
+        if (xs[i] >= 65535) xs[i] = 65534;
+        if (ys[i] >= 65535) ys[i] = 65534;
+    }
+
+    volatile uint64_t dummy = 0;
+
+    // Warmup
+    for (int i = 0; i < 1000; ++i) {
+        uint64_t codes[9];
+        Hilbert2D<16>::encode_neighborhood_2d(xs[i], ys[i], codes);
+        dummy += codes[4];
+    }
+
+    // Benchmark batch encoding (boundary path)
+    auto start_batch = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < N; ++i) {
+        uint64_t codes[9];
+        Hilbert2D<16>::encode_neighborhood_2d(xs[i], ys[i], codes);
+        dummy += codes[4];
+    }
+    auto end_batch = std::chrono::high_resolution_clock::now();
+    double batch_ns = std::chrono::duration<double, std::nano>(end_batch - start_batch).count() / N;
+
+    // Benchmark individual encodes (9 per point)
+    auto start_indiv = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < N; ++i) {
+        for (int dy = -1; dy <= 1; ++dy) {
+            for (int dx = -1; dx <= 1; ++dx) {
+                dummy += Hilbert2D<16>::encode(xs[i] + dx, ys[i] + dy);
+            }
+        }
+    }
+    auto end_indiv = std::chrono::high_resolution_clock::now();
+    double indiv_ns = std::chrono::duration<double, std::nano>(end_indiv - start_indiv).count() / N;
+
+    std::cout << "OK" << std::endl;
+    std::cout << "\n    Boundary Path Performance (block edges only):" << std::endl;
+    std::cout << "    Batch (grouped):      " << std::fixed << std::setprecision(2) << batch_ns << " ns" << std::endl;
+    std::cout << "    Individual (9 calls): " << std::fixed << std::setprecision(2) << indiv_ns << " ns" << std::endl;
+    std::cout << "    Speedup:              " << std::fixed << std::setprecision(2) << (indiv_ns / batch_ns) << "x" << std::endl;
+
+    // Verify we're actually faster
+    ASSERT(batch_ns < indiv_ns);
+    tests_passed++;
+}
+
+TEST(test_neighborhood_2d_performance) {
+    // Performance comparison: batch vs individual encodes (mixed paths)
+    const int N = 100000;
+    std::vector<uint32_t> xs(N), ys(N);
+
+    std::mt19937 gen(42);
+    std::uniform_int_distribution<uint32_t> dist(1, 65534);
+    for (int i = 0; i < N; ++i) {
+        xs[i] = dist(gen);
+        ys[i] = dist(gen);
+    }
+
+    volatile uint64_t dummy = 0;
+
+    // Warmup
+    for (int i = 0; i < 1000; ++i) {
+        uint64_t codes[9];
+        Hilbert2D<16>::encode_neighborhood_2d(xs[i], ys[i], codes);
+        dummy += codes[4];
+    }
+
+    // Benchmark batch encoding
+    auto start_batch = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < N; ++i) {
+        uint64_t codes[9];
+        Hilbert2D<16>::encode_neighborhood_2d(xs[i], ys[i], codes);
+        dummy += codes[4];
+    }
+    auto end_batch = std::chrono::high_resolution_clock::now();
+    double batch_ns = std::chrono::duration<double, std::nano>(end_batch - start_batch).count() / N;
+
+    // Benchmark individual encodes (9 per point)
+    auto start_indiv = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < N; ++i) {
+        for (int dy = -1; dy <= 1; ++dy) {
+            for (int dx = -1; dx <= 1; ++dx) {
+                dummy += Hilbert2D<16>::encode(xs[i] + dx, ys[i] + dy);
+            }
+        }
+    }
+    auto end_indiv = std::chrono::high_resolution_clock::now();
+    double indiv_ns = std::chrono::duration<double, std::nano>(end_indiv - start_indiv).count() / N;
+
+    std::cout << "OK" << std::endl;
+    std::cout << "\n    Neighborhood Encoding Performance:" << std::endl;
+    std::cout << "    Batch (9 codes):      " << std::fixed << std::setprecision(2) << batch_ns << " ns" << std::endl;
+    std::cout << "    Individual (9 calls): " << std::fixed << std::setprecision(2) << indiv_ns << " ns" << std::endl;
+    std::cout << "    Speedup:              " << std::fixed << std::setprecision(2) << (indiv_ns / batch_ns) << "x" << std::endl;
+
+    tests_passed++;
+}
+
+// ============================================================================
 // Performance Tests
 // ============================================================================
 

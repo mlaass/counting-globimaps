@@ -272,6 +272,11 @@ public:
      * @return Bitmask of found neighbors (row-major, (2r+1)^2 bits)
      */
     uint64_t query_neighborhood_2D(uint32_t x, uint32_t y, unsigned radius = 1) const {
+        // Fast path: Use batch encoding for Hilbert 3x3 neighborhoods
+        if (radius == 1 && config.sfc_type == SFCType::HILBERT_2D) {
+            return query_neighborhood_2D_hilbert_batch(x, y);
+        }
+
         uint64_t result = 0;
         unsigned bit_idx = 0;
         int r = static_cast<int>(radius);
@@ -298,6 +303,36 @@ public:
                 ++bit_idx;
             }
         }
+        return result;
+    }
+
+    /**
+     * Optimized 3x3 neighborhood query for Hilbert2D using batch encoding.
+     * Achieves ~3x speedup by encoding upper chunks once and varying only
+     * the final chunk for all 9 neighbors (when within same 16x16 block).
+     */
+    uint64_t query_neighborhood_2D_hilbert_batch(uint32_t x, uint32_t y) const {
+        // Get all 9 SFC codes in a single batch operation
+        uint64_t codes[9];
+        sfc::Hilbert2D<SFCBits>::encode_neighborhood_2d(x, y, codes);
+
+        // Prefetch the center block
+        uint64_t center_block = codes[4] & block_mask_;
+        __builtin_prefetch(&blocks_[center_block], 0, 3);
+
+        uint64_t result = 0;
+
+        // Check all 9 codes
+        for (unsigned i = 0; i < 9; ++i) {
+            uint64_t block_idx, seed;
+            compute_location(codes[i], block_idx, seed);
+            uint64_t mask = construct_mask(seed);
+
+            if ((blocks_[block_idx] & mask) == mask) {
+                result |= (1ULL << i);
+            }
+        }
+
         return result;
     }
 

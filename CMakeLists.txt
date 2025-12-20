@@ -189,6 +189,18 @@ target_link_libraries(test_cache_optimal_bf
 PUBLIC OpenMP::OpenMP_CXX
 )
 
+# Space-filling curves tests
+add_executable(test_space_filling_curves tests/test_space_filling_curves.cpp)
+target_link_libraries(test_space_filling_curves
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+# Spatial-blocked bloom filter tests
+add_executable(test_sbbf tests/test_sbbf.cpp)
+target_link_libraries(test_sbbf
+PUBLIC OpenMP::OpenMP_CXX
+)
+
 # Cache-optimal bloom filter benchmark
 add_executable(bloom_filter_benchmark experiments/src/bloom_filter_benchmark.cpp)
 target_link_libraries(bloom_filter_benchmark
@@ -205,6 +217,12 @@ PUBLIC OpenMP::OpenMP_CXX
 add_executable(globimap_test_multicategory_dataset experiments/src/globimap_test_multicategory_dataset.cpp)
 target_link_libraries(globimap_test_multicategory_dataset
 PUBLIC HighFive
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+# SBBF (Spatial-Blocked Bloom Filter) benchmark
+add_executable(sbbf_benchmark experiments/src/sbbf_benchmark.cpp)
+target_link_libraries(sbbf_benchmark
 PUBLIC OpenMP::OpenMP_CXX
 )
 

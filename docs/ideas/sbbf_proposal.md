@@ -127,12 +127,7 @@ struct SpatialBlockedBloomFilter {
     int p;                 // log2(N) - bits for block index
     int k;                 // Number of hash functions per element
     int B;                 // Block size in bits (e.g., 64)
-
-    uint64_t GetSFCValue<SFC>(int x, int y, int z) {
-        return SFC(x, y, z);  // Morton or Hilbert
-    }
-
-    // Derive block index (low bits) and k bit positions (from high bits)
+ // Derive block index (low bits) and k bit positions (from high bits)
     void GetLocation(uint64_t sfc, uint64_t& block_idx, uint64_t& mask) {
         // Low bits → block index (sequential memory access)
         block_idx = sfc & (N - 1);
@@ -150,14 +145,14 @@ struct SpatialBlockedBloomFilter {
     }
 
     void Insert(int x, int y, int z) {
-        uint64_t sfc = GetSFCValue(x, y, z);
+        uint64_t sfc = SFC(x, y, z);
         uint64_t idx, mask;
         GetLocation(sfc, idx, mask);
         blocks[idx] |= mask;
     }
 
     bool Query(int x, int y, int z) {
-        uint64_t sfc = GetSFCValue(x, y, z);
+        uint64_t sfc = SFC(x, y, z);
         uint64_t idx, mask;
         GetLocation(sfc, idx, mask);
         return (blocks[idx] & mask) == mask;
@@ -178,16 +173,55 @@ struct SpatialBlockedBloomFilter {
 };
 ```
 
-## 5. Advantages & Analysis
-1. **Cache Efficiency**: For spatial queries (e.g., "Is there a voxel within radius $R$ of $P$?"), the SFC ensures that the necessary bits are packed into very few cache lines. A standard hash-based Bloom filter would incur a cache miss for every single neighbor check.
+## 5. Spatial Denoising & False Positive Mitigation
 
-2. **Predictive Preloading:** During a linear scan of the voxel volume (e.g., for decompression or rendering), the SFC generates a predictable memory access pattern, allowing the CPU hardware prefetcher to load subsequent blocks into L1/L2 cache before they are queried.
+A unique advantage of the SBBF is the ability to perform **Topological Verification**. In a standard Bloom filter, a false positive is indistinguishable from a true positive. In SBBF, because the mapping is spatial, we can apply a heuristic: true voxels are likely to have neighbors; false positives are likely to be isolated "speckles".
 
-3. **No Hash Overhead:** Mapping functions like Morton codes can be implemented with simple bit-interleaving instructions (PDEP on x86), which are significantly faster than even the simplest MurmurHash or CityHash.
+### 5.1 Streaming Neighborhood Consensus
 
-4. **Deterministic Collisions:** Unlike random hashes, collisions in SBBF are spatially deterministic. This can be exploited to handle specific LOD (Level of Detail) scenarios where a "False Positive" actually represents a nearby occupied voxel, which might be acceptable for collision culling or visibility testing.
+When reconstructing the voxel grid by iterating along the $SFC$, we maintain a sliding window of previously queried results. For a voxel $V_i$ at $SFC(i)$, we define a consensus function:
 
-## 6. References
+$$C(V_i) = Query(V_i) \land (CountNeighbors(V_i) > \tau)$$
+
+Where $\tau$ is a density threshold. If $\tau = 0$, a voxel is discarded if it has zero neighbors in its immediate 3D Moore neighborhood.
+
+### 5.2 Denoising Pseudo-code
+
+By iterating in SFC order, many "neighbors" in 3D space are also "neighbors" in the 1D stream, enabling fast lookups with minimal cache misses.
+
+```cpp
+void DecompressAndDenoise(SpatialBlockedBloomFilter& sbbf, size_t max_sfc) {
+    // Sliding window cache of query results (ring buffer for Morton curves)
+    for (uint64_t sfc = 0; sfc < max_sfc; ++sfc) {
+        if (!sbbf.Query(sfc)) continue;
+
+        // Potential voxel found — perform neighborhood consensus
+        int neighbors = 0;
+        for (auto& offset : GetSpatialNeighborOffsets()) {
+            if (sbbf.Query(sfc + offset)) {
+                neighbors++;
+            }
+        }
+
+        // Denoising heuristic: real geometry has high connectivity,
+        // false positives are statistically isolated
+        if (neighbors >= 1) {
+            EmitVoxel(sfc);
+        }
+        // else: discarded as false positive "speckle"
+    }
+}
+```
+
+## 6. Advantages & Analysis
+
+- **Hardware Prefetching:** Low-bit block indexing ensures linear memory walks during SFC traversal.
+- **In-Stream Denoising:** High-speed false positive mitigation using spatial connectivity heuristics.
+- **No Hash Overhead:** Morton codes use simple bit-interleaving (PDEP on x86), faster than MurmurHash/CityHash.
+- **Deterministic Collisions:** Collisions are regional, making "noise" predictable and filterable with morphological operators (dilation/erosion).
+- **SIMD Compatibility:** Branchless bit-splitting and parallel neighbor checking via vector registers.
+
+## 7. References
 
 - [Putze09] Putze, Sanders, Singler: Cache-, Hash-, and Space-Efficient Bloom Filters. ACM JEA, 2009.
 - [Lang19] Lang et al.: Performance-Optimal Filtering: Bloom Overtakes Cuckoo at High Throughput. PVLDB, 2019.

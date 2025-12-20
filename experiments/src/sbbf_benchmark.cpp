@@ -108,6 +108,18 @@ BenchmarkConfig parse_args(int argc, char* argv[]) {
 BenchmarkConfig g_config;
 
 // ============================================================================
+// Helper: Compute expected_items from memory budget
+// ============================================================================
+
+// Given target memory (bytes) and FPR, compute expected_items for bloom filters
+// Formula: bits = -1.44 * n * log2(fpr), so n = bits / (-1.44 * log2(fpr))
+size_t compute_expected_items(size_t memory_bytes, double target_fpr) {
+    size_t bits = memory_bytes * 8;
+    double factor = -1.44 * std::log2(target_fpr);
+    return static_cast<size_t>(bits / factor);
+}
+
+// ============================================================================
 // Data Generation
 // ============================================================================
 
@@ -327,7 +339,8 @@ void benchmark_sbbf_3d(ankerl::nanobench::Bench& bench,
 void benchmark_blocked_bf_2d(ankerl::nanobench::Bench& bench,
                               const std::vector<Point2D>& insert_data,
                               const std::vector<Point2D>& query_data,
-                              size_t expected_items, double target_fpr) {
+                              size_t memory_bytes, double target_fpr) {
+    size_t expected_items = compute_expected_items(memory_bytes, target_fpr);
     BlockedBFConfig conf{expected_items, target_fpr};
     BlockedBloomFilter filter(conf);
     BenchResult result;
@@ -393,7 +406,8 @@ void benchmark_blocked_bf_2d(ankerl::nanobench::Bench& bench,
 void benchmark_register_bf_2d(ankerl::nanobench::Bench& bench,
                                const std::vector<Point2D>& insert_data,
                                const std::vector<Point2D>& query_data,
-                               size_t expected_items, double target_fpr) {
+                               size_t memory_bytes, double target_fpr) {
+    size_t expected_items = compute_expected_items(memory_bytes, target_fpr);
     RegisterBlockedBFConfig conf{expected_items, target_fpr, 0};
     RegisterBlockedBloomFilter<0> filter(conf);
     BenchResult result;
@@ -459,7 +473,8 @@ void benchmark_register_bf_2d(ankerl::nanobench::Bench& bench,
 void benchmark_blocked_bf_3d(ankerl::nanobench::Bench& bench,
                               const std::vector<Point3D>& insert_data,
                               const std::vector<Point3D>& query_data,
-                              size_t expected_items, double target_fpr) {
+                              size_t memory_bytes, double target_fpr) {
+    size_t expected_items = compute_expected_items(memory_bytes, target_fpr);
     BlockedBFConfig conf{expected_items, target_fpr};
     BlockedBloomFilter filter(conf);
     BenchResult result;
@@ -533,7 +548,8 @@ void benchmark_blocked_bf_3d(ankerl::nanobench::Bench& bench,
 void benchmark_register_bf_3d(ankerl::nanobench::Bench& bench,
                                const std::vector<Point3D>& insert_data,
                                const std::vector<Point3D>& query_data,
-                               size_t expected_items, double target_fpr) {
+                               size_t memory_bytes, double target_fpr) {
+    size_t expected_items = compute_expected_items(memory_bytes, target_fpr);
     RegisterBlockedBFConfig conf{expected_items, target_fpr, 0};
     RegisterBlockedBloomFilter<0> filter(conf);
     BenchResult result;
@@ -665,9 +681,11 @@ void run_2d_benchmark(size_t n, uint32_t max_coord, unsigned log_blocks) {
     benchmark_sbbf_2d<16>(bench, "SBBF-Hilbert2D", SFCType::HILBERT_2D,
                           insert_data, query_data, log_blocks, 4);
 
-    // Baseline filters
-    benchmark_blocked_bf_2d(bench, insert_data, query_data, n, 0.01);
-    benchmark_register_bf_2d(bench, insert_data, query_data, n, 0.01);
+    // Baseline filters (same memory budget as SBBF)
+    size_t sbbf_memory = (1ULL << log_blocks) * 8;
+    double target_fpr = 0.001;  // 0.1% target to match SBBF's ~0.07%
+    benchmark_blocked_bf_2d(bench, insert_data, query_data, sbbf_memory, target_fpr);
+    benchmark_register_bf_2d(bench, insert_data, query_data, sbbf_memory, target_fpr);
 
     print_summary_table();
 }
@@ -697,8 +715,11 @@ void run_2d_clustered_benchmark(size_t n, uint32_t max_coord, size_t clusters,
     benchmark_sbbf_2d<16>(bench, "SBBF-Hilbert2D", SFCType::HILBERT_2D,
                           insert_data, query_data, log_blocks, 4);
 
-    benchmark_blocked_bf_2d(bench, insert_data, query_data, n, 0.01);
-    benchmark_register_bf_2d(bench, insert_data, query_data, n, 0.01);
+    // Baseline filters (same memory budget as SBBF)
+    size_t sbbf_memory = (1ULL << log_blocks) * 8;
+    double target_fpr = 0.001;
+    benchmark_blocked_bf_2d(bench, insert_data, query_data, sbbf_memory, target_fpr);
+    benchmark_register_bf_2d(bench, insert_data, query_data, sbbf_memory, target_fpr);
 
     print_summary_table();
 }
@@ -757,10 +778,15 @@ void run_3d_benchmark(size_t n, uint32_t max_coord, unsigned log_blocks) {
     benchmark_sbbf_3d<10>(bench, "SBBF-Hilbert3D", SFCType::HILBERT_3D,
                           insert_data, query_data, log_blocks, 4);
 
-    std::cout << "\n--- Baseline Bloom Filters ---\n\n";
+    std::cout << "\n--- Baseline Bloom Filters (same memory budget) ---\n\n";
 
-    benchmark_blocked_bf_3d(bench, insert_data, query_data, n, 0.01);
-    benchmark_register_bf_3d(bench, insert_data, query_data, n, 0.01);
+    // Match SBBF memory: 2^log_blocks * 64 bits = 2^log_blocks * 8 bytes
+    size_t sbbf_memory = (1ULL << log_blocks) * 8;
+    // Use same FPR target - actual FPR depends on load factor
+    double target_fpr = 0.001;  // 0.1% target to match SBBF's ~0.07%
+
+    benchmark_blocked_bf_3d(bench, insert_data, query_data, sbbf_memory, target_fpr);
+    benchmark_register_bf_3d(bench, insert_data, query_data, sbbf_memory, target_fpr);
 
     print_summary_table();
 }

@@ -36,7 +36,18 @@ This directory contains research papers related to probabilistic data structures
 | Paper | Authors | Year | Summary |
 |-------|---------|------|---------|
 | **3D Hilbert Curves** (3 papers) | Various | 2014-2022 | [summary_3d_hilbert_curves.md](summary_3d_hilbert_curves.md) |
-| **SIMD Hilbert Curve Transposition** | Alves, Russo, Francisco | 2022 | [simd_sfc/summary_simd_hilbert_transposition.md](simd_sfc/summary_simd_hilbert_transposition.md) |
+| **3D Hilbert Encoding/Decoding** | Walker | 2018 | [3d_hilbert/summary_2308.05673v2.md](3d_hilbert/summary_2308.05673v2.md) |
+| **Dynamic Volume Lines** | Wang et al. | 2018 | [3d_hilbert/summary_tvcg_2018.md](3d_hilbert/summary_tvcg_2018.md) |
+| **3D Hilbert for LIDAR** | Wang & Shan | 2005 | [3d_hilbert/summary_wangj.md](3d_hilbert/summary_wangj.md) |
+| **Data-Driven Space-Filling Curves** | Tao et al. | 2020 | [3d_hilbert/summary_tvcg_2020.md](3d_hilbert/summary_tvcg_2020.md) |
+| **SIMD Hilbert Curve Transposition** | Alves, Russo, Francisco | 2022 | [sfc/summary_simd_hilbert_transposition.md](sfc/summary_simd_hilbert_transposition.md) |
+| **Cache-Friendly Morton Layouts** | Makarychev et al. | 2024 | [sfc/summary_icpe24.md](sfc/summary_icpe24.md) |
+
+## SIMD Optimization
+
+| Paper | Authors | Year | Summary |
+|-------|---------|------|---------|
+| **Ultra-Fast Bloom Filters (UFBF)** | Huang et al. | 2019 | [summary_simd_iwqos.md](summary_simd_iwqos.md) |
 
 ---
 
@@ -59,7 +70,15 @@ This directory contains research papers related to probabilistic data structures
 
 ### Spatial Applications
 - [3D Hilbert Curves](summary_3d_hilbert_curves.md) - Locality-preserving spatial indexing
-- [SIMD Hilbert Transposition](simd_sfc/summary_simd_hilbert_transposition.md) - Cache-oblivious SIMD curve generation, 6.90× faster
+- [3D Hilbert Encoding](3d_hilbert/summary_2308.05673v2.md) - Transformation tables, pseudocode
+- [Dynamic Volume Lines](3d_hilbert/summary_tvcg_2018.md) - Nonlinear scaling for 3D volume comparison
+- [3D Hilbert LIDAR](3d_hilbert/summary_wangj.md) - Point cloud indexing with R-tree
+- [Data-Driven SFCs](3d_hilbert/summary_tvcg_2020.md) - Adaptive curves via evolutionary algorithms
+- [SIMD Hilbert Transposition](sfc/summary_simd_hilbert_transposition.md) - Cache-oblivious SIMD curve generation, 6.90× faster
+- [Cache-Friendly Morton](sfc/summary_icpe24.md) - Evolutionary algorithms for optimal layouts, 10× speedup
+
+### SIMD Performance
+- [Ultra-Fast Bloom Filters](summary_simd_iwqos.md) - AVX2/PDEP optimization, 2-4× faster
 
 ---
 
@@ -73,7 +92,7 @@ This directory contains research papers related to probabilistic data structures
 | `variable_increment_bf.hpp` | [Variable-Increment CBF](summary_variable_increment_cbf.md) |
 | `dleft_counting_bf.hpp` | [d-Left CBF](summary_dleft_hashing.md), [Dynamic d-Left](summary_aller2006_dynamic_dleft.md) |
 | `blocked_bloom_filter.hpp` | [Cache-Efficient BF](summary_cache_efficient_bf.md) |
-| `simd_bloom_filter.hpp` | [Cache-Efficient BF](summary_cache_efficient_bf.md), [Performance-Optimal](summary_performance_optimal_filtering.md), [SIMD Hilbert](simd_sfc/summary_simd_hilbert_transposition.md) |
+| `simd_bloom_filter.hpp` | [Cache-Efficient BF](summary_cache_efficient_bf.md), [Performance-Optimal](summary_performance_optimal_filtering.md), [SIMD Hilbert](sfc/summary_simd_hilbert_transposition.md), [UFBF](summary_simd_iwqos.md) |
 
 ---
 
@@ -94,6 +113,14 @@ This directory contains research papers related to probabilistic data structures
 - `136620717.pdf` - HilbertNet (ECCV 2022)
 - `Chinese J of Electronics - 2022 - JIA - Efficient 3D Hilbert Curve...pdf` - JFK-3HE/JFK-3HD
 - `ij3dim.2014040101.pdf` - 3D Hilbert for CityGML
+- `2308.05673v2.pdf` - 3D Hilbert Encoding/Decoding (Walker 2018)
+- `TVCG.2018.2864510.pdf` - Dynamic Volume Lines
+- `WangJ.pdf` - 3D Hilbert for LIDAR Point Clouds
+- `tvcg.2020.3030473.pdf` - Data-Driven Space-Filling Curves
 
-### simd_sfc/
+### Main Folder (New)
+- `SIMD-IWQoS.pdf` - Ultra-Fast Bloom Filters using SIMD Techniques
+
+### sfc/
 - `3555353.pdf` - Cache-oblivious Hilbert Curve Transposition (ACM TOMS 2022)
+- `ICPE24.pdf` - Cache-Friendly Generalized Morton Layouts (ICPE 2024)

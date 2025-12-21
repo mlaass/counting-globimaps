@@ -192,9 +192,11 @@ struct BenchResult {
     double query_ns;
     double neighbor_ns;
     uint64_t insert_ins;
-    uint64_t query_ins;
     uint64_t insert_cyc;
+    uint64_t query_ins;
     uint64_t query_cyc;
+    uint64_t neighbor_ins;
+    uint64_t neighbor_cyc;
     double fpr;
     uint64_t memory;
 };
@@ -258,6 +260,8 @@ void benchmark_sbbf_2d(ankerl::nanobench::Bench& bench,
     bench.batch(1);
     auto& nbr_res = bench.results().back();
     result.neighbor_ns = nbr_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+    result.neighbor_ins = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::instructions)) / 8;
+    result.neighbor_cyc = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::cpucycles)) / 8;
 
     // FPR measurement
     size_t false_positives = 0;
@@ -325,6 +329,8 @@ void benchmark_sbbf_3d(ankerl::nanobench::Bench& bench,
     bench.batch(1);
     auto& nbr_res = bench.results().back();
     result.neighbor_ns = nbr_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+    result.neighbor_ins = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::instructions)) / 26;
+    result.neighbor_cyc = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::cpucycles)) / 26;
 
     // FPR
     size_t false_positives = 0;
@@ -336,20 +342,28 @@ void benchmark_sbbf_3d(ankerl::nanobench::Bench& bench,
     g_results.push_back(result);
 }
 
+template<typename Hasher>
 void benchmark_blocked_bf_2d(ankerl::nanobench::Bench& bench,
+                              const std::string& name,
                               const std::vector<Point2D>& insert_data,
                               const std::vector<Point2D>& query_data,
-                              size_t memory_bytes, double target_fpr) {
+                              size_t memory_bytes, double target_fpr,
+                              globimap::IntraBlockStrategy strategy) {
     size_t expected_items = compute_expected_items(memory_bytes, target_fpr);
-    BlockedBFConfig conf{expected_items, target_fpr};
-    BlockedBloomFilter filter(conf);
+    BlockedBFConfig conf;
+    conf.expected_items = expected_items;
+    conf.false_positive_rate = target_fpr;
+    conf.intra_strategy = strategy;
+    conf.pattern_table_size = 1024;
+
+    BlockedBloomFilter<Hasher> filter(conf);
     BenchResult result;
-    result.name = "BlockedBF";
+    result.name = name;
     result.memory = filter.memory_usage();
 
     // Insert
     size_t insert_idx = 0;
-    bench.run("BlockedBF insert", [&]() {
+    bench.run(name + " insert", [&]() {
         const auto& p = insert_data[insert_idx++ % insert_data.size()];
         filter.put({static_cast<uint64_t>(p.x), static_cast<uint64_t>(p.y)});
     });
@@ -366,7 +380,7 @@ void benchmark_blocked_bf_2d(ankerl::nanobench::Bench& bench,
 
     // Query
     size_t query_idx = 0;
-    bench.run("BlockedBF query", [&]() {
+    bench.run(name + " query", [&]() {
         const auto& p = insert_data[query_idx++ % insert_data.size()];
         ankerl::nanobench::doNotOptimizeAway(
             filter.get_bool({static_cast<uint64_t>(p.x), static_cast<uint64_t>(p.y)}));
@@ -376,12 +390,13 @@ void benchmark_blocked_bf_2d(ankerl::nanobench::Bench& bench,
     result.query_ins = static_cast<uint64_t>(query_res.median(ankerl::nanobench::Result::Measure::instructions));
     result.query_cyc = static_cast<uint64_t>(query_res.median(ankerl::nanobench::Result::Measure::cpucycles));
 
-    // Neighborhood (3x3 = 9 queries)
+    // Neighborhood (8 neighbors, excluding center)
     size_t nbr_idx = 0;
-    bench.batch(9).run("BlockedBF neighbor", [&]() {
+    bench.batch(8).run(name + " neighbor", [&]() {
         const auto& p = insert_data[nbr_idx++ % insert_data.size()];
         for (int dy = -1; dy <= 1; ++dy) {
             for (int dx = -1; dx <= 1; ++dx) {
+                if (dx == 0 && dy == 0) continue;
                 ankerl::nanobench::doNotOptimizeAway(
                     filter.get_bool({static_cast<uint64_t>(p.x + dx),
                                      static_cast<uint64_t>(p.y + dy)}));
@@ -391,6 +406,8 @@ void benchmark_blocked_bf_2d(ankerl::nanobench::Bench& bench,
     bench.batch(1);
     auto& nbr_res = bench.results().back();
     result.neighbor_ns = nbr_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+    result.neighbor_ins = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::instructions)) / 8;
+    result.neighbor_cyc = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::cpucycles)) / 8;
 
     // FPR
     size_t false_positives = 0;
@@ -403,20 +420,29 @@ void benchmark_blocked_bf_2d(ankerl::nanobench::Bench& bench,
     g_results.push_back(result);
 }
 
+template<typename Hasher>
 void benchmark_register_bf_2d(ankerl::nanobench::Bench& bench,
+                               const std::string& name,
                                const std::vector<Point2D>& insert_data,
                                const std::vector<Point2D>& query_data,
-                               size_t memory_bytes, double target_fpr) {
+                               size_t memory_bytes, double target_fpr,
+                               globimap::IntraBlockStrategy strategy) {
     size_t expected_items = compute_expected_items(memory_bytes, target_fpr);
-    RegisterBlockedBFConfig conf{expected_items, target_fpr, 0};
-    RegisterBlockedBloomFilter<0> filter(conf);
+    RegisterBlockedBFConfig conf;
+    conf.expected_items = expected_items;
+    conf.false_positive_rate = target_fpr;
+    conf.compensation = 0;
+    conf.intra_strategy = strategy;
+    conf.pattern_table_size = 1024;
+
+    RegisterBlockedBloomFilter<0, Hasher> filter(conf);
     BenchResult result;
-    result.name = "RegisterBF";
+    result.name = name;
     result.memory = filter.memory_usage();
 
     // Insert
     size_t insert_idx = 0;
-    bench.run("RegisterBF insert", [&]() {
+    bench.run(name + " insert", [&]() {
         const auto& p = insert_data[insert_idx++ % insert_data.size()];
         filter.put({static_cast<uint64_t>(p.x), static_cast<uint64_t>(p.y)});
     });
@@ -433,7 +459,7 @@ void benchmark_register_bf_2d(ankerl::nanobench::Bench& bench,
 
     // Query
     size_t query_idx = 0;
-    bench.run("RegisterBF query", [&]() {
+    bench.run(name + " query", [&]() {
         const auto& p = insert_data[query_idx++ % insert_data.size()];
         ankerl::nanobench::doNotOptimizeAway(
             filter.get_bool({static_cast<uint64_t>(p.x), static_cast<uint64_t>(p.y)}));
@@ -443,12 +469,13 @@ void benchmark_register_bf_2d(ankerl::nanobench::Bench& bench,
     result.query_ins = static_cast<uint64_t>(query_res.median(ankerl::nanobench::Result::Measure::instructions));
     result.query_cyc = static_cast<uint64_t>(query_res.median(ankerl::nanobench::Result::Measure::cpucycles));
 
-    // Neighborhood
+    // Neighborhood (8 neighbors, excluding center)
     size_t nbr_idx = 0;
-    bench.batch(9).run("RegisterBF neighbor", [&]() {
+    bench.batch(8).run(name + " neighbor", [&]() {
         const auto& p = insert_data[nbr_idx++ % insert_data.size()];
         for (int dy = -1; dy <= 1; ++dy) {
             for (int dx = -1; dx <= 1; ++dx) {
+                if (dx == 0 && dy == 0) continue;
                 ankerl::nanobench::doNotOptimizeAway(
                     filter.get_bool({static_cast<uint64_t>(p.x + dx),
                                      static_cast<uint64_t>(p.y + dy)}));
@@ -458,6 +485,8 @@ void benchmark_register_bf_2d(ankerl::nanobench::Bench& bench,
     bench.batch(1);
     auto& nbr_res = bench.results().back();
     result.neighbor_ns = nbr_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+    result.neighbor_ins = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::instructions)) / 8;
+    result.neighbor_cyc = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::cpucycles)) / 8;
 
     // FPR
     size_t false_positives = 0;
@@ -470,20 +499,28 @@ void benchmark_register_bf_2d(ankerl::nanobench::Bench& bench,
     g_results.push_back(result);
 }
 
+template<typename Hasher>
 void benchmark_blocked_bf_3d(ankerl::nanobench::Bench& bench,
+                              const std::string& name,
                               const std::vector<Point3D>& insert_data,
                               const std::vector<Point3D>& query_data,
-                              size_t memory_bytes, double target_fpr) {
+                              size_t memory_bytes, double target_fpr,
+                              globimap::IntraBlockStrategy strategy) {
     size_t expected_items = compute_expected_items(memory_bytes, target_fpr);
-    BlockedBFConfig conf{expected_items, target_fpr};
-    BlockedBloomFilter filter(conf);
+    BlockedBFConfig conf;
+    conf.expected_items = expected_items;
+    conf.false_positive_rate = target_fpr;
+    conf.intra_strategy = strategy;
+    conf.pattern_table_size = 1024;
+
+    BlockedBloomFilter<Hasher> filter(conf);
     BenchResult result;
-    result.name = "BlockedBF";
+    result.name = name;
     result.memory = filter.memory_usage();
 
     // Insert
     size_t insert_idx = 0;
-    bench.run("BlockedBF insert", [&]() {
+    bench.run(name + " insert", [&]() {
         const auto& p = insert_data[insert_idx++ % insert_data.size()];
         filter.put({static_cast<uint64_t>(p.x), static_cast<uint64_t>(p.y),
                     static_cast<uint64_t>(p.z)});
@@ -502,7 +539,7 @@ void benchmark_blocked_bf_3d(ankerl::nanobench::Bench& bench,
 
     // Query
     size_t query_idx = 0;
-    bench.run("BlockedBF query", [&]() {
+    bench.run(name + " query", [&]() {
         const auto& p = insert_data[query_idx++ % insert_data.size()];
         ankerl::nanobench::doNotOptimizeAway(
             filter.get_bool({static_cast<uint64_t>(p.x), static_cast<uint64_t>(p.y),
@@ -515,7 +552,7 @@ void benchmark_blocked_bf_3d(ankerl::nanobench::Bench& bench,
 
     // Neighborhood (3x3x3 - 1 = 26 neighbors, excluding center)
     size_t nbr_idx = 0;
-    bench.batch(26).run("BlockedBF neighbor", [&]() {
+    bench.batch(26).run(name + " neighbor", [&]() {
         const auto& p = insert_data[nbr_idx++ % insert_data.size()];
         for (int dz = -1; dz <= 1; ++dz) {
             for (int dy = -1; dy <= 1; ++dy) {
@@ -532,6 +569,8 @@ void benchmark_blocked_bf_3d(ankerl::nanobench::Bench& bench,
     bench.batch(1);
     auto& nbr_res = bench.results().back();
     result.neighbor_ns = nbr_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+    result.neighbor_ins = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::instructions)) / 26;
+    result.neighbor_cyc = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::cpucycles)) / 26;
 
     // FPR
     size_t false_positives = 0;
@@ -545,20 +584,29 @@ void benchmark_blocked_bf_3d(ankerl::nanobench::Bench& bench,
     g_results.push_back(result);
 }
 
+template<typename Hasher>
 void benchmark_register_bf_3d(ankerl::nanobench::Bench& bench,
+                               const std::string& name,
                                const std::vector<Point3D>& insert_data,
                                const std::vector<Point3D>& query_data,
-                               size_t memory_bytes, double target_fpr) {
+                               size_t memory_bytes, double target_fpr,
+                               globimap::IntraBlockStrategy strategy) {
     size_t expected_items = compute_expected_items(memory_bytes, target_fpr);
-    RegisterBlockedBFConfig conf{expected_items, target_fpr, 0};
-    RegisterBlockedBloomFilter<0> filter(conf);
+    RegisterBlockedBFConfig conf;
+    conf.expected_items = expected_items;
+    conf.false_positive_rate = target_fpr;
+    conf.compensation = 0;
+    conf.intra_strategy = strategy;
+    conf.pattern_table_size = 1024;
+
+    RegisterBlockedBloomFilter<0, Hasher> filter(conf);
     BenchResult result;
-    result.name = "RegisterBF";
+    result.name = name;
     result.memory = filter.memory_usage();
 
     // Insert
     size_t insert_idx = 0;
-    bench.run("RegisterBF insert", [&]() {
+    bench.run(name + " insert", [&]() {
         const auto& p = insert_data[insert_idx++ % insert_data.size()];
         filter.put({static_cast<uint64_t>(p.x), static_cast<uint64_t>(p.y),
                     static_cast<uint64_t>(p.z)});
@@ -577,7 +625,7 @@ void benchmark_register_bf_3d(ankerl::nanobench::Bench& bench,
 
     // Query
     size_t query_idx = 0;
-    bench.run("RegisterBF query", [&]() {
+    bench.run(name + " query", [&]() {
         const auto& p = insert_data[query_idx++ % insert_data.size()];
         ankerl::nanobench::doNotOptimizeAway(
             filter.get_bool({static_cast<uint64_t>(p.x), static_cast<uint64_t>(p.y),
@@ -590,7 +638,7 @@ void benchmark_register_bf_3d(ankerl::nanobench::Bench& bench,
 
     // Neighborhood (3x3x3 - 1 = 26 neighbors, excluding center)
     size_t nbr_idx = 0;
-    bench.batch(26).run("RegisterBF neighbor", [&]() {
+    bench.batch(26).run(name + " neighbor", [&]() {
         const auto& p = insert_data[nbr_idx++ % insert_data.size()];
         for (int dz = -1; dz <= 1; ++dz) {
             for (int dy = -1; dy <= 1; ++dy) {
@@ -607,6 +655,8 @@ void benchmark_register_bf_3d(ankerl::nanobench::Bench& bench,
     bench.batch(1);
     auto& nbr_res = bench.results().back();
     result.neighbor_ns = nbr_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+    result.neighbor_ins = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::instructions)) / 26;
+    result.neighbor_cyc = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::cpucycles)) / 26;
 
     // FPR
     size_t false_positives = 0;
@@ -619,6 +669,43 @@ void benchmark_register_bf_3d(ankerl::nanobench::Bench& bench,
 
     g_results.push_back(result);
 }
+
+// ============================================================================
+// Helper Macros for All Hasher/Strategy Permutations
+// ============================================================================
+
+// Benchmark all BlockedBF permutations (6 total: 3 hashers x 2 strategies)
+#define BENCH_ALL_BLOCKED_2D(bench, insert, query, mem, fpr) \
+    benchmark_blocked_bf_2d<MurmurHasher>(bench, "BlockedBF", insert, query, mem, fpr, globimap::IntraBlockStrategy::DOUBLE_HASH); \
+    benchmark_blocked_bf_2d<MurmurHasher>(bench, "BlockedBF+Pat", insert, query, mem, fpr, globimap::IntraBlockStrategy::PATTERN_LOOKUP); \
+    benchmark_blocked_bf_2d<XXH3Hasher>(bench, "BlockedBF-XXH3", insert, query, mem, fpr, globimap::IntraBlockStrategy::DOUBLE_HASH); \
+    benchmark_blocked_bf_2d<XXH3Hasher>(bench, "BlockedBF-XXH3+Pat", insert, query, mem, fpr, globimap::IntraBlockStrategy::PATTERN_LOOKUP); \
+    benchmark_blocked_bf_2d<WyHasher>(bench, "BlockedBF-Wy", insert, query, mem, fpr, globimap::IntraBlockStrategy::DOUBLE_HASH); \
+    benchmark_blocked_bf_2d<WyHasher>(bench, "BlockedBF-Wy+Pat", insert, query, mem, fpr, globimap::IntraBlockStrategy::PATTERN_LOOKUP);
+
+#define BENCH_ALL_REGISTER_2D(bench, insert, query, mem, fpr) \
+    benchmark_register_bf_2d<MurmurHasher>(bench, "RegisterBF", insert, query, mem, fpr, globimap::IntraBlockStrategy::DOUBLE_HASH); \
+    benchmark_register_bf_2d<MurmurHasher>(bench, "RegisterBF+Pat", insert, query, mem, fpr, globimap::IntraBlockStrategy::PATTERN_LOOKUP); \
+    benchmark_register_bf_2d<XXH3Hasher>(bench, "RegisterBF-XXH3", insert, query, mem, fpr, globimap::IntraBlockStrategy::DOUBLE_HASH); \
+    benchmark_register_bf_2d<XXH3Hasher>(bench, "RegisterBF-XXH3+Pat", insert, query, mem, fpr, globimap::IntraBlockStrategy::PATTERN_LOOKUP); \
+    benchmark_register_bf_2d<WyHasher>(bench, "RegisterBF-Wy", insert, query, mem, fpr, globimap::IntraBlockStrategy::DOUBLE_HASH); \
+    benchmark_register_bf_2d<WyHasher>(bench, "RegisterBF-Wy+Pat", insert, query, mem, fpr, globimap::IntraBlockStrategy::PATTERN_LOOKUP);
+
+#define BENCH_ALL_BLOCKED_3D(bench, insert, query, mem, fpr) \
+    benchmark_blocked_bf_3d<MurmurHasher>(bench, "BlockedBF", insert, query, mem, fpr, globimap::IntraBlockStrategy::DOUBLE_HASH); \
+    benchmark_blocked_bf_3d<MurmurHasher>(bench, "BlockedBF+Pat", insert, query, mem, fpr, globimap::IntraBlockStrategy::PATTERN_LOOKUP); \
+    benchmark_blocked_bf_3d<XXH3Hasher>(bench, "BlockedBF-XXH3", insert, query, mem, fpr, globimap::IntraBlockStrategy::DOUBLE_HASH); \
+    benchmark_blocked_bf_3d<XXH3Hasher>(bench, "BlockedBF-XXH3+Pat", insert, query, mem, fpr, globimap::IntraBlockStrategy::PATTERN_LOOKUP); \
+    benchmark_blocked_bf_3d<WyHasher>(bench, "BlockedBF-Wy", insert, query, mem, fpr, globimap::IntraBlockStrategy::DOUBLE_HASH); \
+    benchmark_blocked_bf_3d<WyHasher>(bench, "BlockedBF-Wy+Pat", insert, query, mem, fpr, globimap::IntraBlockStrategy::PATTERN_LOOKUP);
+
+#define BENCH_ALL_REGISTER_3D(bench, insert, query, mem, fpr) \
+    benchmark_register_bf_3d<MurmurHasher>(bench, "RegisterBF", insert, query, mem, fpr, globimap::IntraBlockStrategy::DOUBLE_HASH); \
+    benchmark_register_bf_3d<MurmurHasher>(bench, "RegisterBF+Pat", insert, query, mem, fpr, globimap::IntraBlockStrategy::PATTERN_LOOKUP); \
+    benchmark_register_bf_3d<XXH3Hasher>(bench, "RegisterBF-XXH3", insert, query, mem, fpr, globimap::IntraBlockStrategy::DOUBLE_HASH); \
+    benchmark_register_bf_3d<XXH3Hasher>(bench, "RegisterBF-XXH3+Pat", insert, query, mem, fpr, globimap::IntraBlockStrategy::PATTERN_LOOKUP); \
+    benchmark_register_bf_3d<WyHasher>(bench, "RegisterBF-Wy", insert, query, mem, fpr, globimap::IntraBlockStrategy::DOUBLE_HASH); \
+    benchmark_register_bf_3d<WyHasher>(bench, "RegisterBF-Wy+Pat", insert, query, mem, fpr, globimap::IntraBlockStrategy::PATTERN_LOOKUP);
 
 // Print summary table
 void print_summary_table() {
@@ -627,25 +714,41 @@ void print_summary_table() {
     std::cout << "\n";
     std::cout << std::left << std::setw(20) << "Implementation"
               << std::right
-              << std::setw(10) << "Memory"
-              << std::setw(10) << "Insert"
-              << std::setw(10) << "Query"
-              << std::setw(12) << "Neighbor"
-              << std::setw(8) << "Ins"
-              << std::setw(8) << "Cyc"
-              << std::setw(8) << "FPR" << "\n";
-    std::cout << std::string(94, '-') << "\n";
+              << std::setw(8) << "Memory"
+              << " |"
+              << std::setw(7) << "Insert"
+              << std::setw(5) << "ins"
+              << std::setw(5) << "cyc"
+              << " |"
+              << std::setw(7) << "Query"
+              << std::setw(5) << "ins"
+              << std::setw(5) << "cyc"
+              << " |"
+              << std::setw(8) << "Neighb"
+              << std::setw(5) << "ins"
+              << std::setw(5) << "cyc"
+              << " |"
+              << std::setw(7) << "FPR" << "\n";
+    std::cout << std::string(106, '-') << "\n";
 
     for (const auto& r : g_results) {
         std::cout << std::left << std::setw(20) << r.name
                   << std::right
-                  << std::setw(8) << (r.memory / 1024) << " KB"
-                  << std::setw(8) << std::fixed << std::setprecision(1) << r.insert_ns << " ns"
-                  << std::setw(8) << r.query_ns << " ns"
-                  << std::setw(10) << r.neighbor_ns << " ns"
-                  << std::setw(8) << r.query_ins
-                  << std::setw(8) << r.query_cyc
-                  << std::setw(7) << std::setprecision(2) << (r.fpr * 100) << "%\n";
+                  << std::setw(6) << (r.memory / 1024) << "KB"
+                  << " |"
+                  << std::setw(5) << std::fixed << std::setprecision(1) << r.insert_ns << "ns"
+                  << std::setw(5) << r.insert_ins
+                  << std::setw(5) << r.insert_cyc
+                  << " |"
+                  << std::setw(5) << r.query_ns << "ns"
+                  << std::setw(5) << r.query_ins
+                  << std::setw(5) << r.query_cyc
+                  << " |"
+                  << std::setw(6) << r.neighbor_ns << "ns"
+                  << std::setw(5) << r.neighbor_ins
+                  << std::setw(5) << r.neighbor_cyc
+                  << " |"
+                  << std::setw(6) << std::setprecision(2) << (r.fpr * 100) << "%\n";
     }
     std::cout << "\n";
     g_results.clear();
@@ -684,8 +787,8 @@ void run_2d_benchmark(size_t n, uint32_t max_coord, unsigned log_blocks) {
     // Baseline filters (same memory budget as SBBF)
     size_t sbbf_memory = (1ULL << log_blocks) * 8;
     double target_fpr = 0.001;  // 0.1% target to match SBBF's ~0.07%
-    benchmark_blocked_bf_2d(bench, insert_data, query_data, sbbf_memory, target_fpr);
-    benchmark_register_bf_2d(bench, insert_data, query_data, sbbf_memory, target_fpr);
+    BENCH_ALL_BLOCKED_2D(bench, insert_data, query_data, sbbf_memory, target_fpr);
+    BENCH_ALL_REGISTER_2D(bench, insert_data, query_data, sbbf_memory, target_fpr);
 
     print_summary_table();
 }
@@ -718,8 +821,8 @@ void run_2d_clustered_benchmark(size_t n, uint32_t max_coord, size_t clusters,
     // Baseline filters (same memory budget as SBBF)
     size_t sbbf_memory = (1ULL << log_blocks) * 8;
     double target_fpr = 0.001;
-    benchmark_blocked_bf_2d(bench, insert_data, query_data, sbbf_memory, target_fpr);
-    benchmark_register_bf_2d(bench, insert_data, query_data, sbbf_memory, target_fpr);
+    BENCH_ALL_BLOCKED_2D(bench, insert_data, query_data, sbbf_memory, target_fpr);
+    BENCH_ALL_REGISTER_2D(bench, insert_data, query_data, sbbf_memory, target_fpr);
 
     print_summary_table();
 }
@@ -785,8 +888,8 @@ void run_3d_benchmark(size_t n, uint32_t max_coord, unsigned log_blocks) {
     // Use same FPR target - actual FPR depends on load factor
     double target_fpr = 0.001;  // 0.1% target to match SBBF's ~0.07%
 
-    benchmark_blocked_bf_3d(bench, insert_data, query_data, sbbf_memory, target_fpr);
-    benchmark_register_bf_3d(bench, insert_data, query_data, sbbf_memory, target_fpr);
+    BENCH_ALL_BLOCKED_3D(bench, insert_data, query_data, sbbf_memory, target_fpr);
+    BENCH_ALL_REGISTER_3D(bench, insert_data, query_data, sbbf_memory, target_fpr);
 
     print_summary_table();
 }
@@ -825,9 +928,9 @@ void benchmark_strategy(ankerl::nanobench::Bench& bench,
     result.memory = filter.memory_usage();
 
     // Set param string based on strategy
-    if (conf.intra_strategy == IntraBlockStrategy::PATTERN_LOOKUP) {
+    if (conf.intra_strategy == sbbf::IntraBlockStrategy::PATTERN_LOOKUP) {
         result.param = std::to_string(conf.pattern_table_size);
-    } else if (conf.intra_strategy == IntraBlockStrategy::MULTIPLEXED) {
+    } else if (conf.intra_strategy == sbbf::IntraBlockStrategy::MULTIPLEXED) {
         result.param = "x" + std::to_string(conf.multiplex_count);
     } else {
         result.param = "-";
@@ -870,8 +973,8 @@ void benchmark_strategy(ankerl::nanobench::Bench& bench,
     bench.batch(1);
     auto& nbr_res = bench.results().back();
     result.neighbor_ns = nbr_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
-    result.neighbor_ins = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::instructions));
-    result.neighbor_cyc = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::cpucycles));
+    result.neighbor_ins = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::instructions)) / 26;
+    result.neighbor_cyc = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::cpucycles)) / 26;
 
     // FPR measurement
     size_t false_positives = 0;
@@ -945,7 +1048,7 @@ void run_strategy_comparison(size_t n, uint32_t max_coord, unsigned log_blocks) 
 
     for (unsigned k : {2, 4, 6, 8}) {
         SBBFConfig conf = base_conf;
-        conf.intra_strategy = IntraBlockStrategy::DOUBLE_HASH;
+        conf.intra_strategy = sbbf::IntraBlockStrategy::DOUBLE_HASH;
         conf.hash_k = k;
         benchmark_strategy<10>(bench, "DOUBLE_HASH", conf, insert_data, query_data);
     }
@@ -954,7 +1057,7 @@ void run_strategy_comparison(size_t n, uint32_t max_coord, unsigned log_blocks) 
 
     for (size_t table_size : {256, 512, 1024, 2048}) {
         SBBFConfig conf = base_conf;
-        conf.intra_strategy = IntraBlockStrategy::PATTERN_LOOKUP;
+        conf.intra_strategy = sbbf::IntraBlockStrategy::PATTERN_LOOKUP;
         conf.hash_k = 4;
         conf.pattern_table_size = table_size;
         benchmark_strategy<10>(bench, "PATTERN_LOOKUP", conf, insert_data, query_data);
@@ -964,7 +1067,7 @@ void run_strategy_comparison(size_t n, uint32_t max_coord, unsigned log_blocks) 
 
     for (unsigned mux : {1, 2, 4}) {
         SBBFConfig conf = base_conf;
-        conf.intra_strategy = IntraBlockStrategy::MULTIPLEXED;
+        conf.intra_strategy = sbbf::IntraBlockStrategy::MULTIPLEXED;
         conf.hash_k = 4;
         conf.multiplex_count = mux;
         benchmark_strategy<10>(bench, "MULTIPLEXED", conf, insert_data, query_data);

@@ -223,6 +223,7 @@ PUBLIC OpenMP::OpenMP_CXX
 # SBBF (Spatial-Blocked Bloom Filter) benchmark
 add_executable(sbbf_benchmark experiments/src/sbbf_benchmark.cpp)
 target_link_libraries(sbbf_benchmark
+PUBLIC HighFive
 PUBLIC OpenMP::OpenMP_CXX
 )
 
@@ -235,6 +236,12 @@ PUBLIC OpenMP::OpenMP_CXX
 # Hilbert performance benchmark
 add_executable(hilbert_benchmark experiments/src/hilbert_benchmark.cpp)
 target_link_libraries(hilbert_benchmark
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+# Hash function benchmark
+add_executable(hash_benchmark experiments/src/hash_benchmark.cpp)
+target_link_libraries(hash_benchmark
 PUBLIC OpenMP::OpenMP_CXX
 )
 

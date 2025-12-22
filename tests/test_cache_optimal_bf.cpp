@@ -329,6 +329,285 @@ TEST(register_blocked_fpr) {
 }
 
 // ============================================================================
+// PATTERN_LOOKUP Strategy Tests
+// ============================================================================
+
+TEST(blocked_pattern_lookup) {
+    BlockedBFConfig conf;
+    conf.expected_items = 10000;
+    conf.false_positive_rate = 0.01;
+    conf.intra_strategy = IntraBlockStrategy::PATTERN_LOOKUP;
+    conf.pattern_table_size = 1024;
+
+    BlockedBloomFilter bf(conf);
+
+    // Test basic functionality
+    std::vector<uint64_t> point1 = {123, 456};
+    std::vector<uint64_t> point2 = {789, 101112};
+
+    bf.put(point1);
+    ASSERT_TRUE(bf.get_bool(point1));
+    ASSERT_FALSE(bf.get_bool(point2));  // Likely false
+
+    bf.put(point2);
+    ASSERT_TRUE(bf.get_bool(point1));
+    ASSERT_TRUE(bf.get_bool(point2));
+}
+
+TEST(blocked_pattern_lookup_no_false_negatives) {
+    BlockedBFConfig conf;
+    conf.expected_items = 1000;
+    conf.false_positive_rate = 0.01;
+    conf.intra_strategy = IntraBlockStrategy::PATTERN_LOOKUP;
+    conf.pattern_table_size = 2048;
+
+    BlockedBloomFilter bf(conf);
+
+    std::mt19937_64 rng(111);
+    std::vector<std::vector<uint64_t>> inserted;
+
+    for (int i = 0; i < 500; ++i) {
+        std::vector<uint64_t> point = {rng(), rng()};
+        bf.put(point);
+        inserted.push_back(point);
+    }
+
+    for (const auto &point : inserted) {
+        ASSERT_TRUE(bf.get_bool(point));
+    }
+}
+
+TEST(register_pattern_lookup) {
+    RegisterBlockedBFConfig conf;
+    conf.expected_items = 10000;
+    conf.false_positive_rate = 0.01;
+    conf.intra_strategy = IntraBlockStrategy::PATTERN_LOOKUP;
+    conf.pattern_table_size = 1024;
+
+    RegisterBlockedBF bf(conf);
+
+    std::vector<uint64_t> point1 = {123, 456};
+    std::vector<uint64_t> point2 = {789, 101112};
+
+    bf.put(point1);
+    ASSERT_TRUE(bf.get_bool(point1));
+    ASSERT_FALSE(bf.get_bool(point2));  // Likely false
+
+    bf.put(point2);
+    ASSERT_TRUE(bf.get_bool(point1));
+    ASSERT_TRUE(bf.get_bool(point2));
+}
+
+TEST(register_pattern_lookup_no_false_negatives) {
+    RegisterBlockedBFConfig conf;
+    conf.expected_items = 1000;
+    conf.false_positive_rate = 0.01;
+    conf.intra_strategy = IntraBlockStrategy::PATTERN_LOOKUP;
+    conf.pattern_table_size = 2048;
+
+    RegisterBlockedBF bf(conf);
+
+    std::mt19937_64 rng(222);
+    std::vector<std::vector<uint64_t>> inserted;
+
+    for (int i = 0; i < 500; ++i) {
+        std::vector<uint64_t> point = {rng(), rng()};
+        bf.put(point);
+        inserted.push_back(point);
+    }
+
+    for (const auto &point : inserted) {
+        ASSERT_TRUE(bf.get_bool(point));
+    }
+}
+
+TEST(pattern_table_sizes) {
+    // Test different pattern table sizes
+    for (size_t size : {256, 512, 1024, 2048}) {
+        RegisterBlockedBFConfig conf;
+        conf.expected_items = 5000;
+        conf.false_positive_rate = 0.01;
+        conf.intra_strategy = IntraBlockStrategy::PATTERN_LOOKUP;
+        conf.pattern_table_size = size;
+
+        RegisterBlockedBF bf(conf);
+
+        for (uint64_t i = 0; i < 100; ++i) {
+            bf.put({i, i * 2});
+        }
+
+        for (uint64_t i = 0; i < 100; ++i) {
+            ASSERT_TRUE(bf.get_bool({i, i * 2}));
+        }
+    }
+}
+
+// ============================================================================
+// Template Hasher Tests
+// ============================================================================
+
+TEST(blocked_xxh3_hasher) {
+    BlockedBFConfig conf;
+    conf.expected_items = 5000;
+    conf.false_positive_rate = 0.01;
+
+    BlockedBloomFilter<XXH3Hasher> bf(conf);
+
+    std::mt19937_64 rng(333);
+    std::vector<std::vector<uint64_t>> inserted;
+
+    for (int i = 0; i < 300; ++i) {
+        std::vector<uint64_t> point = {rng(), rng()};
+        bf.put(point);
+        inserted.push_back(point);
+    }
+
+    // No false negatives
+    for (const auto &point : inserted) {
+        ASSERT_TRUE(bf.get_bool(point));
+    }
+
+    // Verify summary includes hasher name
+    std::string s = bf.summary();
+    ASSERT_TRUE(s.find("XXH3") != std::string::npos);
+}
+
+TEST(blocked_wyhash_hasher) {
+    BlockedBFConfig conf;
+    conf.expected_items = 5000;
+    conf.false_positive_rate = 0.01;
+
+    BlockedBloomFilter<WyHasher> bf(conf);
+
+    std::mt19937_64 rng(444);
+    std::vector<std::vector<uint64_t>> inserted;
+
+    for (int i = 0; i < 300; ++i) {
+        std::vector<uint64_t> point = {rng(), rng()};
+        bf.put(point);
+        inserted.push_back(point);
+    }
+
+    for (const auto &point : inserted) {
+        ASSERT_TRUE(bf.get_bool(point));
+    }
+
+    std::string s = bf.summary();
+    ASSERT_TRUE(s.find("wyhash") != std::string::npos);
+}
+
+TEST(register_xxh3_hasher) {
+    RegisterBlockedBFConfig conf;
+    conf.expected_items = 5000;
+    conf.false_positive_rate = 0.01;
+
+    RegisterBlockedBloomFilter<0, XXH3Hasher> bf(conf);
+
+    std::mt19937_64 rng(555);
+    std::vector<std::vector<uint64_t>> inserted;
+
+    for (int i = 0; i < 300; ++i) {
+        std::vector<uint64_t> point = {rng(), rng()};
+        bf.put(point);
+        inserted.push_back(point);
+    }
+
+    for (const auto &point : inserted) {
+        ASSERT_TRUE(bf.get_bool(point));
+    }
+
+    std::string s = bf.summary();
+    ASSERT_TRUE(s.find("XXH3") != std::string::npos);
+}
+
+TEST(register_wyhash_hasher) {
+    RegisterBlockedBFConfig conf;
+    conf.expected_items = 5000;
+    conf.false_positive_rate = 0.01;
+
+    RegisterBlockedBloomFilter<0, WyHasher> bf(conf);
+
+    std::mt19937_64 rng(666);
+    std::vector<std::vector<uint64_t>> inserted;
+
+    for (int i = 0; i < 300; ++i) {
+        std::vector<uint64_t> point = {rng(), rng()};
+        bf.put(point);
+        inserted.push_back(point);
+    }
+
+    for (const auto &point : inserted) {
+        ASSERT_TRUE(bf.get_bool(point));
+    }
+
+    std::string s = bf.summary();
+    ASSERT_TRUE(s.find("wyhash") != std::string::npos);
+}
+
+TEST(type_aliases) {
+    // Test the convenience type aliases work correctly
+    BlockedBFConfig b_conf;
+    b_conf.expected_items = 1000;
+    b_conf.false_positive_rate = 0.01;
+
+    BlockedBloomFilterXXH3 blocked_xxh3(b_conf);
+    BlockedBloomFilterWyhash blocked_wyhash(b_conf);
+
+    RegisterBlockedBFConfig r_conf;
+    r_conf.expected_items = 1000;
+    r_conf.false_positive_rate = 0.01;
+
+    RegisterBlockedBFXXH3 reg_xxh3(r_conf);
+    RegisterBlockedBFWyhash reg_wyhash(r_conf);
+
+    // Insert and verify
+    std::vector<uint64_t> point = {12345, 67890};
+    blocked_xxh3.put(point);
+    blocked_wyhash.put(point);
+    reg_xxh3.put(point);
+    reg_wyhash.put(point);
+
+    ASSERT_TRUE(blocked_xxh3.get_bool(point));
+    ASSERT_TRUE(blocked_wyhash.get_bool(point));
+    ASSERT_TRUE(reg_xxh3.get_bool(point));
+    ASSERT_TRUE(reg_wyhash.get_bool(point));
+}
+
+TEST(hasher_independence) {
+    // Different hashers should produce different bit patterns
+    // (not guaranteed to be different for every input, but statistically different)
+    BlockedBFConfig conf;
+    conf.expected_items = 10000;
+    conf.false_positive_rate = 0.01;
+
+    BlockedBloomFilter<MurmurHasher> bf_murmur(conf);
+    BlockedBloomFilter<XXH3Hasher> bf_xxh3(conf);
+
+    // Insert same data
+    for (uint64_t i = 0; i < 100; ++i) {
+        bf_murmur.put({i, i * 2});
+        bf_xxh3.put({i, i * 2});
+    }
+
+    // Both should find inserted elements
+    for (uint64_t i = 0; i < 100; ++i) {
+        ASSERT_TRUE(bf_murmur.get_bool({i, i * 2}));
+        ASSERT_TRUE(bf_xxh3.get_bool({i, i * 2}));
+    }
+
+    // Count false positives - should differ between hashers due to different bit patterns
+    int fp_murmur = 0, fp_xxh3 = 0;
+    for (uint64_t i = 1000; i < 1100; ++i) {
+        if (bf_murmur.get_bool({i, i * 2})) fp_murmur++;
+        if (bf_xxh3.get_bool({i, i * 2})) fp_xxh3++;
+    }
+
+    // Both should have reasonable FPR
+    ASSERT_LE(fp_murmur, 20);  // Should be low
+    ASSERT_LE(fp_xxh3, 20);    // Should be low
+}
+
+// ============================================================================
 // SIMD Bloom Filter Tests (conditional on AVX2)
 // ============================================================================
 
@@ -501,6 +780,21 @@ int main() {
     run_test_register_blocked_no_false_negatives();
     run_test_register_blocked_compensation();
     run_test_register_blocked_fpr();
+
+    // PATTERN_LOOKUP strategy tests
+    run_test_blocked_pattern_lookup();
+    run_test_blocked_pattern_lookup_no_false_negatives();
+    run_test_register_pattern_lookup();
+    run_test_register_pattern_lookup_no_false_negatives();
+    run_test_pattern_table_sizes();
+
+    // Template hasher tests
+    run_test_blocked_xxh3_hasher();
+    run_test_blocked_wyhash_hasher();
+    run_test_register_xxh3_hasher();
+    run_test_register_wyhash_hasher();
+    run_test_type_aliases();
+    run_test_hasher_independence();
 
     // SIMD tests
     run_test_simd_availability();

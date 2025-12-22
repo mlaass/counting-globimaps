@@ -308,9 +308,9 @@ void run_benchmark_scenario(const std::string &scenario_name,
     rb_conf.false_positive_rate = fpr_target;
     rb_conf.compensation = 0;
 
-    // Run benchmarks
+    // Run benchmarks (using default hasher for templated filters)
     benchmark_filter<BasicBloomFilterAdapter>(bench, "BasicBF", blocked_conf, insert_data, query_data);
-    benchmark_filter<BlockedBloomFilter>(bench, "BlockedBF", blocked_conf, insert_data, query_data);
+    benchmark_filter<BlockedBloomFilter<>>(bench, "BlockedBF", blocked_conf, insert_data, query_data);
     benchmark_filter<RegisterBlockedBF>(bench, "RegisterBlockedBF", rb_conf, insert_data, query_data);
 
 #if SIMD_BF_AVX2_AVAILABLE

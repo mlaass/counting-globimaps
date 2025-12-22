@@ -1,15 +1,73 @@
-
+/*
+ * DEPRECATED: Use hash_functions.hpp with template hashers instead.
+ *
+ * This file uses #define guards which only compile ONE hash function at a time.
+ * The new hash_functions.hpp provides template-based hashers with zero overhead:
+ *
+ *   #include "hash_functions.hpp"
+ *   BlockedBloomFilter<XXH3Hasher> bf(...);      // Use XXH3
+ *   BlockedBloomFilter<MurmurHasher> bf2(...);   // Use MurmurHash3
+ *   BlockedBloomFilter<> bf3(...);               // Default (MurmurHash3)
+ *
+ * This file is maintained only for backward compatibility with:
+ * - globimap.hpp (binary bloom filter)
+ * - counting_globimap.hpp (counting filter)
+ * - Other legacy code using the hash() function directly
+ */
 
 #ifndef HASHFN_HPP
 #define HASHFN_HPP
 
+// =============================================================================
+// Hash function selection (uncomment ONE):
+// =============================================================================
+// GLOBIMAP_USE_MURMUR  - MurmurHash3 (3-5 GB/s) - Default, widely compatible
+// GLOBIMAP_USE_XXH3    - XXH3 (30+ GB/s) - Fastest, auto-vectorizes (SSE2/AVX2)
+// GLOBIMAP_USE_WYHASH  - wyhash (25 GB/s) - Simple, excellent for short keys
+// =============================================================================
+
 #define GLOBIMAP_USE_MURMUR
+// #define GLOBIMAP_USE_XXH3
+// #define GLOBIMAP_USE_WYHASH
 
 //#define GLOBIMAP_USE_MURMUR_PREFIX
 //#define GLOBIMAP_USE_DJB64
 
 #include <cstring>
 
+// =============================================================================
+// XXH3 - Extremely fast hash (30+ GB/s with vectorization)
+// =============================================================================
+#ifdef GLOBIMAP_USE_XXH3
+#define XXH_INLINE_ALL
+#include "xxhash.h"
+
+inline void hash(const uint64_t *data, const size_t len, uint64_t *v1,
+                 uint64_t *v2) {
+  // XXH3_128bits produces two independent 64-bit hash values
+  XXH128_hash_t h = XXH3_128bits_withSeed(data, len * sizeof(uint64_t), *v1);
+  *v1 = h.low64;
+  *v2 = h.high64;
+}
+#endif
+
+// =============================================================================
+// wyhash - Fast and simple hash (25 GB/s)
+// =============================================================================
+#ifdef GLOBIMAP_USE_WYHASH
+#include "wyhash.h"
+
+inline void hash(const uint64_t *data, const size_t len, uint64_t *v1,
+                 uint64_t *v2) {
+  // wyhash produces a single 64-bit value; use different seeds for h1/h2
+  *v1 = wyhash(data, len * sizeof(uint64_t), *v1, _wyp);
+  *v2 = wyhash(data, len * sizeof(uint64_t), *v2, _wyp);
+}
+#endif
+
+// =============================================================================
+// MurmurHash3 - Classic hash (3-5 GB/s) - Default
+// =============================================================================
 #ifdef GLOBIMAP_USE_MURMUR
 #include "murmur.hpp"
 

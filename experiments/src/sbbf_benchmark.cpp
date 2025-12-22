@@ -29,9 +29,14 @@
 #include "blocked_bloom_filter.hpp"
 #include "register_blocked_bf.hpp"
 
+#include "json.hpp"
+#include <highfive/highfive.hpp>
+
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -41,21 +46,132 @@
 #include <sys/stat.h>
 #include <vector>
 
+using json = nlohmann::json;
+
 using namespace sbbf;
 using namespace globimap;
 
 const std::string results_path = "./results/sbbf/";
 
 // ============================================================================
+// Utility Functions
+// ============================================================================
+
+std::vector<std::string> split_string(const std::string& s, char delimiter) {
+    std::vector<std::string> tokens;
+    std::stringstream ss(s);
+    std::string token;
+    while (std::getline(ss, token, delimiter)) {
+        if (!token.empty()) {
+            tokens.push_back(token);
+        }
+    }
+    return tokens;
+}
+
+std::vector<size_t> parse_size_list(const std::string& s) {
+    std::vector<size_t> result;
+    for (const auto& token : split_string(s, ',')) {
+        result.push_back(std::stoull(token));
+    }
+    return result;
+}
+
+std::vector<unsigned> parse_unsigned_list(const std::string& s) {
+    std::vector<unsigned> result;
+    for (const auto& token : split_string(s, ',')) {
+        result.push_back(static_cast<unsigned>(std::stoul(token)));
+    }
+    return result;
+}
+
+std::string get_timestamp() {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    std::tm tm = *std::localtime(&time);
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%Y%m%d_%H%M%S");
+    return oss.str();
+}
+
+std::string get_iso_timestamp() {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    std::tm tm = *std::gmtime(&time);
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
+    return oss.str();
+}
+
+// ============================================================================
 // Configuration
 // ============================================================================
 
 struct BenchmarkConfig {
+    // Existing nanobench settings
     size_t epochs = 11;
     size_t min_iters = 1000;
     size_t warmup = 100;
     size_t epoch_time_ms = 100;
     std::string scenario = "all";
+
+    // Parameter sweep lists
+    std::vector<size_t> element_counts = {100000};
+    std::vector<unsigned> log_block_sizes = {17};
+    std::vector<unsigned> hash_k_values = {4};
+    std::vector<unsigned> coord_bits_values = {16};
+    std::vector<std::string> sfc_types = {"morton", "hilbert"};
+    std::vector<std::string> strategies = {"double_hash", "pattern_lookup"};
+    std::vector<std::string> distributions = {"uniform"};
+    std::vector<unsigned> dimensions = {2};
+    size_t num_clusters = 100;
+
+    // Dataset
+    std::string dataset_path;  // Empty = synthetic
+
+    // Output
+    std::string output_path;
+    std::string output_format = "json";
+
+    // Baseline mode: "none", "reduced", "full"
+    std::string baseline_mode = "reduced";
+
+    // Suite preset: "quick", "paper", "full", or empty for custom
+    std::string suite;
+
+    void apply_suite_preset() {
+        if (suite == "quick") {
+            element_counts = {50000};
+            log_block_sizes = {17};
+            hash_k_values = {4};
+            coord_bits_values = {16};
+            sfc_types = {"hilbert"};
+            strategies = {"pattern_lookup"};
+            distributions = {"uniform"};
+            dimensions = {2};
+            baseline_mode = "none";
+        } else if (suite == "paper") {
+            element_counts = {10000, 50000, 100000, 500000, 1000000};
+            log_block_sizes = {14, 15, 16, 17, 18, 19, 20};
+            hash_k_values = {2, 4, 6, 8};
+            coord_bits_values = {8, 12, 16, 20};  // Must be multiples of 4 for Hilbert
+            sfc_types = {"morton", "hilbert"};
+            strategies = {"double_hash", "pattern_lookup"};
+            distributions = {"uniform", "clustered"};
+            dimensions = {2, 3};
+            baseline_mode = "reduced";
+        } else if (suite == "full") {
+            element_counts = {10000, 50000, 100000, 500000, 1000000};
+            log_block_sizes = {14, 15, 16, 17, 18, 19, 20};
+            hash_k_values = {2, 4, 6, 8};
+            coord_bits_values = {8, 12, 16, 20};  // Must be multiples of 4 for Hilbert
+            sfc_types = {"morton", "hilbert"};
+            strategies = {"double_hash", "pattern_lookup"};
+            distributions = {"uniform", "clustered"};
+            dimensions = {2, 3};
+            baseline_mode = "full";
+        }
+    }
 
     void print() const {
         std::cout << "Benchmark configuration:\n";
@@ -64,6 +180,64 @@ struct BenchmarkConfig {
         std::cout << "  Warmup iterations: " << warmup << "\n";
         std::cout << "  Max epoch time: " << epoch_time_ms << " ms\n";
         std::cout << "  Scenario: " << scenario << "\n";
+        if (!suite.empty()) {
+            std::cout << "  Suite: " << suite << "\n";
+        }
+        std::cout << "  Elements: ";
+        for (size_t i = 0; i < element_counts.size(); ++i) {
+            if (i > 0) std::cout << ",";
+            std::cout << element_counts[i];
+        }
+        std::cout << "\n";
+        std::cout << "  Log blocks: ";
+        for (size_t i = 0; i < log_block_sizes.size(); ++i) {
+            if (i > 0) std::cout << ",";
+            std::cout << log_block_sizes[i];
+        }
+        std::cout << "\n";
+        std::cout << "  Hash k: ";
+        for (size_t i = 0; i < hash_k_values.size(); ++i) {
+            if (i > 0) std::cout << ",";
+            std::cout << hash_k_values[i];
+        }
+        std::cout << "\n";
+        std::cout << "  Coord bits: ";
+        for (size_t i = 0; i < coord_bits_values.size(); ++i) {
+            if (i > 0) std::cout << ",";
+            std::cout << coord_bits_values[i];
+        }
+        std::cout << "\n";
+        std::cout << "  SFC types: ";
+        for (size_t i = 0; i < sfc_types.size(); ++i) {
+            if (i > 0) std::cout << ",";
+            std::cout << sfc_types[i];
+        }
+        std::cout << "\n";
+        std::cout << "  Strategies: ";
+        for (size_t i = 0; i < strategies.size(); ++i) {
+            if (i > 0) std::cout << ",";
+            std::cout << strategies[i];
+        }
+        std::cout << "\n";
+        std::cout << "  Dimensions: ";
+        for (size_t i = 0; i < dimensions.size(); ++i) {
+            if (i > 0) std::cout << ",";
+            std::cout << dimensions[i] << "D";
+        }
+        std::cout << "\n";
+        std::cout << "  Distributions: ";
+        for (size_t i = 0; i < distributions.size(); ++i) {
+            if (i > 0) std::cout << ",";
+            std::cout << distributions[i];
+        }
+        std::cout << "\n";
+        std::cout << "  Baseline mode: " << baseline_mode << "\n";
+        if (!dataset_path.empty()) {
+            std::cout << "  Dataset: " << dataset_path << "\n";
+        }
+        if (!output_path.empty()) {
+            std::cout << "  Output: " << output_path << "\n";
+        }
     }
 };
 
@@ -74,12 +248,35 @@ void print_usage(const char* prog) {
     std::cout << "  --min-iters N     Minimum iterations per epoch (default: 1000)\n";
     std::cout << "  --warmup N        Warmup iterations (default: 100)\n";
     std::cout << "  --epoch-time MS   Max time per epoch in ms (default: 100)\n";
-    std::cout << "  --scenario S      Run only: 2d, 3d, strategy, all (default: all)\n";
-    std::cout << "  --help            Show this help\n";
+    std::cout << "  --scenario S      Run only: 2d, 3d, strategy, sweep, all (default: all)\n";
+    std::cout << "\nParameter sweep options:\n";
+    std::cout << "  --suite S         Preset suite: quick, paper, full\n";
+    std::cout << "  --elements L      Comma-separated element counts (default: 100000)\n";
+    std::cout << "  --log-blocks L    Comma-separated log2 block counts (default: 17)\n";
+    std::cout << "  --hash-k L        Comma-separated hash k values (default: 4)\n";
+    std::cout << "  --coord-bits L    Comma-separated coord bits (default: 16)\n";
+    std::cout << "  --sfc L           Comma-separated SFC types: morton,hilbert\n";
+    std::cout << "  --strategy L      Comma-separated strategies: double_hash,pattern_lookup\n";
+    std::cout << "  --dims L          Comma-separated dimensions: 2,3 (default: 2)\n";
+    std::cout << "  --distribution L  Comma-separated: uniform,clustered (default: uniform)\n";
+    std::cout << "  --clusters N      Number of clusters for clustered distribution (default: 100)\n";
+    std::cout << "\nData source options:\n";
+    std::cout << "  --dataset PATH    Path to HDF5 or CSV file for real data\n";
+    std::cout << "\nOutput options:\n";
+    std::cout << "  --output PATH     Output directory or file path\n";
+    std::cout << "  --format F        Output format: json, csv (default: json)\n";
+    std::cout << "  --baseline M      Baseline mode: none, reduced, full (default: reduced)\n";
+    std::cout << "\nExamples:\n";
+    std::cout << "  " << prog << " --suite quick\n";
+    std::cout << "  " << prog << " --suite paper --output results/sbbf/\n";
+    std::cout << "  " << prog << " --scenario sweep --elements 50000,100000 --log-blocks 16,17,18\n";
+    std::cout << "  " << prog << " --dataset ./datasets/hdf5/gdelt_events.h5 --output gdelt.json\n";
+    std::cout << "\n  --help            Show this help\n";
 }
 
 BenchmarkConfig parse_args(int argc, char* argv[]) {
     BenchmarkConfig config;
+    bool suite_set = false;
 
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -95,11 +292,45 @@ BenchmarkConfig parse_args(int argc, char* argv[]) {
             config.epoch_time_ms = std::stoul(argv[++i]);
         } else if (strcmp(argv[i], "--scenario") == 0 && i + 1 < argc) {
             config.scenario = argv[++i];
+        } else if (strcmp(argv[i], "--suite") == 0 && i + 1 < argc) {
+            config.suite = argv[++i];
+            suite_set = true;
+        } else if (strcmp(argv[i], "--elements") == 0 && i + 1 < argc) {
+            config.element_counts = parse_size_list(argv[++i]);
+        } else if (strcmp(argv[i], "--log-blocks") == 0 && i + 1 < argc) {
+            config.log_block_sizes = parse_unsigned_list(argv[++i]);
+        } else if (strcmp(argv[i], "--hash-k") == 0 && i + 1 < argc) {
+            config.hash_k_values = parse_unsigned_list(argv[++i]);
+        } else if (strcmp(argv[i], "--coord-bits") == 0 && i + 1 < argc) {
+            config.coord_bits_values = parse_unsigned_list(argv[++i]);
+        } else if (strcmp(argv[i], "--sfc") == 0 && i + 1 < argc) {
+            config.sfc_types = split_string(argv[++i], ',');
+        } else if (strcmp(argv[i], "--strategy") == 0 && i + 1 < argc) {
+            config.strategies = split_string(argv[++i], ',');
+        } else if (strcmp(argv[i], "--dims") == 0 && i + 1 < argc) {
+            config.dimensions = parse_unsigned_list(argv[++i]);
+        } else if (strcmp(argv[i], "--distribution") == 0 && i + 1 < argc) {
+            config.distributions = split_string(argv[++i], ',');
+        } else if (strcmp(argv[i], "--clusters") == 0 && i + 1 < argc) {
+            config.num_clusters = std::stoul(argv[++i]);
+        } else if (strcmp(argv[i], "--dataset") == 0 && i + 1 < argc) {
+            config.dataset_path = argv[++i];
+        } else if (strcmp(argv[i], "--output") == 0 && i + 1 < argc) {
+            config.output_path = argv[++i];
+        } else if (strcmp(argv[i], "--format") == 0 && i + 1 < argc) {
+            config.output_format = argv[++i];
+        } else if (strcmp(argv[i], "--baseline") == 0 && i + 1 < argc) {
+            config.baseline_mode = argv[++i];
         } else {
             std::cerr << "Unknown option: " << argv[i] << "\n";
             print_usage(argv[0]);
             exit(1);
         }
+    }
+
+    // Apply suite preset first, then individual overrides take effect
+    if (suite_set) {
+        config.apply_suite_preset();
     }
 
     return config;
@@ -181,27 +412,284 @@ std::vector<Point2D> generate_clustered_2d(size_t n, uint32_t max_coord,
     return points;
 }
 
+std::vector<Point3D> generate_clustered_3d(size_t n, uint32_t max_coord,
+                                            size_t num_clusters, uint64_t seed) {
+    std::mt19937_64 rng(seed);
+    std::uniform_int_distribution<uint32_t> center_dist(0, max_coord);
+
+    std::vector<Point3D> centers;
+    for (size_t i = 0; i < num_clusters; ++i) {
+        centers.push_back({center_dist(rng), center_dist(rng), center_dist(rng)});
+    }
+
+    std::vector<Point3D> points;
+    points.reserve(n);
+    std::uniform_int_distribution<size_t> cluster_dist(0, num_clusters - 1);
+    std::normal_distribution<double> offset_dist(0, max_coord / 20.0);
+
+    for (size_t i = 0; i < n; ++i) {
+        auto& center = centers[cluster_dist(rng)];
+        int32_t ox = static_cast<int32_t>(offset_dist(rng));
+        int32_t oy = static_cast<int32_t>(offset_dist(rng));
+        int32_t oz = static_cast<int32_t>(offset_dist(rng));
+        uint32_t x = static_cast<uint32_t>(std::clamp<int32_t>(center.x + ox, 0, static_cast<int32_t>(max_coord)));
+        uint32_t y = static_cast<uint32_t>(std::clamp<int32_t>(center.y + oy, 0, static_cast<int32_t>(max_coord)));
+        uint32_t z = static_cast<uint32_t>(std::clamp<int32_t>(center.z + oz, 0, static_cast<int32_t>(max_coord)));
+        points.push_back({x, y, z});
+    }
+    return points;
+}
+
+// ============================================================================
+// Unified Data Container
+// ============================================================================
+
+struct DataPoints {
+    std::vector<Point2D> points_2d;
+    std::vector<Point3D> points_3d;
+    unsigned dimensions = 2;
+    std::string source = "synthetic";  // "uniform", "clustered", or filename
+
+    size_t size() const {
+        return dimensions == 2 ? points_2d.size() : points_3d.size();
+    }
+
+    void clear() {
+        points_2d.clear();
+        points_3d.clear();
+    }
+};
+
+DataPoints generate_synthetic(size_t n, unsigned dims, const std::string& distribution,
+                               unsigned coord_bits, size_t num_clusters, uint64_t seed) {
+    DataPoints data;
+    data.dimensions = dims;
+    data.source = distribution;
+
+    uint32_t max_coord = (1U << coord_bits) - 1;
+
+    if (dims == 2) {
+        if (distribution == "clustered") {
+            data.points_2d = generate_clustered_2d(n, max_coord, num_clusters, seed);
+        } else {
+            data.points_2d = generate_uniform_2d(n, max_coord, seed);
+        }
+    } else {
+        if (distribution == "clustered") {
+            data.points_3d = generate_clustered_3d(n, max_coord, num_clusters, seed);
+        } else {
+            data.points_3d = generate_uniform_3d(n, max_coord, seed);
+        }
+    }
+
+    return data;
+}
+
+// Load HDF5 dataset (expects 'coordinates' or 'points' dataset with Nx2 or Nx3 array)
+DataPoints load_hdf5_dataset(const std::string& path, unsigned coord_bits) {
+    DataPoints data;
+    uint32_t max_coord = (1U << coord_bits) - 1;
+
+    try {
+        HighFive::File file(path, HighFive::File::ReadOnly);
+
+        // Try different dataset names
+        std::vector<std::string> dataset_names = {"coords", "coordinates", "points", "data"};
+        std::string found_name;
+        for (const auto& name : dataset_names) {
+            if (file.exist(name)) {
+                found_name = name;
+                break;
+            }
+        }
+
+        if (found_name.empty()) {
+            throw std::runtime_error("No 'coords', 'coordinates', 'points', or 'data' dataset found in HDF5 file");
+        }
+
+        auto dataset = file.getDataSet(found_name);
+        auto dims = dataset.getDimensions();
+
+        if (dims.size() != 2) {
+            throw std::runtime_error("Dataset must be 2D (Nx2 or Nx3)");
+        }
+
+        data.dimensions = static_cast<unsigned>(dims[1]);
+
+        if (data.dimensions == 2) {
+            std::vector<std::vector<double>> raw_data;
+            dataset.read(raw_data);
+            data.points_2d.reserve(raw_data.size());
+
+            for (const auto& row : raw_data) {
+                // Normalize to coord range
+                uint32_t x = static_cast<uint32_t>(std::clamp<double>(row[0], 0, max_coord));
+                uint32_t y = static_cast<uint32_t>(std::clamp<double>(row[1], 0, max_coord));
+                data.points_2d.push_back({x, y});
+            }
+        } else if (data.dimensions == 3) {
+            std::vector<std::vector<double>> raw_data;
+            dataset.read(raw_data);
+            data.points_3d.reserve(raw_data.size());
+
+            for (const auto& row : raw_data) {
+                uint32_t x = static_cast<uint32_t>(std::clamp<double>(row[0], 0, max_coord));
+                uint32_t y = static_cast<uint32_t>(std::clamp<double>(row[1], 0, max_coord));
+                uint32_t z = static_cast<uint32_t>(std::clamp<double>(row[2], 0, max_coord));
+                data.points_3d.push_back({x, y, z});
+            }
+        } else {
+            throw std::runtime_error("Dataset must have 2 or 3 columns");
+        }
+
+        // Extract filename for source
+        size_t pos = path.find_last_of("/\\");
+        data.source = (pos != std::string::npos) ? path.substr(pos + 1) : path;
+
+    } catch (const HighFive::Exception& e) {
+        throw std::runtime_error("Failed to read HDF5 file: " + std::string(e.what()));
+    }
+
+    return data;
+}
+
+// Load CSV dataset (expects x,y or x,y,z columns)
+DataPoints load_csv_dataset(const std::string& path, unsigned coord_bits) {
+    DataPoints data;
+    uint32_t max_coord = (1U << coord_bits) - 1;
+
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open CSV file: " + path);
+    }
+
+    std::string line;
+
+    // Read header line to determine dimensionality
+    if (!std::getline(file, line)) {
+        throw std::runtime_error("Empty CSV file");
+    }
+
+    auto headers = split_string(line, ',');
+    data.dimensions = static_cast<unsigned>(headers.size());
+
+    if (data.dimensions < 2 || data.dimensions > 3) {
+        throw std::runtime_error("CSV must have 2 or 3 columns");
+    }
+
+    // Read data rows
+    while (std::getline(file, line)) {
+        if (line.empty()) continue;
+        auto tokens = split_string(line, ',');
+
+        if (tokens.size() < data.dimensions) continue;
+
+        if (data.dimensions == 2) {
+            uint32_t x = static_cast<uint32_t>(std::clamp<double>(std::stod(tokens[0]), 0, max_coord));
+            uint32_t y = static_cast<uint32_t>(std::clamp<double>(std::stod(tokens[1]), 0, max_coord));
+            data.points_2d.push_back({x, y});
+        } else {
+            uint32_t x = static_cast<uint32_t>(std::clamp<double>(std::stod(tokens[0]), 0, max_coord));
+            uint32_t y = static_cast<uint32_t>(std::clamp<double>(std::stod(tokens[1]), 0, max_coord));
+            uint32_t z = static_cast<uint32_t>(std::clamp<double>(std::stod(tokens[2]), 0, max_coord));
+            data.points_3d.push_back({x, y, z});
+        }
+    }
+
+    // Extract filename for source
+    size_t pos = path.find_last_of("/\\");
+    data.source = (pos != std::string::npos) ? path.substr(pos + 1) : path;
+
+    return data;
+}
+
+// Load dataset from path (auto-detect format)
+DataPoints load_dataset(const std::string& path, unsigned coord_bits) {
+    if (path.size() >= 3 && path.substr(path.size() - 3) == ".h5") {
+        return load_hdf5_dataset(path, coord_bits);
+    } else if (path.size() >= 4 && path.substr(path.size() - 4) == ".hdf5") {
+        return load_hdf5_dataset(path, coord_bits);
+    } else if (path.size() >= 4 && path.substr(path.size() - 4) == ".csv") {
+        return load_csv_dataset(path, coord_bits);
+    } else {
+        // Try HDF5 first, then CSV
+        try {
+            return load_hdf5_dataset(path, coord_bits);
+        } catch (...) {
+            return load_csv_dataset(path, coord_bits);
+        }
+    }
+}
+
 // ============================================================================
 // Benchmark Functions
 // ============================================================================
 
-// Result structure for summary table
+// Result structure for summary table and JSON output
 struct BenchResult {
+    // Identity
     std::string name;
-    double insert_ns;
-    double query_ns;
-    double neighbor_ns;
-    uint64_t insert_ins;
-    uint64_t insert_cyc;
-    uint64_t query_ins;
-    uint64_t query_cyc;
-    uint64_t neighbor_ins;
-    uint64_t neighbor_cyc;
-    double fpr;
-    uint64_t memory;
+
+    // Configuration metadata
+    std::string filter_type;      // "sbbf", "blocked_bf", "register_bf"
+    std::string sfc_type;         // "morton", "hilbert", "none"
+    unsigned dimensions = 2;
+    unsigned coord_bits = 16;
+    unsigned log_blocks = 17;
+    unsigned hash_k = 4;
+    std::string strategy;         // "double_hash", "pattern_lookup"
+    std::string distribution;     // "uniform", "clustered", or filename
+    std::string dataset;          // null or filename
+    size_t num_elements = 0;
+
+    // Performance metrics
+    double insert_ns = 0;
+    double query_ns = 0;
+    double neighbor_ns = 0;
+    uint64_t insert_ins = 0;
+    uint64_t insert_cyc = 0;
+    uint64_t query_ins = 0;
+    uint64_t query_cyc = 0;
+    uint64_t neighbor_ins = 0;
+    uint64_t neighbor_cyc = 0;
+    double fpr = 0;
+    uint64_t memory = 0;
+
+    // Convert to JSON
+    json to_json() const {
+        json j;
+        j["config"] = {
+            {"name", name},
+            {"filter_type", filter_type},
+            {"sfc_type", sfc_type},
+            {"dimensions", dimensions},
+            {"coord_bits", coord_bits},
+            {"log_blocks", log_blocks},
+            {"hash_k", hash_k},
+            {"strategy", strategy},
+            {"distribution", distribution},
+            {"dataset", dataset.empty() ? json(nullptr) : json(dataset)},
+            {"num_elements", num_elements}
+        };
+        j["metrics"] = {
+            {"memory_bytes", memory},
+            {"insert_ns", insert_ns},
+            {"insert_ins", insert_ins},
+            {"insert_cyc", insert_cyc},
+            {"query_ns", query_ns},
+            {"query_ins", query_ins},
+            {"query_cyc", query_cyc},
+            {"neighbor_ns", neighbor_ns},
+            {"neighbor_ins", neighbor_ins},
+            {"neighbor_cyc", neighbor_cyc},
+            {"fpr", fpr}
+        };
+        return j;
+    }
 };
 
 std::vector<BenchResult> g_results;
+std::vector<BenchResult> g_sweep_results;  // Results from parameter sweep
 
 template<unsigned SFCBits>
 void benchmark_sbbf_2d(ankerl::nanobench::Bench& bench,
@@ -1077,6 +1565,521 @@ void run_strategy_comparison(size_t n, uint32_t max_coord, unsigned log_blocks) 
 }
 
 // ============================================================================
+// Parameter Sweep Runner
+// ============================================================================
+
+// Run a single SBBF benchmark and return result with full config metadata
+template<unsigned SFCBits>
+BenchResult run_sbbf_bench(ankerl::nanobench::Bench& bench,
+                           const std::string& sfc_name,
+                           SFCType sfc_type,
+                           const DataPoints& insert_data,
+                           const DataPoints& query_data,
+                           unsigned log_blocks,
+                           unsigned hash_k,
+                           const std::string& strategy,
+                           unsigned coord_bits,
+                           const std::string& distribution) {
+    SBBFConfig conf;
+    conf.sfc_type = sfc_type;
+    conf.sfc_bits = SFCBits;
+    conf.log_num_blocks = log_blocks;
+    conf.hash_k = hash_k;
+    conf.bits_per_block = 64;
+
+    if (strategy == "pattern_lookup") {
+        conf.intra_strategy = sbbf::IntraBlockStrategy::PATTERN_LOOKUP;
+        conf.pattern_table_size = 1024;
+    } else {
+        conf.intra_strategy = sbbf::IntraBlockStrategy::DOUBLE_HASH;
+    }
+
+    BenchResult result;
+    result.name = "SBBF-" + sfc_name;
+    result.filter_type = "sbbf";
+    result.sfc_type = sfc_name;
+    result.dimensions = insert_data.dimensions;
+    result.coord_bits = coord_bits;
+    result.log_blocks = log_blocks;
+    result.hash_k = hash_k;
+    result.strategy = strategy;
+    result.distribution = distribution;
+    result.dataset = insert_data.source;
+    result.num_elements = insert_data.size();
+
+    if (insert_data.dimensions == 2) {
+        SpatialBlockedBloomFilter64<SFCBits> filter(conf);
+        result.memory = filter.memory_usage();
+
+        const auto& ins = insert_data.points_2d;
+        const auto& qry = query_data.points_2d;
+
+        // Insert
+        size_t idx = 0;
+        bench.run(result.name + " insert", [&]() {
+            const auto& p = ins[idx++ % ins.size()];
+            filter.put2D(p.x, p.y);
+        });
+        auto& ins_res = bench.results().back();
+        result.insert_ns = ins_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+        result.insert_ins = static_cast<uint64_t>(ins_res.median(ankerl::nanobench::Result::Measure::instructions));
+        result.insert_cyc = static_cast<uint64_t>(ins_res.median(ankerl::nanobench::Result::Measure::cpucycles));
+
+        // Fill
+        filter.clear();
+        for (const auto& p : ins) filter.put2D(p.x, p.y);
+
+        // Query
+        idx = 0;
+        bench.run(result.name + " query", [&]() {
+            const auto& p = ins[idx++ % ins.size()];
+            ankerl::nanobench::doNotOptimizeAway(filter.get_bool_2D(p.x, p.y));
+        });
+        auto& qry_res = bench.results().back();
+        result.query_ns = qry_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+        result.query_ins = static_cast<uint64_t>(qry_res.median(ankerl::nanobench::Result::Measure::instructions));
+        result.query_cyc = static_cast<uint64_t>(qry_res.median(ankerl::nanobench::Result::Measure::cpucycles));
+
+        // Neighbor
+        idx = 0;
+        bench.batch(8).run(result.name + " neighbor", [&]() {
+            const auto& p = ins[idx++ % ins.size()];
+            ankerl::nanobench::doNotOptimizeAway(filter.query_neighborhood_2D(p.x, p.y, 1));
+        });
+        bench.batch(1);
+        auto& nbr_res = bench.results().back();
+        result.neighbor_ns = nbr_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+        result.neighbor_ins = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::instructions)) / 8;
+        result.neighbor_cyc = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::cpucycles)) / 8;
+
+        // FPR
+        size_t fp = 0;
+        for (const auto& p : qry) if (filter.get_bool_2D(p.x, p.y)) ++fp;
+        result.fpr = static_cast<double>(fp) / qry.size();
+    } else {
+        SpatialBlockedBloomFilter64<SFCBits> filter(conf);
+        result.memory = filter.memory_usage();
+
+        const auto& ins = insert_data.points_3d;
+        const auto& qry = query_data.points_3d;
+
+        // Insert
+        size_t idx = 0;
+        bench.run(result.name + " insert", [&]() {
+            const auto& p = ins[idx++ % ins.size()];
+            filter.put3D(p.x, p.y, p.z);
+        });
+        auto& ins_res = bench.results().back();
+        result.insert_ns = ins_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+        result.insert_ins = static_cast<uint64_t>(ins_res.median(ankerl::nanobench::Result::Measure::instructions));
+        result.insert_cyc = static_cast<uint64_t>(ins_res.median(ankerl::nanobench::Result::Measure::cpucycles));
+
+        // Fill
+        filter.clear();
+        for (const auto& p : ins) filter.put3D(p.x, p.y, p.z);
+
+        // Query
+        idx = 0;
+        bench.run(result.name + " query", [&]() {
+            const auto& p = ins[idx++ % ins.size()];
+            ankerl::nanobench::doNotOptimizeAway(filter.get_bool_3D(p.x, p.y, p.z));
+        });
+        auto& qry_res = bench.results().back();
+        result.query_ns = qry_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+        result.query_ins = static_cast<uint64_t>(qry_res.median(ankerl::nanobench::Result::Measure::instructions));
+        result.query_cyc = static_cast<uint64_t>(qry_res.median(ankerl::nanobench::Result::Measure::cpucycles));
+
+        // Neighbor
+        idx = 0;
+        bench.batch(26).run(result.name + " neighbor", [&]() {
+            const auto& p = ins[idx++ % ins.size()];
+            ankerl::nanobench::doNotOptimizeAway(filter.query_neighborhood_3D(p.x, p.y, p.z, true));
+        });
+        bench.batch(1);
+        auto& nbr_res = bench.results().back();
+        result.neighbor_ns = nbr_res.median(ankerl::nanobench::Result::Measure::elapsed) * 1e9;
+        result.neighbor_ins = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::instructions)) / 26;
+        result.neighbor_cyc = static_cast<uint64_t>(nbr_res.median(ankerl::nanobench::Result::Measure::cpucycles)) / 26;
+
+        // FPR
+        size_t fp = 0;
+        for (const auto& p : qry) if (filter.get_bool_3D(p.x, p.y, p.z)) ++fp;
+        result.fpr = static_cast<double>(fp) / qry.size();
+    }
+
+    return result;
+}
+
+// Run baseline benchmarks (BlockedBF and RegisterBF with best config)
+void run_baselines(ankerl::nanobench::Bench& bench,
+                   const DataPoints& insert_data,
+                   const DataPoints& query_data,
+                   unsigned log_blocks,
+                   unsigned coord_bits,
+                   const std::string& distribution,
+                   const std::string& baseline_mode) {
+    if (baseline_mode == "none") return;
+
+    size_t sbbf_memory = (1ULL << log_blocks) * 8;
+    double target_fpr = 0.001;
+
+    if (insert_data.dimensions == 2) {
+        const auto& ins = insert_data.points_2d;
+        const auto& qry = query_data.points_2d;
+
+        if (baseline_mode == "reduced") {
+            // Only best performers: WyHash + Pattern Lookup
+            benchmark_blocked_bf_2d<WyHasher>(bench, "BlockedBF-Wy+Pat", ins, qry, sbbf_memory, target_fpr, globimap::IntraBlockStrategy::PATTERN_LOOKUP);
+            benchmark_register_bf_2d<WyHasher>(bench, "RegisterBF-Wy+Pat", ins, qry, sbbf_memory, target_fpr, globimap::IntraBlockStrategy::PATTERN_LOOKUP);
+        } else {
+            // Full permutations
+            BENCH_ALL_BLOCKED_2D(bench, ins, qry, sbbf_memory, target_fpr);
+            BENCH_ALL_REGISTER_2D(bench, ins, qry, sbbf_memory, target_fpr);
+        }
+    } else {
+        const auto& ins = insert_data.points_3d;
+        const auto& qry = query_data.points_3d;
+
+        if (baseline_mode == "reduced") {
+            benchmark_blocked_bf_3d<WyHasher>(bench, "BlockedBF-Wy+Pat", ins, qry, sbbf_memory, target_fpr, globimap::IntraBlockStrategy::PATTERN_LOOKUP);
+            benchmark_register_bf_3d<WyHasher>(bench, "RegisterBF-Wy+Pat", ins, qry, sbbf_memory, target_fpr, globimap::IntraBlockStrategy::PATTERN_LOOKUP);
+        } else {
+            BENCH_ALL_BLOCKED_3D(bench, ins, qry, sbbf_memory, target_fpr);
+            BENCH_ALL_REGISTER_3D(bench, ins, qry, sbbf_memory, target_fpr);
+        }
+    }
+
+    // Add config metadata to baseline results
+    for (auto& r : g_results) {
+        r.filter_type = r.name.find("Blocked") != std::string::npos ? "blocked_bf" : "register_bf";
+        r.sfc_type = "none";
+        r.dimensions = insert_data.dimensions;
+        r.coord_bits = coord_bits;
+        r.log_blocks = log_blocks;
+        r.strategy = r.name.find("+Pat") != std::string::npos ? "pattern_lookup" : "double_hash";
+        r.distribution = distribution;
+        r.num_elements = insert_data.size();
+    }
+}
+
+// Run parameter sweep
+void run_parameter_sweep(const BenchmarkConfig& config) {
+    std::cout << "\n========================================\n";
+    std::cout << "Parameter Sweep Benchmark\n";
+    std::cout << "========================================\n";
+
+    ankerl::nanobench::Bench bench;
+    bench.performanceCounters(true)
+         .epochs(config.epochs)
+         .minEpochIterations(config.min_iters)
+         .warmup(config.warmup)
+         .maxEpochTime(std::chrono::milliseconds(config.epoch_time_ms));
+
+    // ========================================
+    // DATASET MODE: Load once, use native dims
+    // ========================================
+    if (!config.dataset_path.empty()) {
+        unsigned coord_bits = config.coord_bits_values.empty() ? 16 : config.coord_bits_values[0];
+        DataPoints insert_data = load_dataset(config.dataset_path, coord_bits);
+        unsigned dims = insert_data.dimensions;  // Use native dimensionality
+
+        // Generate query data with MATCHING dimensionality
+        DataPoints query_data = generate_synthetic(insert_data.size(), dims, "uniform", coord_bits, 100, 123);
+
+        std::cout << "Dataset: " << config.dataset_path << "\n";
+        std::cout << "  Points: " << insert_data.size() << "\n";
+        std::cout << "  Dimensions: " << dims << "D\n";
+        std::cout << "  Coord bits: " << coord_bits << "\n\n";
+
+        // Only sweep filter parameters (not data parameters)
+        size_t total_configs = config.log_block_sizes.size() * config.hash_k_values.size() *
+                               config.sfc_types.size() * config.strategies.size();
+        std::cout << "Total configurations: " << total_configs << "\n\n";
+
+        size_t completed = 0;
+        std::string dist = "dataset";
+
+        for (unsigned log_blocks : config.log_block_sizes) {
+            for (unsigned k : config.hash_k_values) {
+                for (const auto& sfc : config.sfc_types) {
+                    for (const auto& strategy : config.strategies) {
+                        ++completed;
+                        std::cout << "\r[" << completed << "/" << total_configs << "] "
+                                  << dims << "D " << sfc << " " << strategy
+                                  << " n=" << insert_data.size() << " log=" << log_blocks
+                                  << " k=" << k << " bits=" << coord_bits
+                                  << "        " << std::flush;
+
+                        // Run SBBF benchmark with native dims
+                        BenchResult result;
+                        if (dims == 2) {
+                            if (sfc == "morton") {
+                                SFCType sfc_type = SFCType::MORTON_2D;
+                                switch (coord_bits) {
+                                    case 8:  result = run_sbbf_bench<8>(bench, "Morton2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                    case 12: result = run_sbbf_bench<12>(bench, "Morton2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                    case 16: result = run_sbbf_bench<16>(bench, "Morton2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                    case 20: result = run_sbbf_bench<20>(bench, "Morton2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                    default: result = run_sbbf_bench<16>(bench, "Morton2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                }
+                            } else {
+                                SFCType sfc_type = SFCType::HILBERT_2D;
+                                switch (coord_bits) {
+                                    case 8:  result = run_sbbf_bench<8>(bench, "Hilbert2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                    case 12: result = run_sbbf_bench<12>(bench, "Hilbert2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                    case 16: result = run_sbbf_bench<16>(bench, "Hilbert2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                    case 20: result = run_sbbf_bench<20>(bench, "Hilbert2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                    default: result = run_sbbf_bench<16>(bench, "Hilbert2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                }
+                            }
+                        } else {
+                            // 3D
+                            if (sfc == "morton") {
+                                SFCType sfc_type = SFCType::MORTON_3D;
+                                switch (coord_bits) {
+                                    case 8:  result = run_sbbf_bench<8>(bench, "Morton3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                    case 12: result = run_sbbf_bench<12>(bench, "Morton3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                    case 16: result = run_sbbf_bench<16>(bench, "Morton3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                    case 20: result = run_sbbf_bench<20>(bench, "Morton3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                    default: result = run_sbbf_bench<12>(bench, "Morton3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                }
+                            } else {
+                                SFCType sfc_type = SFCType::HILBERT_3D;
+                                switch (coord_bits) {
+                                    case 8:  result = run_sbbf_bench<8>(bench, "Hilbert3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                    case 12: result = run_sbbf_bench<12>(bench, "Hilbert3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                    case 16: result = run_sbbf_bench<16>(bench, "Hilbert3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                    case 20: result = run_sbbf_bench<20>(bench, "Hilbert3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                    default: result = run_sbbf_bench<12>(bench, "Hilbert3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                }
+                            }
+                        }
+                        g_sweep_results.push_back(result);
+                    }
+                }
+            }
+
+            // Run baselines once per log_blocks
+            if (config.baseline_mode != "none") {
+                run_baselines(bench, insert_data, query_data, log_blocks, coord_bits, dist, config.baseline_mode);
+                for (auto& r : g_results) {
+                    g_sweep_results.push_back(r);
+                }
+                g_results.clear();
+            }
+        }
+
+        std::cout << "\n\nSweep complete: " << g_sweep_results.size() << " configurations benchmarked.\n";
+        return;
+    }
+
+    // ========================================
+    // SYNTHETIC MODE: Original loop structure
+    // ========================================
+    size_t total_configs = config.dimensions.size() * config.distributions.size() *
+                           config.element_counts.size() * config.log_block_sizes.size() *
+                           config.hash_k_values.size() * config.sfc_types.size() *
+                           config.strategies.size() * config.coord_bits_values.size();
+    std::cout << "Total configurations: " << total_configs << "\n\n";
+
+    size_t completed = 0;
+
+    for (unsigned dims : config.dimensions) {
+        for (const auto& dist : config.distributions) {
+            for (size_t elements : config.element_counts) {
+                for (unsigned coord_bits : config.coord_bits_values) {
+                    // Generate synthetic data
+                    DataPoints insert_data = generate_synthetic(elements, dims, dist, coord_bits, config.num_clusters, 42);
+                    DataPoints query_data = generate_synthetic(elements, dims, "uniform", coord_bits, 100, 123);
+
+                    for (unsigned log_blocks : config.log_block_sizes) {
+                        for (unsigned k : config.hash_k_values) {
+                            for (const auto& sfc : config.sfc_types) {
+                                for (const auto& strategy : config.strategies) {
+                                    ++completed;
+                                    std::cout << "\r[" << completed << "/" << total_configs << "] "
+                                              << dims << "D " << sfc << " " << strategy
+                                              << " n=" << elements << " log=" << log_blocks
+                                              << " k=" << k << " bits=" << coord_bits
+                                              << "        " << std::flush;
+
+                                    // Run SBBF benchmark
+                                    // Note: Hilbert requires bits to be multiple of 4, so we only support 8,12,16,20
+                                    BenchResult result;
+                                    if (dims == 2) {
+                                        if (sfc == "morton") {
+                                            SFCType sfc_type = SFCType::MORTON_2D;
+                                            switch (coord_bits) {
+                                                case 8:  result = run_sbbf_bench<8>(bench, "Morton2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                                case 12: result = run_sbbf_bench<12>(bench, "Morton2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                                case 16: result = run_sbbf_bench<16>(bench, "Morton2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                                case 20: result = run_sbbf_bench<20>(bench, "Morton2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                                default: result = run_sbbf_bench<16>(bench, "Morton2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                            }
+                                        } else {
+                                            SFCType sfc_type = SFCType::HILBERT_2D;
+                                            switch (coord_bits) {
+                                                case 8:  result = run_sbbf_bench<8>(bench, "Hilbert2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                                case 12: result = run_sbbf_bench<12>(bench, "Hilbert2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                                case 16: result = run_sbbf_bench<16>(bench, "Hilbert2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                                case 20: result = run_sbbf_bench<20>(bench, "Hilbert2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                                default: result = run_sbbf_bench<16>(bench, "Hilbert2D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                            }
+                                        }
+                                    } else {
+                                        // 3D uses different SFC bits range (typically 8-10 for 3D due to 3x multiplier)
+                                        if (sfc == "morton") {
+                                            SFCType sfc_type = SFCType::MORTON_3D;
+                                            switch (coord_bits) {
+                                                case 8:  result = run_sbbf_bench<8>(bench, "Morton3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                                case 12: result = run_sbbf_bench<12>(bench, "Morton3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                                case 16: result = run_sbbf_bench<16>(bench, "Morton3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                                case 20: result = run_sbbf_bench<20>(bench, "Morton3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                                default: result = run_sbbf_bench<12>(bench, "Morton3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                            }
+                                        } else {
+                                            SFCType sfc_type = SFCType::HILBERT_3D;
+                                            switch (coord_bits) {
+                                                case 8:  result = run_sbbf_bench<8>(bench, "Hilbert3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                                case 12: result = run_sbbf_bench<12>(bench, "Hilbert3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                                case 16: result = run_sbbf_bench<16>(bench, "Hilbert3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                                case 20: result = run_sbbf_bench<20>(bench, "Hilbert3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                                default: result = run_sbbf_bench<12>(bench, "Hilbert3D", sfc_type, insert_data, query_data, log_blocks, k, strategy, coord_bits, dist); break;
+                                            }
+                                        }
+                                    }
+                                    g_sweep_results.push_back(result);
+                                }
+                            }
+                        }
+
+                        // Run baselines once per (dims, dist, elements, coord_bits, log_blocks) combination
+                        if (config.baseline_mode != "none") {
+                            run_baselines(bench, insert_data, query_data, log_blocks, coord_bits, dist, config.baseline_mode);
+                            for (auto& r : g_results) {
+                                g_sweep_results.push_back(r);
+                            }
+                            g_results.clear();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    std::cout << "\n\nSweep complete: " << g_sweep_results.size() << " configurations benchmarked.\n";
+}
+
+// ============================================================================
+// JSON/CSV Output
+// ============================================================================
+
+void save_results_json(const std::vector<BenchResult>& results, const BenchmarkConfig& config, const std::string& path) {
+    json output;
+
+    // Metadata
+    output["metadata"] = {
+        {"timestamp", get_iso_timestamp()},
+        {"benchmark_version", "1.0"},
+        {"suite", config.suite.empty() ? json(nullptr) : json(config.suite)}
+    };
+
+    // Parameters
+    output["parameters"] = {
+        {"elements", config.element_counts},
+        {"log_blocks", config.log_block_sizes},
+        {"hash_k", config.hash_k_values},
+        {"coord_bits", config.coord_bits_values},
+        {"sfc_types", config.sfc_types},
+        {"strategies", config.strategies},
+        {"distributions", config.distributions},
+        {"dimensions", config.dimensions}
+    };
+
+    // Results
+    output["results"] = json::array();
+    for (const auto& r : results) {
+        output["results"].push_back(r.to_json());
+    }
+
+    // Write to file
+    std::ofstream file(path);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open output file: " << path << "\n";
+        return;
+    }
+    file << output.dump(2);
+    file.close();
+
+    std::cout << "Results saved to: " << path << "\n";
+}
+
+void save_results_csv(const std::vector<BenchResult>& results, const std::string& path) {
+    std::ofstream file(path);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open output file: " << path << "\n";
+        return;
+    }
+
+    // Header
+    file << "name,filter_type,sfc_type,dimensions,coord_bits,log_blocks,hash_k,strategy,"
+         << "distribution,dataset,num_elements,memory_bytes,"
+         << "insert_ns,insert_ins,insert_cyc,"
+         << "query_ns,query_ins,query_cyc,"
+         << "neighbor_ns,neighbor_ins,neighbor_cyc,fpr\n";
+
+    // Data rows
+    for (const auto& r : results) {
+        file << r.name << ","
+             << r.filter_type << ","
+             << r.sfc_type << ","
+             << r.dimensions << ","
+             << r.coord_bits << ","
+             << r.log_blocks << ","
+             << r.hash_k << ","
+             << r.strategy << ","
+             << r.distribution << ","
+             << (r.dataset.empty() ? "null" : r.dataset) << ","
+             << r.num_elements << ","
+             << r.memory << ","
+             << std::fixed << std::setprecision(3)
+             << r.insert_ns << ","
+             << r.insert_ins << ","
+             << r.insert_cyc << ","
+             << r.query_ns << ","
+             << r.query_ins << ","
+             << r.query_cyc << ","
+             << r.neighbor_ns << ","
+             << r.neighbor_ins << ","
+             << r.neighbor_cyc << ","
+             << std::setprecision(6) << r.fpr << "\n";
+    }
+
+    file.close();
+    std::cout << "Results saved to: " << path << "\n";
+}
+
+std::string get_output_path(const BenchmarkConfig& config) {
+    std::string base = config.output_path;
+
+    // If it's a directory, generate filename
+    struct stat st;
+    if (stat(base.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
+        std::string prefix = config.suite.empty() ? "sweep" : config.suite;
+        std::string ext = config.output_format == "csv" ? ".csv" : ".json";
+        return base + "/" + prefix + "_" + get_timestamp() + ext;
+    }
+
+    // If it already has extension, use as-is
+    if (base.find('.') != std::string::npos) {
+        return base;
+    }
+
+    // Add extension
+    return base + (config.output_format == "csv" ? ".csv" : ".json");
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 
@@ -1099,21 +2102,37 @@ int main(int argc, char* argv[]) {
     bool run_2d = (g_config.scenario == "all" || g_config.scenario == "2d");
     bool run_3d = (g_config.scenario == "all" || g_config.scenario == "3d");
     bool run_strategy = (g_config.scenario == "strategy");
+    bool run_sweep = (g_config.scenario == "sweep" || !g_config.suite.empty());
 
-    if (run_2d) {
-        // 2D Benchmarks
-        run_2d_benchmark(100000, 65535, 17);
-        run_2d_clustered_benchmark(100000, 65535, 100, 17);
-    }
+    if (run_sweep) {
+        // Parameter sweep mode
+        run_parameter_sweep(g_config);
 
-    if (run_3d) {
-        // 3D Benchmarks
-        run_3d_benchmark(100000, 1023, 17);
-    }
+        // Save results if output path specified
+        if (!g_config.output_path.empty()) {
+            std::string output_file = get_output_path(g_config);
+            if (g_config.output_format == "csv") {
+                save_results_csv(g_sweep_results, output_file);
+            } else {
+                save_results_json(g_sweep_results, g_config, output_file);
+            }
+        }
+    } else {
+        if (run_2d) {
+            // 2D Benchmarks
+            run_2d_benchmark(100000, 65535, 17);
+            run_2d_clustered_benchmark(100000, 65535, 100, 17);
+        }
 
-    if (run_strategy) {
-        // Intra-block strategy comparison
-        run_strategy_comparison(100000, 1023, 17);
+        if (run_3d) {
+            // 3D Benchmarks
+            run_3d_benchmark(100000, 1023, 17);
+        }
+
+        if (run_strategy) {
+            // Intra-block strategy comparison
+            run_strategy_comparison(100000, 1023, 17);
+        }
     }
 
     std::cout << "\n=================================================\n";

@@ -21,7 +21,7 @@
 
 \begin{document}
 
-\title{\uppercase{Spatial-Blocked Bloom Filters (SBBF): High-Performance Voxel Membership Queries using Space-Filling Curves}}
+\title{\uppercase{Spatial-Blocked Bloom Filters (SBBF): High-Performance Spatial Membership Queries for Raster and Voxel Data using Space-Filling Curves}}
 
 \author{\IEEEauthorblockN{Moritz Laass}
 \IEEEauthorblockA{\textit{TUM School of Engineering and Design}\\
@@ -38,20 +38,20 @@ martin.werner@tum.de}
 
 \maketitle
 \begin{abstract}
-Efficient membership queries for sparse 3D voxel data are critical for real-time rendering, collision detection, and spatial indexing. Traditional Bloom filters minimize collisions by destroying data locality via cryptographic hashing. However, voxel data exhibits high spatial correlation. We propose the Spatial-Blocked Bloom Filter (SBBF), which utilizes Space-Filling Curves (SFCs) to map 3D coordinates to a blocked Bloom filter structure. By using bit-splitting to derive block indices from low-order SFC bits and bit-masks from high-order bits, SBBF achieves superior cache locality and enables hardware prefetching during volume traversals. Furthermore, we introduce Topological Verification, a spatial denoising technique that leverages the deterministic nature of SBBF collisions to filter false positives. Our preliminary analysis suggests significant throughput improvements over standard blocked filters for sequential spatial queries.
+Efficient membership queries for sparse spatial data---2D raster cells and 3D voxels---are critical for geospatial analytics, remote sensing, real-time rendering, and collision detection. Traditional Bloom filters minimize collisions by destroying data locality via cryptographic hashing. However, spatial data exhibits high correlation: neighboring cells are often queried together. We propose the Spatial-Blocked Bloom Filter (SBBF), which utilizes Space-Filling Curves (SFCs) to map multi-dimensional coordinates to a blocked Bloom filter structure. By using bit-splitting to derive block indices from low-order SFC bits and bit-masks from high-order bits, SBBF achieves superior cache locality and enables hardware prefetching during raster scans and volume traversals. Furthermore, we introduce Topological Verification, a spatial denoising technique that leverages the deterministic nature of SBBF collisions to filter false positives. Our preliminary analysis suggests significant throughput improvements over standard blocked filters for sequential spatial queries in both 2D and 3D applications.
 \end{abstract}
 
 \begin{IEEEkeywords}
-Bloom filter, space-filling curves, voxel data, cache optimization, spatial indexing.
+Bloom filter, space-filling curves, raster data, voxel data, point clouds, cache optimization, spatial indexing.
 \end{IEEEkeywords}
 
 \section{Introduction}
-Voxel-based representations have seen a resurgence in computer graphics and robotics, driven by advances in neural radiance fields (NeRFs), sparse voxel octrees (SVOs), and large-scale environmental mapping. A fundamental operation in these domains is the membership query: \textit{Does a voxel exist at coordinate $(x, y, z)$?}
+Spatial data structures underpin applications ranging from geospatial analytics and remote sensing to computer graphics and robotics. In 2D, raster representations encode satellite imagery, land cover classifications, and digital elevation models. In 3D, voxel-based representations have seen a resurgence driven by neural radiance fields (NeRFs), sparse voxel octrees (SVOs), and large-scale point cloud processing. A fundamental operation across these domains is the membership query: \textit{Does a spatial element exist at coordinate $\mathbf{p} = (x, y)$ or $(x, y, z)$?}
 
-Standard Bloom filters offer $O(1)$ query time and compact memory usage but suffer from poor cache performance due to the random access patterns inherent in uniform hashing. Bloom filters have been successfully applied to compress voxel and raster datasets, including global-scale spatial data~\citep{Werner2019,Werner2021}. Blocked Bloom filters (BBFs)~\citep{Putze2009} improve cache performance by confining bits to a single cache line.
+Standard Bloom filters offer $O(1)$ query time and compact memory usage but suffer from poor cache performance due to the random access patterns inherent in uniform hashing. Bloom filters have been successfully applied to compress raster and voxel datasets, including global-scale spatial data~\citep{Werner2019,Werner2021}. Blocked Bloom filters (BBFs)~\citep{Putze2009} improve cache performance by confining bits to a single cache line.
 
-In this paper, we argue that spatial locality is a feature that should be preserved. We introduce the Spatial-Blocked Bloom Filter (SBBF), which aligns the memory layout of the filter with the spatial structure of the data using Space-Filling Curves (SFCs).Space Filling Curves (SFCs) have been used to linearize multi-dimensional data while preserving proximity~\citep{Morton1966}.
-We use Morton (Z-order) and Hilbert curves as SFCs and show that not only can we improve cache performance but at the same time we get multiple benefits: faster hashing, lower False Positive Rates (FPR), and faster neighborhood queries.
+In this paper, we argue that spatial locality is a feature that should be preserved. We introduce the Spatial-Blocked Bloom Filter (SBBF), which aligns the memory layout of the filter with the spatial structure of the data using Space-Filling Curves (SFCs). SFCs linearize multi-dimensional data while preserving proximity~\citep{Morton1966}, and work identically for 2D and 3D coordinates.
+We use Morton (Z-order) and Hilbert curves as SFCs and show that not only can we improve cache performance but at the same time we get multiple benefits: faster indexing (replacing hash functions with bit-interleaving), lower False Positive Rates (FPR), and faster neighborhood queries.
 
 \section{Related Work}
 \subsection{Blocked Bloom Filters}
@@ -59,16 +59,59 @@ We use Morton (Z-order) and Hilbert curves as SFCs and show that not only can we
 
 \citet{Lang2019} further optimized BBFs with register-blocked and cache-sectorized variants. Register-blocked filters reduce block size to 32 or 64 bits (CPU register width), enabling all $k$ bits to be tested in a single comparison instruction---achieving 1--2 cycles per lookup. Cache-sectorized filters spread bits across cache-line sectors while maintaining sequential access, reducing false-positive overhead by up to 48\%. Their SIMD implementations (AVX2/AVX-512) achieve 4--10$\times$ additional speedups. However, both approaches treat spatial data as uniformly random---they optimize \emph{intra-query} cache behavior but ignore \emph{inter-query} locality for sequential spatial traversals.
 
-\subsection{Space-Filling Curves for Voxel Data}
-Space-filling curves (SFCs) provide continuous mappings from multi-dimensional coordinates to one-dimensional indices while preserving spatial locality. The oldest SFC is the Morton curve~\citep{Morton1966}, which interleave coordinate bits in round-robin fashion. Hilbert curves provide superior locality at slightly higher computational cost. Hilbert curves have a \emph{Space-to-Linear Ratio} of 6, meaning adjacent 1D positions are at most 6 units apart in 3D space, with zero ``jump segments'' where consecutive indices are spatially distant~\citep{Chen2022Hilbert}.
+\subsection{Space-Filling Curves for Spatial Data}
+Space-filling curves (SFCs) provide continuous mappings from multi-dimensional coordinates to one-dimensional indices while preserving spatial locality. The oldest SFC is the Morton curve~\citep{Morton1966}, which interleaves coordinate bits in round-robin fashion. Hilbert curves provide superior locality at slightly higher computational cost. Hilbert curves have a \emph{Space-to-Linear Ratio} of 6, meaning adjacent 1D positions are at most 6 units apart in the original space, with zero ``jump segments'' where consecutive indices are spatially distant~\citep{Chen2022Hilbert}. Both Morton and Hilbert curves generalize naturally to any dimension $d \geq 2$.
 
-In spatial databases, 3D Hilbert indexing achieves 90--95\% speedups for nearest-neighbor queries and 32--58\% for range queries compared to standard approaches~\citep{Ujang2014}. For array layouts, generalized Morton orderings can yield up to 10$\times$ speedups by aligning memory access patterns with cache hierarchies~\citep{Swatman2024}. SFCs are also used for octree indexing and point cloud compression~\citep{Chen2022}.
+In spatial databases, Hilbert indexing achieves 90--95\% speedups for nearest-neighbor queries and 32--58\% for range queries compared to standard approaches~\citep{Ujang2014}. For array layouts, generalized Morton orderings can yield up to 10$\times$ speedups by aligning memory access patterns with cache hierarchies~\citep{Swatman2024}. SFCs are also used for octree indexing and point cloud compression~\citep{Chen2022}.
 
 SBBF is the first to integrate SFCs directly into the indexing logic of a probabilistic membership structure to the best of our knowledge, using the curve not only to preserve locality but also to derive both block indices and intra-block bit patterns from a single SFC computation.
 
+\subsection{Hash Functions for Bloom Filters}
+Traditional Bloom filters require $k$ hash functions that satisfy uniformity and independence properties. \citet{Kirsch2008} proved that $k$ hash functions can be simulated using only two base functions via double hashing:
+\begin{equation}
+    g_i(x) = h_1(x) + i \cdot h_2(x) \mod m, \quad i \in \{0, \ldots, k-1\}
+\end{equation}
+This reduces computational overhead from $O(k)$ hash evaluations to $O(1)$.
+
+For spatial Bloom filters, hash function performance depends critically on input size. Modern hash functions like XXH3~\citep{Collet2016xxHash} achieve 30--60~GB/s on large inputs ($\sim$100~KB), but spatial coordinates are small (16--32 bytes for 2D/3D points). On such inputs, function call overhead dominates, and throughput drops to 3--4~GB/s.
+
+Table~\ref{tab:hash-comparison} compares the building blocks of spatial Bloom filter indexing using system-independent metrics: retired instructions, CPU cycles, and Instructions Per Cycle (IPC). The throughput column shows approximate operations per second for reference.
+
+\begin{table}[htbp]
+\centering
+\caption{Indexing Component Performance}
+\label{tab:hash-comparison}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Method & Instr. & Cycles & IPC & M~ops/s \\
+\midrule
+\multicolumn{5}{@{}l}{\textit{Hash Functions (16 bytes)}} \\
+\quad MurmurHash3 & 129 & 22 & 5.9 & 168 \\
+\quad XXH3 & 93 & 14 & 6.6 & 255 \\
+\quad wyhash & 123 & 18 & 6.8 & 195 \\
+\midrule
+\multicolumn{5}{@{}l}{\textit{SFC Encoding}} \\
+\quad Morton 2D (PDEP) & 15 & 8 & 1.9 & 443 \\
+\quad Morton 3D (PDEP) & 20 & 8 & 2.5 & 450 \\
+\quad Hilbert 2D (LUT) & 72 & 15 & 4.8 & 238 \\
+\quad Hilbert 2D (Reference) & 328 & 278 & 1.2 & 13 \\
+\quad Hilbert 3D (LUT) & 173 & 51 & 3.4 & 70 \\
+\quad Hilbert 3D (Reference) & 579 & 521 & 1.1 & 7 \\
+\midrule
+\multicolumn{5}{@{}l}{\textit{Intra-block Hashing ($k$=4)}} \\
+\quad double\_hash & 25 & 8 & 3.1 & 449 \\
+\quad pattern\_lookup & 11 & 8 & 1.4 & 468 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+SBBF exploits this observation by replacing cryptographic hashing entirely. Morton encoding uses 15--20 instructions versus 93--129 for hash functions (5--8$\times$ fewer). The LUT-based Hilbert encoding uses 72--173 instructions, trading computation for improved spatial locality.
+
+For intra-block bit selection, \texttt{pattern\_lookup} uses 11 instructions versus 25 for \texttt{double\_hash}, achieving similar throughput (468 vs 449~M~ops/s) with lower IPC due to table access latency. The 3D reference Hilbert implementation (579 instructions, 521 cycles) demonstrates why LUT optimization is essential---the LUT version achieves 10$\times$ higher throughput with 3$\times$ fewer instructions.
+
 \section{Methodology}
 
-Figure~\ref{fig:sbbf-architecture} illustrates the SBBF architecture. A 3D voxel coordinate $(x, y, z)$ is first mapped to a 1D SFC value $s$. The low-order bits of $s$ determine the block index, ensuring spatially adjacent voxels map to adjacent memory blocks. The high-order bits serve as a ``regional signature'' to derive the intra-block bit mask.
+Figure~\ref{fig:sbbf-architecture} illustrates the SBBF architecture. A spatial coordinate $\mathbf{p}$---either $(x, y)$ for 2D raster data or $(x, y, z)$ for 3D voxels---is first mapped to a 1D SFC value $s$. The low-order bits of $s$ determine the block index, ensuring spatially adjacent cells map to adjacent memory blocks. The high-order bits serve as a ``regional signature'' to derive the intra-block bit mask.
 
 \begin{figure}[htbp]
 \centering
@@ -79,7 +122,7 @@ Figure~\ref{fig:sbbf-architecture} illustrates the SBBF architecture. A 3D voxel
     bitbox/.style={draw, minimum width=0.3cm, minimum height=0.4cm, inner sep=0pt}
 ]
 % Input
-\node[box] (voxel) {Voxel $(x,y,z)$};
+\node[box] (voxel) {Point $\mathbf{p}$\\$(x,y)$ or $(x,y,z)$};
 \node[box, below=of voxel] (sfc) {SFC Encoding\\(Morton/Hilbert)};
 
 % Bit splitting
@@ -122,7 +165,7 @@ Figure~\ref{fig:sbbf-architecture} illustrates the SBBF architecture. A 3D voxel
 \end{figure}
 
 \subsection{Spatial Mapping and Bit-Splitting}
-The core of SBBF is the mapping function that converts a 3D coordinate $(x, y, z)$ into a block index and a bit mask. Given an SFC value $s = SFC(x, y, z)$, we partition $s$ into two components:
+The core of SBBF is the mapping function that converts a spatial coordinate $\mathbf{p}$ into a block index and a bit mask. Given an SFC value $s = \text{SFC}(\mathbf{p})$, we partition $s$ into two components:
 \begin{equation}
     s = s_{\text{high}} \cdot 2^p + s_{\text{low}}
 \end{equation}
@@ -132,18 +175,25 @@ where $p = \log_2 N$ and $N$ is the number of blocks. We use:
     \item \textbf{Bit mask seed:} $s_{\text{high}} = \lfloor s / 2^p \rfloor$
 \end{itemize}
 
-\textbf{Why low bits for block index?} The low-order bits of an SFC change with every unit step in 3D space. Spatial neighbors map to blocks $B_i, B_{i+1}, \ldots$, enabling the CPU to leverage L1/L2 prefetching during neighborhood queries and volume traversals.
+\textbf{Why low bits for block index?} The low-order bits of an SFC change with every unit step in the coordinate space. Spatial neighbors map to blocks $B_i, B_{i+1}, \ldots$, enabling the CPU to leverage L1/L2 prefetching during neighborhood queries and raster/volume traversals.
 
-\textbf{Why high bits for bit mask?} High-order bits represent coarse regional volumes. Using them as a structural signature prevents local clusters from saturating a single bit index---spatially close voxels share the same block but have different bit patterns.
+\textbf{Why high bits for bit mask?} High-order bits represent coarse spatial regions. Using them as a structural signature prevents local clusters from saturating a single bit index. Empty coarse regions will not add any bits to the bit mask, while occupied coarse regions will yield a reasonable collision with other coarse regions.
 
 \subsection{Intra-Block Hashing}
-Within a block of $B$ bits, we derive $k$ bit positions using double-hashing on the high-order seed:
+Once block $B_i$ is selected, we must determine which $k$ bits to set within that block. Standard Bloom filters would invoke $k$ independent hash functions, but this is computationally expensive. Following \citet{Kirsch2008}, we use double-hashing to generate $k$ positions from a single seed value:
 \begin{align}
     h_1 &= s_{\text{high}} \bmod B \\
     h_2 &= \lfloor s_{\text{high}} / B \rfloor \bmod B, \quad h_2 = 1 \text{ if } h_2 = 0 \\
     \text{bit}_i &= (h_1 + i \cdot h_2) \bmod B, \quad i \in [1, k]
 \end{align}
 
+Here, $h_1$ provides the starting position and $h_2$ the step size. The constraint $h_2 \neq 0$ ensures all $k$ positions are distinct when $k \leq B$ and $\gcd(h_2, B) = 1$. For power-of-two block sizes ($B = 2^b$), we ensure $h_2$ is odd by setting the least significant bit.
+
+\textbf{Alternative: Pattern Lookup.} For SIMD implementations, precomputed $k$-bit patterns can replace the double-hashing loop entirely. A table of $\Omega$ random patterns (typically $\Omega = 2^{16}$) is indexed by $s_{\text{high}} \bmod \Omega$, yielding the bit mask in a single memory access. This trades 4~KB of table space for reduced instruction count (11 vs.\ 25 instructions per operation, see Table~\ref{tab:hash-comparison}).
+
+\textbf{Collision behavior.} Unlike standard Bloom filters where collisions are uniformly distributed, SBBF collisions are spatially clustered. Two points $\mathbf{p}$ and $\mathbf{q}$ collide (map to identical block and mask) only if their SFC values share both low bits (same block) and high bits (same mask seed). This occurs when $\mathbf{p}$ and $\mathbf{q}$ lie in the same coarse spatial region---a property we exploit for topological verification in Section~\ref{sec:denoising}.
+
+\subsection{Implementation}
 Algorithm~\ref{alg:sbbf} shows the complete insertion and query procedures. Note that Morton codes use simple bit-interleaving (PDEP instruction on x86), which is faster than cryptographic hashes like MurmurHash.
 
 \begin{algorithm}[htbp]
@@ -151,7 +201,7 @@ Algorithm~\ref{alg:sbbf} shows the complete insertion and query procedures. Note
 \SetKwFunction{FGetLoc}{GetLocation}
 \SetKwFunction{FInsert}{Insert}
 \SetKwFunction{FQuery}{Query}
-\SetKwFunction{FSFC}{MortonEncode}
+\SetKwFunction{FSFC}{SFCEncode}
 \SetKwProg{Fn}{Function}{:}{}
 
 \Fn{\FGetLoc{$s$}}{
@@ -167,39 +217,39 @@ Algorithm~\ref{alg:sbbf} shows the complete insertion and query procedures. Note
     \Return $(\textit{idx}, \textit{mask})$\;
 }
 \vspace{0.2cm}
-\Fn{\FInsert{$x, y, z$}}{
-    $s \gets \FSFC(x, y, z)$\;
+\Fn{\FInsert{$\mathbf{p}$}}{
+    $s \gets \FSFC(\mathbf{p})$
     $(\textit{idx}, \textit{mask}) \gets \FGetLoc(s)$\;
     $\textit{blocks}[\textit{idx}] \gets \textit{blocks}[\textit{idx}] \lor \textit{mask}$\;
 }
 \vspace{0.2cm}
-\Fn{\FQuery{$x, y, z$}}{
-    $s \gets \FSFC(x, y, z)$\;
+\Fn{\FQuery{$\mathbf{p}$}}{
+    $s \gets \FSFC(\mathbf{p})$\;
     $(\textit{idx}, \textit{mask}) \gets \FGetLoc(s)$\;
     \Return $(\textit{blocks}[\textit{idx}] \land \textit{mask}) = \textit{mask}$\;
 }
 \end{algorithm}
 
-\subsection{Topological Verification (Denoising)}
+\subsection{Topological Verification (Denoising)}\label{sec:denoising}
 Because SBBF mapping is deterministic and spatially coherent, false positives (FPs) appear as regional noise rather than isolated random bits. We implement a "Consensus" query:
 \begin{equation}
     Query_{TV}(V) = Query(V) \land (CountNeighbors(V) \ge \tau)
 \end{equation}
-where $\tau$ is a connectivity threshold. This allows SBBF to operate at higher theoretical False Positive Rates (FPR) than standard filters while maintaining effective precision.
+where $\tau$ is a connectivity threshold. This allows SBBF to operate at higher theoretical False Positive Rates (FPR) than standard BFF while maintaining effective precision.
 
 \section{Experimental Design}
 We propose the following experiments to evaluate SBBF against standard Blocked Bloom Filters (BBF).
 
 \subsection{Throughput Benchmarks}
 \begin{itemize}
-    \item \textbf{Random Access:} Measure queries/second for random $(x, y, z)$ coordinates.
-    \item \textbf{Linear Traversal:} Measure throughput during a full-volume scan in SFC order. SBBF should significantly outperform BBF due to L1/L2 hardware prefetching.
+    \item \textbf{Random Access:} Measure queries/second for random spatial coordinates.
+    \item \textbf{Linear Traversal:} Measure throughput during a full raster/volume scan in SFC order. SBBF should significantly outperform BBF due to L1/L2 hardware prefetching.
 \end{itemize}
 
 \subsection{False Positive Analysis}
 \begin{itemize}
     \item \textbf{Standard FPR vs. SBBF FPR:} Compare theoretical vs. observed FPR.
-    \item \textbf{Denoising Efficacy:} Quantify the reduction in FPs when using Topological Verification ($\tau = 1, 2$) across different voxel densities.
+    \item \textbf{Denoising Efficacy:} Quantify the reduction in FPs when using Topological Verification ($\tau = 1, 2$) across different spatial densities.
 \end{itemize}
 
 \subsection{Hardware Performance Counters}
@@ -209,7 +259,7 @@ Using \texttt{perf} or Intel VTune, we will measure L1-dcache-load-misses, LLC-l
 [Placeholder for experimental data.]
 
 \section{Conclusion and Future Work}
-SBBF provides a cache-aware approach to probabilistic membership in 3D space. By aligning memory layout with spatial topology, we enable high-performance voxel processing that benefits from modern CPU architectures. Future work will investigate the use of SBBF in distributed environments where SFCs can also guide network-local data placement.
+SBBF provides a cache-aware approach to probabilistic spatial membership queries for both 2D raster and 3D voxel data. By aligning memory layout with spatial topology via space-filling curves, we enable high-performance spatial data processing that benefits from modern CPU architectures. The replacement of cryptographic hashing with SFC encoding yields an order-of-magnitude speedup for the indexing operation itself. Future work will investigate the use of SBBF in distributed environments where SFCs can also guide network-local data placement, and extend the approach to higher-dimensional data.
 
 \small
 \bibliographystyle{IEEEtranN}

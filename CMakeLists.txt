@@ -19,6 +19,7 @@ include_directories(
     lib/tqdm-cpp
     lib/boost-headers-only
     lib/shapelib
+    lib/xxHash
 )
 
 # Configure HighFive

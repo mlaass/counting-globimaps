@@ -37,6 +37,28 @@
 #include <vector>
 
 // ============================================================================
+// Vectorization Diagnostic
+// ============================================================================
+
+void print_vectorization_info() {
+    std::cout << "xxHash vectorization: ";
+#if XXH_VECTOR == XXH_AVX512
+    std::cout << "AVX-512";
+#elif XXH_VECTOR == XXH_AVX2
+    std::cout << "AVX2";
+#elif XXH_VECTOR == XXH_SSE2
+    std::cout << "SSE2";
+#elif XXH_VECTOR == XXH_NEON
+    std::cout << "NEON";
+#elif XXH_VECTOR == XXH_SCALAR
+    std::cout << "Scalar (no SIMD)";
+#else
+    std::cout << "Unknown";
+#endif
+    std::cout << "\n";
+}
+
+// ============================================================================
 // Configuration
 // ============================================================================
 
@@ -356,6 +378,7 @@ int main(int argc, char* argv[]) {
 
     std::cout << "===== Hash Function Benchmark =====\n\n";
     g_config.print();
+    print_vectorization_info();
     std::cout << "\n";
 
     bool run_hash = (g_config.scenario == "all" || g_config.scenario == "hash");

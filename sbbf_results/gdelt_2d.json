@@ -1,0 +1,119 @@
+{
+  "metadata": {
+    "benchmark_version": "1.0",
+    "suite": null,
+    "timestamp": "2025-12-22T01:01:30Z"
+  },
+  "parameters": {
+    "coord_bits": [
+      16
+    ],
+    "dimensions": [
+      2
+    ],
+    "distributions": [
+      "uniform"
+    ],
+    "elements": [
+      100000
+    ],
+    "hash_k": [
+      4
+    ],
+    "log_blocks": [
+      17
+    ],
+    "sfc_types": [
+      "hilbert"
+    ],
+    "strategies": [
+      "pattern_lookup"
+    ]
+  },
+  "results": [
+    {
+      "config": {
+        "coord_bits": 16,
+        "dataset": "gdelt_events.h5",
+        "dimensions": 2,
+        "distribution": "dataset",
+        "filter_type": "sbbf",
+        "hash_k": 4,
+        "log_blocks": 17,
+        "name": "SBBF-Hilbert2D",
+        "num_elements": 1933846,
+        "sfc_type": "Hilbert2D",
+        "strategy": "pattern_lookup"
+      },
+      "metrics": {
+        "fpr": 2.895783842146686e-05,
+        "insert_cyc": 26,
+        "insert_ins": 104,
+        "insert_ns": 7.2404283367759135,
+        "memory_bytes": 1056768,
+        "neighbor_cyc": 23,
+        "neighbor_ins": 72,
+        "neighbor_ns": 51.16947166096293,
+        "query_cyc": 26,
+        "query_ins": 107,
+        "query_ns": 7.276782537248737
+      }
+    },
+    {
+      "config": {
+        "coord_bits": 16,
+        "dataset": null,
+        "dimensions": 2,
+        "distribution": "dataset",
+        "filter_type": "blocked_bf",
+        "hash_k": 4,
+        "log_blocks": 17,
+        "name": "BlockedBF-Wy+Pat",
+        "num_elements": 1933846,
+        "sfc_type": "none",
+        "strategy": "pattern_lookup"
+      },
+      "metrics": {
+        "fpr": 9.618139189987207e-05,
+        "insert_cyc": 41,
+        "insert_ins": 241,
+        "insert_ns": 11.38525136826059,
+        "memory_bytes": 1081344,
+        "neighbor_cyc": 46,
+        "neighbor_ins": 252,
+        "neighbor_ns": 103.6660264833721,
+        "query_cyc": 41,
+        "query_ins": 255,
+        "query_ns": 11.410878386442297
+      }
+    },
+    {
+      "config": {
+        "coord_bits": 16,
+        "dataset": null,
+        "dimensions": 2,
+        "distribution": "dataset",
+        "filter_type": "register_bf",
+        "hash_k": 4,
+        "log_blocks": 17,
+        "name": "RegisterBF-Wy+Pat",
+        "num_elements": 1933846,
+        "sfc_type": "none",
+        "strategy": "pattern_lookup"
+      },
+      "metrics": {
+        "fpr": 2.8440734163940665e-05,
+        "insert_cyc": 36,
+        "insert_ins": 236,
+        "insert_ns": 10.192510006730192,
+        "memory_bytes": 1056768,
+        "neighbor_cyc": 32,
+        "neighbor_ins": 243,
+        "neighbor_ns": 72.93748063696636,
+        "query_cyc": 36,
+        "query_ins": 239,
+        "query_ns": 10.227493068598516
+      }
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "metadata": {
+    "benchmark_version": "1.0",
+    "suite": "quick",
+    "timestamp": "2025-12-22T00:57:03Z"
+  },
+  "parameters": {
+    "coord_bits": [
+      16
+    ],
+    "dimensions": [
+      2
+    ],
+    "distributions": [
+      "uniform"
+    ],
+    "elements": [
+      50000
+    ],
+    "hash_k": [
+      4
+    ],
+    "log_blocks": [
+      17
+    ],
+    "sfc_types": [
+      "hilbert"
+    ],
+    "strategies": [
+      "pattern_lookup"
+    ]
+  },
+  "results": [
+    {
+      "config": {
+        "coord_bits": 16,
+        "dataset": "uniform",
+        "dimensions": 2,
+        "distribution": "uniform",
+        "filter_type": "sbbf",
+        "hash_k": 4,
+        "log_blocks": 17,
+        "name": "SBBF-Hilbert2D",
+        "num_elements": 50000,
+        "sfc_type": "Hilbert2D",
+        "strategy": "pattern_lookup"
+      },
+      "metrics": {
+        "fpr": 0.00034,
+        "insert_cyc": 30,
+        "insert_ins": 104,
+        "insert_ns": 8.550905044953554,
+        "memory_bytes": 1056768,
+        "neighbor_cyc": 19,
+        "neighbor_ins": 60,
+        "neighbor_ns": 43.742093807349235,
+        "query_cyc": 29,
+        "query_ins": 107,
+        "query_ns": 8.0694269485785
+      }
+    }
+  ]
+}

@@ -44,6 +44,11 @@ enum class IntraBlockStrategy {
 // ============================================================================
 
 struct BlockedBFConfig {
+    // Direct parameters (preferred for research - set these directly)
+    uint64_t num_blocks = 0;             // If > 0, use directly (each block = 256 bits = 32 bytes)
+    unsigned hash_k = 0;                 // If > 0, use directly
+
+    // Legacy derived parameters (only used if num_blocks == 0)
     uint64_t expected_items = 10000;     // n
     double false_positive_rate = 0.01;   // epsilon
 
@@ -52,11 +57,19 @@ struct BlockedBFConfig {
     size_t pattern_table_size = 1024;    // 256, 512, 1024, or 2048
 
     void validate() const {
-        if (expected_items == 0) {
-            throw std::invalid_argument("expected_items must be > 0");
-        }
-        if (false_positive_rate <= 0.0 || false_positive_rate >= 1.0) {
-            throw std::invalid_argument("false_positive_rate must be in (0, 1)");
+        if (num_blocks > 0) {
+            // Direct mode - validate direct params
+            if (hash_k == 0) {
+                throw std::invalid_argument("hash_k must be > 0 when using direct num_blocks");
+            }
+        } else {
+            // Legacy mode - validate derived params
+            if (expected_items == 0) {
+                throw std::invalid_argument("expected_items must be > 0");
+            }
+            if (false_positive_rate <= 0.0 || false_positive_rate >= 1.0) {
+                throw std::invalid_argument("false_positive_rate must be in (0, 1)");
+            }
         }
         if (intra_strategy == IntraBlockStrategy::PATTERN_LOOKUP) {
             if (pattern_table_size != 256 && pattern_table_size != 512 &&
@@ -68,20 +81,38 @@ struct BlockedBFConfig {
     }
 
     uint64_t computed_bits() const {
+        if (num_blocks > 0) {
+            return num_blocks * 256;  // 256 bits per block
+        }
         return static_cast<uint64_t>(-1.44 * expected_items * std::log2(false_positive_rate) + 0.5);
     }
 
     uint computed_k() const {
+        if (hash_k > 0) {
+            return hash_k;
+        }
         return static_cast<uint>(-std::log2(false_positive_rate) + 0.5);
+    }
+
+    uint64_t computed_num_blocks() const {
+        if (num_blocks > 0) {
+            return num_blocks;
+        }
+        return (computed_bits() + 255) / 256;
     }
 
     std::string to_string() const {
         std::ostringstream oss;
-        oss << "BlockedBFConfig(n=" << expected_items
-            << ", fpr=" << false_positive_rate
-            << ", bits=" << computed_bits()
-            << ", k=" << computed_k()
-            << ", strategy=";
+        if (num_blocks > 0) {
+            oss << "BlockedBFConfig(num_blocks=" << num_blocks
+                << ", hash_k=" << hash_k;
+        } else {
+            oss << "BlockedBFConfig(n=" << expected_items
+                << ", fpr=" << false_positive_rate
+                << ", blocks=" << computed_num_blocks()
+                << ", k=" << computed_k();
+        }
+        oss << ", strategy=";
         if (intra_strategy == IntraBlockStrategy::PATTERN_LOOKUP) {
             oss << "PATTERN_LOOKUP[" << pattern_table_size << "]";
         } else {
@@ -187,13 +218,20 @@ public:
     BlockedBloomFilter(const BlockedBFConfig &conf) : config(conf) {
         conf.validate();
 
-        // Compute size
-        size_t m = static_cast<size_t>(-1.44 * conf.expected_items *
-                                        std::log2(conf.false_positive_rate) + 0.5);
-        k_ = static_cast<unsigned>(-std::log2(conf.false_positive_rate) + 0.5);
+        // Use direct params if set, otherwise derive from expected_items/fpr
+        if (conf.num_blocks > 0) {
+            // Direct mode
+            num_blocks_ = conf.num_blocks;
+            k_ = conf.hash_k;
+        } else {
+            // Legacy mode - derive from expected_items and false_positive_rate
+            size_t m = static_cast<size_t>(-1.44 * conf.expected_items *
+                                            std::log2(conf.false_positive_rate) + 0.5);
+            k_ = static_cast<unsigned>(-std::log2(conf.false_positive_rate) + 0.5);
+            num_blocks_ = (m + BLOCK_BITS - 1) / BLOCK_BITS;
+        }
 
         // Allocate blocks (256 bits = 32 bytes each)
-        num_blocks_ = (m + BLOCK_BITS - 1) / BLOCK_BITS;
         blocks_.resize(num_blocks_ * BLOCK_BYTES, 0);
 
         // Initialize pattern table if needed

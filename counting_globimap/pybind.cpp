@@ -14,6 +14,10 @@ namespace py = pybind11;
 // Include CountingGloBiMap implementation
 #include "counting_globimap.hpp"
 
+// Include SBBF and BlockedBF implementations
+#include "spatial_blocked_bloom_filter.hpp"
+#include "blocked_bloom_filter.hpp"
+
 // Type alias for the default CountingGloBiMap
 using CountingGloBiMapDefault = globimap::CountingGloBiMap<>;
 
@@ -339,4 +343,152 @@ PYBIND11_MODULE(counting_globimap, m) {
     // Alias for compatibility with original globimap API
     m.def("globimap", []() { return GloBiMapDefault(); },
           "Create a new binary bloom filter (alias for GloBiMap())");
+
+    // ========================================================================
+    // SBBF (Spatial-Blocked Bloom Filter) Bindings
+    // ========================================================================
+
+    py::enum_<sbbf::SFCType>(m, "SFCType")
+        .value("MORTON_2D", sbbf::SFCType::MORTON_2D)
+        .value("MORTON_3D", sbbf::SFCType::MORTON_3D)
+        .value("HILBERT_2D", sbbf::SFCType::HILBERT_2D)
+        .value("HILBERT_3D", sbbf::SFCType::HILBERT_3D);
+
+    py::enum_<sbbf::IntraBlockStrategy>(m, "IntraBlockStrategy")
+        .value("DOUBLE_HASH", sbbf::IntraBlockStrategy::DOUBLE_HASH)
+        .value("PATTERN_LOOKUP", sbbf::IntraBlockStrategy::PATTERN_LOOKUP)
+        .value("MULTIPLEXED", sbbf::IntraBlockStrategy::MULTIPLEXED);
+
+    py::class_<sbbf::SBBFConfig>(m, "SBBFConfig")
+        .def(py::init<>())
+        .def_readwrite("sfc_type", &sbbf::SBBFConfig::sfc_type,
+            "Space-filling curve type (MORTON_2D, HILBERT_2D, etc.)")
+        .def_readwrite("sfc_bits", &sbbf::SBBFConfig::sfc_bits,
+            "Bits per coordinate in SFC encoding (max resolution)")
+        .def_readwrite("log_num_blocks", &sbbf::SBBFConfig::log_num_blocks,
+            "Log2 of number of blocks (num_blocks = 2^log_num_blocks)")
+        .def_readwrite("bits_per_block", &sbbf::SBBFConfig::bits_per_block,
+            "Bits per block (64, 256, or 512)")
+        .def_readwrite("hash_k", &sbbf::SBBFConfig::hash_k,
+            "Number of bits set per element within a block")
+        .def_readwrite("intra_strategy", &sbbf::SBBFConfig::intra_strategy,
+            "Intra-block hashing strategy")
+        .def_readwrite("pattern_table_size", &sbbf::SBBFConfig::pattern_table_size,
+            "Pattern table size for PATTERN_LOOKUP strategy")
+        .def("num_blocks", &sbbf::SBBFConfig::computed_num_blocks,
+            "Get computed number of blocks")
+        .def("memory_bytes", &sbbf::SBBFConfig::computed_memory_bytes,
+            "Get computed memory usage in bytes")
+        .def("__repr__", &sbbf::SBBFConfig::to_string);
+
+    // SBBF with 16-bit coordinates (default)
+    using SBBF16 = sbbf::SpatialBlockedBloomFilter64<16>;
+    py::class_<SBBF16>(m, "SpatialBlockedBloomFilter")
+        .def(py::init<const sbbf::SBBFConfig&>(),
+             py::arg("config"),
+             "Create a Spatial-Blocked Bloom Filter with the given configuration")
+        .def("put2d", &SBBF16::put2D,
+             py::arg("x"), py::arg("y"),
+             "Insert a 2D point")
+        .def("put3d", &SBBF16::put3D,
+             py::arg("x"), py::arg("y"), py::arg("z"),
+             "Insert a 3D point")
+        .def("put", &SBBF16::put,
+             py::arg("point"),
+             "Insert a point using vector interface")
+        .def("query2d", &SBBF16::get_bool_2D,
+             py::arg("x"), py::arg("y"),
+             "Query membership for 2D point")
+        .def("query3d", &SBBF16::get_bool_3D,
+             py::arg("x"), py::arg("y"), py::arg("z"),
+             "Query membership for 3D point")
+        .def("query", &SBBF16::get_bool,
+             py::arg("point"),
+             "Query membership using vector interface")
+        .def("neighbors2d", &SBBF16::query_neighborhood_2D,
+             py::arg("x"), py::arg("y"), py::arg("radius") = 1,
+             "Query 2D neighborhood, returns bitmask of found neighbors")
+        .def("neighbors3d", &SBBF16::query_neighborhood_3D,
+             py::arg("x"), py::arg("y"), py::arg("z"), py::arg("full_26") = false,
+             "Query 3D neighborhood, returns count of neighbors")
+        .def("has_neighbor2d", &SBBF16::has_any_neighbor_2D,
+             py::arg("x"), py::arg("y"), py::arg("radius") = 1,
+             "Check if any neighbor exists (faster than full query)")
+        .def("clear", &SBBF16::clear,
+             "Clear all blocks")
+        .def("memory_bytes", &SBBF16::memory_usage,
+             "Get memory usage in bytes")
+        .def("fill_ratio", &SBBF16::block_fill_ratio,
+             "Get fraction of blocks with any bits set")
+        .def("avg_bits_per_block", &SBBF16::avg_bits_per_filled_block,
+             "Get average bits set per filled block")
+        .def("summary", &SBBF16::summary,
+             "Get JSON summary of filter state")
+        .def_readonly("config", &SBBF16::config)
+        .def("__repr__", [](const SBBF16 &f) {
+            return "<SpatialBlockedBloomFilter blocks=" +
+                   std::to_string(f.config.computed_num_blocks()) +
+                   " memory=" + std::to_string(f.memory_usage()) + "B>";
+        });
+
+    // ========================================================================
+    // BlockedBloomFilter Bindings
+    // ========================================================================
+
+    py::class_<globimap::BlockedBFConfig>(m, "BlockedBFConfig")
+        .def(py::init<>())
+        .def_readwrite("num_blocks", &globimap::BlockedBFConfig::num_blocks,
+            "Number of 256-bit blocks (direct mode, overrides expected_items if > 0)")
+        .def_readwrite("hash_k", &globimap::BlockedBFConfig::hash_k,
+            "Number of hash functions (direct mode, required when num_blocks > 0)")
+        .def_readwrite("expected_items", &globimap::BlockedBFConfig::expected_items,
+            "Expected number of items (legacy mode, used if num_blocks == 0)")
+        .def_readwrite("false_positive_rate", &globimap::BlockedBFConfig::false_positive_rate,
+            "Target false positive rate (legacy mode)")
+        .def_property("intra_strategy",
+            [](const globimap::BlockedBFConfig& c) {
+                // Convert globimap::IntraBlockStrategy to sbbf::IntraBlockStrategy
+                return static_cast<sbbf::IntraBlockStrategy>(c.intra_strategy);
+            },
+            [](globimap::BlockedBFConfig& c, sbbf::IntraBlockStrategy s) {
+                c.intra_strategy = static_cast<globimap::IntraBlockStrategy>(s);
+            },
+            "Intra-block hashing strategy (DOUBLE_HASH or PATTERN_LOOKUP)")
+        .def_readwrite("pattern_table_size", &globimap::BlockedBFConfig::pattern_table_size,
+            "Pattern table size for PATTERN_LOOKUP (256, 512, 1024, or 2048)")
+        .def("computed_k", &globimap::BlockedBFConfig::computed_k,
+            "Get computed k value")
+        .def("computed_num_blocks", &globimap::BlockedBFConfig::computed_num_blocks,
+            "Get computed number of blocks")
+        .def("computed_bits", &globimap::BlockedBFConfig::computed_bits,
+            "Get computed number of bits")
+        .def("__repr__", &globimap::BlockedBFConfig::to_string);
+
+    using BlockedBF = globimap::BlockedBloomFilter<>;
+    py::class_<BlockedBF>(m, "BlockedBloomFilter")
+        .def(py::init<const globimap::BlockedBFConfig&>(),
+             py::arg("config"),
+             "Create a Blocked Bloom Filter with the given configuration")
+        .def("put", &BlockedBF::put,
+             py::arg("point"),
+             "Insert a point (list of uint64 coordinates)")
+        .def("query", &BlockedBF::get_bool,
+             py::arg("point"),
+             "Query membership for a point")
+        .def("clear", &BlockedBF::clear,
+             "Clear all blocks")
+        .def("memory_bytes", &BlockedBF::memory_usage,
+             "Get memory usage in bytes")
+        .def("num_blocks", &BlockedBF::num_blocks,
+             "Get number of blocks")
+        .def("hash_k", &BlockedBF::hash_k,
+             "Get number of hash functions")
+        .def("summary", &BlockedBF::summary,
+             "Get JSON summary of filter state")
+        .def_readonly("config", &BlockedBF::config)
+        .def("__repr__", [](const BlockedBF &f) {
+            return "<BlockedBloomFilter blocks=" + std::to_string(f.num_blocks()) +
+                   " k=" + std::to_string(f.hash_k()) +
+                   " memory=" + std::to_string(f.memory_usage()) + "B>";
+        });
 }

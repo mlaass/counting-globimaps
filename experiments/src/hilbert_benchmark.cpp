@@ -1,206 +1,148 @@
 /**
- * Hilbert Curve Performance Benchmark
+ * SFC (Space-Filling Curve) Performance Benchmark
  *
- * Compares LUT-based vs reference implementations across different scenarios.
- * Measures throughput, latency, and cache behavior.
+ * Compares SFC encoding performance:
+ * - Morton 2D/3D (PDEP/portable)
+ * - Hilbert 2D/3D (LUT-optimized)
+ * - Hilbert 2D/3D (Reference bit-by-bit)
+ *
+ * Key metrics (via hardware performance counters):
+ * - Nanoseconds per encode
+ * - CPU cycles per encode
+ * - Instructions per encode
+ * - Throughput (M ops/s)
+ * - Instructions per cycle (IPC)
+ *
+ * Requirements:
+ * - Linux with perf_event support
+ * - May need: sudo sysctl kernel.perf_event_paranoid=1
  */
+
+#define ANKERL_NANOBENCH_IMPLEMENT
+#include "external/nanobench.h"
+
+#include "../../include/space_filling_curves.hpp"
 
 #include <iostream>
 #include <iomanip>
-#include <chrono>
 #include <vector>
 #include <random>
-#include <algorithm>
-#include <cmath>
-#include "../../include/space_filling_curves.hpp"
 
 using namespace sfc;
 
-// Benchmark configuration
-constexpr int WARMUP_ITERATIONS = 10000;
-constexpr int BENCHMARK_ITERATIONS = 10000000;
+// ============================================================================
+// Configuration
+// ============================================================================
 
-// Prevent compiler optimization
-template<typename T>
-void do_not_optimize(T const& value) {
-    asm volatile("" : : "r,m"(value) : "memory");
-}
+struct BenchmarkConfig {
+    size_t epochs = 11;
+    size_t min_iters = 10000;
+    size_t warmup = 1000;
+    size_t epoch_time_ms = 100;
+    size_t data_size = 100000;
 
-struct BenchResult {
-    double ns_per_op;
-    double ops_per_sec;
-    double cycles_per_op;  // Estimated
+    void print() const {
+        std::cout << "Benchmark configuration:\n";
+        std::cout << "  Epochs: " << epochs << "\n";
+        std::cout << "  Min iterations/epoch: " << min_iters << "\n";
+        std::cout << "  Warmup iterations: " << warmup << "\n";
+        std::cout << "  Max epoch time: " << epoch_time_ms << " ms\n";
+        std::cout << "  Data size: " << data_size << "\n";
+    }
 };
 
-template<typename Func>
-BenchResult benchmark(const char* name, Func f, int iterations) {
-    // Warmup
-    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
-        do_not_optimize(f(i));
-    }
+static BenchmarkConfig g_config;
 
-    auto start = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < iterations; ++i) {
-        do_not_optimize(f(i));
-    }
-    auto end = std::chrono::high_resolution_clock::now();
-
-    double total_ns = std::chrono::duration<double, std::nano>(end - start).count();
-    double ns_per_op = total_ns / iterations;
-    double ops_per_sec = 1e9 / ns_per_op;
-
-    // Estimate cycles (assuming ~3 GHz CPU)
-    double cycles_per_op = ns_per_op * 3.0;
-
-    return {ns_per_op, ops_per_sec, cycles_per_op};
-}
-
-void print_result(const char* name, const BenchResult& r) {
-    std::cout << std::left << std::setw(30) << name
-              << std::right << std::setw(10) << std::fixed << std::setprecision(2) << r.ns_per_op << " ns  "
-              << std::setw(12) << std::setprecision(0) << r.ops_per_sec << " ops/s  "
-              << std::setw(8) << std::setprecision(1) << r.cycles_per_op << " cycles"
-              << std::endl;
-}
+// ============================================================================
+// Main
+// ============================================================================
 
 int main() {
-    std::cout << "\n=== Hilbert Curve Performance Benchmark ===" << std::endl;
-    std::cout << "\nBenchmark iterations: " << BENCHMARK_ITERATIONS << std::endl;
+    std::cout << "===== SFC Encoding Benchmark =====\n\n";
+    g_config.print();
+    std::cout << "\n";
 
-    // Generate random test data
-    std::vector<uint32_t> xs(BENCHMARK_ITERATIONS);
-    std::vector<uint32_t> ys(BENCHMARK_ITERATIONS);
+    // Generate random test data (2D and 3D)
+    std::vector<uint32_t> xs(g_config.data_size);
+    std::vector<uint32_t> ys(g_config.data_size);
+    std::vector<uint32_t> zs(g_config.data_size);
 
     std::mt19937 gen(42);
     std::uniform_int_distribution<uint32_t> dist16(0, 65535);
-    std::uniform_int_distribution<uint32_t> dist8(0, 255);
 
-    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+    for (size_t i = 0; i < g_config.data_size; ++i) {
         xs[i] = dist16(gen);
         ys[i] = dist16(gen);
+        zs[i] = dist16(gen);
     }
 
     // ========================================================================
-    // 1. Basic Encode Performance
+    // 2D SFC Encoding
     // ========================================================================
-    std::cout << "\n--- 16-bit Coordinate Encoding ---" << std::endl;
-    std::cout << std::left << std::setw(30) << "Implementation"
-              << std::right << std::setw(10) << "Latency"
-              << std::setw(16) << "Throughput"
-              << std::setw(12) << "Est. Cycles" << std::endl;
-    std::cout << std::string(70, '-') << std::endl;
+    std::cout << "===== 2D SFC Encoding =====\n";
 
-    auto r_lut = benchmark("Hilbert2D LUT", [&](int i) {
-        return Hilbert2D<16>::encode(xs[i], ys[i]);
-    }, BENCHMARK_ITERATIONS);
-    print_result("Hilbert2D (LUT)", r_lut);
+    ankerl::nanobench::Bench bench2d;
+    bench2d.title("SFC 2D Encoding")
+           .warmup(g_config.warmup)
+           .epochs(g_config.epochs)
+           .minEpochIterations(g_config.min_iters)
+           .maxEpochTime(std::chrono::milliseconds(g_config.epoch_time_ms));
 
-    auto r_ref = benchmark("Hilbert2D Reference", [&](int i) {
-        return Hilbert2D<16>::encode_reference(xs[i], ys[i]);
-    }, BENCHMARK_ITERATIONS);
-    print_result("Hilbert2D (Reference)", r_ref);
+    size_t idx = 0;
 
-    auto r_morton = benchmark("Morton2D", [&](int i) {
-        return Morton2D<16>::encode(xs[i], ys[i]);
-    }, BENCHMARK_ITERATIONS);
-    print_result("Morton2D (BMI2/portable)", r_morton);
+    bench2d.run("Morton2D (PDEP)", [&]() {
+        auto result = Morton2D<16>::encode(xs[idx % g_config.data_size], ys[idx % g_config.data_size]);
+        ankerl::nanobench::doNotOptimizeAway(result);
+        ++idx;
+    });
 
-    std::cout << "\nSpeedup: LUT vs Reference = " << std::fixed << std::setprecision(1)
-              << (r_ref.ns_per_op / r_lut.ns_per_op) << "x" << std::endl;
-    std::cout << "Overhead: Hilbert LUT vs Morton = " << std::fixed << std::setprecision(1)
-              << (r_lut.ns_per_op / r_morton.ns_per_op) << "x" << std::endl;
+    idx = 0;
+    bench2d.run("Hilbert2D (LUT)", [&]() {
+        auto result = Hilbert2D<16>::encode(xs[idx % g_config.data_size], ys[idx % g_config.data_size]);
+        ankerl::nanobench::doNotOptimizeAway(result);
+        ++idx;
+    });
 
-    // ========================================================================
-    // 2. Different Bit Widths
-    // ========================================================================
-    std::cout << "\n--- Different Bit Widths ---" << std::endl;
-
-    auto r8_lut = benchmark("Hilbert2D<8> LUT", [&](int i) {
-        return Hilbert2D<8>::encode(xs[i] & 0xFF, ys[i] & 0xFF);
-    }, BENCHMARK_ITERATIONS);
-    print_result("Hilbert2D<8> (LUT)", r8_lut);
-
-    auto r8_ref = benchmark("Hilbert2D<8> Ref", [&](int i) {
-        return Hilbert2D<8>::encode_reference(xs[i] & 0xFF, ys[i] & 0xFF);
-    }, BENCHMARK_ITERATIONS);
-    print_result("Hilbert2D<8> (Reference)", r8_ref);
-
-    auto r12_lut = benchmark("Hilbert2D<12> LUT", [&](int i) {
-        return Hilbert2D<12>::encode(xs[i] & 0xFFF, ys[i] & 0xFFF);
-    }, BENCHMARK_ITERATIONS);
-    print_result("Hilbert2D<12> (LUT)", r12_lut);
-
-    auto r12_ref = benchmark("Hilbert2D<12> Ref", [&](int i) {
-        return Hilbert2D<12>::encode_reference(xs[i] & 0xFFF, ys[i] & 0xFFF);
-    }, BENCHMARK_ITERATIONS);
-    print_result("Hilbert2D<12> (Reference)", r12_ref);
+    idx = 0;
+    bench2d.run("Hilbert2D (Reference)", [&]() {
+        auto result = Hilbert2D<16>::encode_reference(xs[idx % g_config.data_size], ys[idx % g_config.data_size]);
+        ankerl::nanobench::doNotOptimizeAway(result);
+        ++idx;
+    });
 
     // ========================================================================
-    // 3. Sequential vs Random Access
+    // 3D SFC Encoding
     // ========================================================================
-    std::cout << "\n--- Access Pattern Impact ---" << std::endl;
+    std::cout << "\n===== 3D SFC Encoding =====\n";
 
-    // Sequential access (linear scan)
-    auto r_seq = benchmark("Sequential", [](int i) {
-        uint32_t x = i & 0xFFFF;
-        uint32_t y = (i >> 16) & 0xFFFF;
-        return Hilbert2D<16>::encode(x, y);
-    }, BENCHMARK_ITERATIONS);
-    print_result("Sequential access", r_seq);
+    ankerl::nanobench::Bench bench3d;
+    bench3d.title("SFC 3D Encoding")
+           .warmup(g_config.warmup)
+           .epochs(g_config.epochs)
+           .minEpochIterations(g_config.min_iters)
+           .maxEpochTime(std::chrono::milliseconds(g_config.epoch_time_ms));
 
-    // Random access (already benchmarked as r_lut)
-    print_result("Random access", r_lut);
+    idx = 0;
+    bench3d.run("Morton3D (PDEP)", [&]() {
+        auto result = Morton3D<16>::encode(xs[idx % g_config.data_size], ys[idx % g_config.data_size], zs[idx % g_config.data_size]);
+        ankerl::nanobench::doNotOptimizeAway(result);
+        ++idx;
+    });
 
-    // ========================================================================
-    // 4. Batch Throughput
-    // ========================================================================
-    std::cout << "\n--- Batch Processing ---" << std::endl;
+    idx = 0;
+    bench3d.run("Hilbert3D (LUT)", [&]() {
+        auto result = Hilbert3D<16>::encode(xs[idx % g_config.data_size], ys[idx % g_config.data_size], zs[idx % g_config.data_size]);
+        ankerl::nanobench::doNotOptimizeAway(result);
+        ++idx;
+    });
 
-    // Process in batches to measure sustained throughput
-    constexpr int BATCH_SIZE = 10000;
-    constexpr int NUM_BATCHES = BENCHMARK_ITERATIONS / BATCH_SIZE;
+    idx = 0;
+    bench3d.run("Hilbert3D (Reference)", [&]() {
+        auto result = Hilbert3D<16>::encode_reference(xs[idx % g_config.data_size], ys[idx % g_config.data_size], zs[idx % g_config.data_size]);
+        ankerl::nanobench::doNotOptimizeAway(result);
+        ++idx;
+    });
 
-    auto batch_start = std::chrono::high_resolution_clock::now();
-    uint64_t sum = 0;
-    for (int b = 0; b < NUM_BATCHES; ++b) {
-        for (int i = 0; i < BATCH_SIZE; ++i) {
-            int idx = b * BATCH_SIZE + i;
-            sum += Hilbert2D<16>::encode(xs[idx], ys[idx]);
-        }
-    }
-    auto batch_end = std::chrono::high_resolution_clock::now();
-    do_not_optimize(sum);
-
-    double batch_ns = std::chrono::duration<double, std::nano>(batch_end - batch_start).count();
-    double batch_ns_per_op = batch_ns / BENCHMARK_ITERATIONS;
-    double batch_throughput = BENCHMARK_ITERATIONS / (batch_ns / 1e9);
-
-    std::cout << "Batch throughput: " << std::fixed << std::setprecision(2)
-              << batch_throughput / 1e6 << " M encodes/sec" << std::endl;
-    std::cout << "Batch latency:    " << batch_ns_per_op << " ns/op" << std::endl;
-
-    // ========================================================================
-    // 5. Encode + Decode Roundtrip
-    // ========================================================================
-    std::cout << "\n--- Encode + Decode Roundtrip ---" << std::endl;
-
-    auto r_rt = benchmark("Roundtrip", [&](int i) {
-        uint64_t code = Hilbert2D<16>::encode(xs[i], ys[i]);
-        uint32_t dx, dy;
-        Hilbert2D<16>::decode(code, dx, dy);
-        return dx + dy;
-    }, BENCHMARK_ITERATIONS);
-    print_result("Hilbert2D encode+decode", r_rt);
-
-    // ========================================================================
-    // Summary
-    // ========================================================================
-    std::cout << "\n=== Summary ===" << std::endl;
-    std::cout << "LUT-based Hilbert2D<16>:    " << std::fixed << std::setprecision(2)
-              << r_lut.ns_per_op << " ns/op" << std::endl;
-    std::cout << "Reference Hilbert2D<16>:    " << r_ref.ns_per_op << " ns/op" << std::endl;
-    std::cout << "Morton2D<16> (baseline):    " << r_morton.ns_per_op << " ns/op" << std::endl;
-    std::cout << "\nLUT speedup over reference: " << (r_ref.ns_per_op / r_lut.ns_per_op) << "x" << std::endl;
-
+    std::cout << "\nBenchmark complete.\n";
     return 0;
 }

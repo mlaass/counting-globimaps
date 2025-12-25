@@ -26,6 +26,7 @@
 #define XXH_INLINE_ALL
 #include "xxhash.h"
 #include "wyhash.h"
+#include "pattern_table.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -370,6 +371,61 @@ void run_size_comparison() {
 }
 
 // ============================================================================
+// Intra-block Hashing Comparison
+// ============================================================================
+
+void run_intrablock_comparison() {
+    std::cout << "\n===== Intra-block Hashing Comparison =====\n";
+
+    // Generate random seeds
+    std::mt19937_64 gen(42);
+    std::vector<uint64_t> seeds(g_config.data_size);
+    for (size_t i = 0; i < g_config.data_size; ++i) {
+        seeds[i] = gen();
+    }
+
+    // k values to test
+    constexpr unsigned K = 4;  // Typical bloom filter k value
+    constexpr size_t BLOCK_BITS = 64;  // 64-bit block (register-sized)
+
+    // Pre-compute pattern table for pattern_lookup
+    globimap::PatternTable64<1024> pattern_table(K);
+
+    ankerl::nanobench::Bench bench;
+    bench.title("Intra-block Hashing (k=" + std::to_string(K) + ")")
+         .warmup(g_config.warmup)
+         .epochs(g_config.epochs)
+         .minEpochIterations(g_config.min_iters)
+         .maxEpochTime(std::chrono::milliseconds(g_config.epoch_time_ms));
+
+    size_t idx = 0;
+
+    // Benchmark double_hash (compute k bit positions at runtime)
+    bench.run("double_hash", [&]() {
+        uint64_t seed = seeds[idx++ % g_config.data_size];
+        uint32_t h1 = seed & (BLOCK_BITS - 1);
+        uint32_t h2 = (seed >> 6) & (BLOCK_BITS - 1);
+        if (h2 == 0) h2 = 1;
+        uint64_t mask = 0;
+        for (unsigned j = 1; j <= K; ++j) {
+            mask |= 1ULL << ((h1 + j * h2) & (BLOCK_BITS - 1));
+        }
+        ankerl::nanobench::doNotOptimizeAway(mask);
+    });
+
+    idx = 0;
+
+    // Benchmark pattern_lookup (single table access)
+    bench.run("pattern_lookup", [&]() {
+        uint64_t seed = seeds[idx++ % g_config.data_size];
+        uint64_t mask = pattern_table.get(static_cast<uint32_t>(seed));
+        ankerl::nanobench::doNotOptimizeAway(mask);
+    });
+
+    std::cout << "\n";
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 
@@ -383,6 +439,7 @@ int main(int argc, char* argv[]) {
 
     bool run_hash = (g_config.scenario == "all" || g_config.scenario == "hash");
     bool run_sizes = (g_config.scenario == "all" || g_config.scenario == "sizes");
+    bool run_intrablock = (g_config.scenario == "all" || g_config.scenario == "intrablock");
 
     if (run_hash) {
         run_hash_comparison();
@@ -390,6 +447,10 @@ int main(int argc, char* argv[]) {
 
     if (run_sizes) {
         run_size_comparison();
+    }
+
+    if (run_intrablock) {
+        run_intrablock_comparison();
     }
 
     std::cout << "Benchmark complete.\n";

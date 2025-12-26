@@ -51,7 +51,7 @@ Spatial data structures underpin applications ranging from geospatial analytics 
 Standard Bloom filters offer $O(1)$ query time and compact memory usage but suffer from poor cache performance due to the random access patterns inherent in uniform hashing. Bloom filters have been successfully applied to compress raster and voxel datasets, including global-scale spatial data~\citep{Werner2019,Werner2021}. Blocked Bloom filters (BBFs)~\citep{Putze2009} improve cache performance by confining bits to a single cache line.
 
 In this paper, we argue that spatial locality is a feature that should be preserved. We introduce the Spatial-Blocked Bloom Filter (SBBF), which aligns the memory layout of the filter with the spatial structure of the data using Space-Filling Curves (SFCs). SFCs linearize multi-dimensional data while preserving proximity~\citep{Morton1966}, and work identically for 2D and 3D coordinates.
-We use Morton (Z-order) and Hilbert curves as SFCs and show that not only can we improve cache performance but at the same time we get multiple benefits: faster indexing (replacing hash functions with bit-interleaving), lower False Positive Rates (FPR), and faster neighborhood queries.
+We use Morton (Z-order) and Hilbert curves as SFCs and show that not only can we improve cache performance but at the same time we get multiple benefits: faster indexing (replacing hash functions with bit-interleaving), lower False Positive Rates (FPR), and faster neighborhood queries. As part of this work, we contribute high-performance implementations of 2D and 3D Morton and Hilbert curve encoders that are orders of magnitude faster than state-of-the-art hash functions such as MurmurHash or XXHash.
 
 \section{Related Work}
 \subsection{Blocked Bloom Filters}
@@ -94,8 +94,8 @@ Figure~\ref{fig:sbbf-architecture} illustrates the SBBF architecture. A spatial 
 \node[box, below=of voxel] (sfc) {SFC Encoding\\(Morton/Hilbert)};
 
 % Bit splitting
-\node[box, below left=0.6cm and 0.3cm of sfc] (low) {Low bits\\Block Index};
-\node[box, below right=0.6cm and 0.3cm of sfc] (high) {High bits\\Bit Mask Seed};
+\node[box, below left=0.6cm and 0.3cm of sfc] (low) {Low bits $s_L$\\Block Index};
+\node[box, below right=0.6cm and 0.3cm of sfc] (high) {High bits  XOR Low bits \\ $s_H \oplus s_L$};
 
 % Block array - draw as individual cells
 \node[below=1.6cm of low, font=\scriptsize] (blabel) {};
@@ -128,38 +128,38 @@ Figure~\ref{fig:sbbf-architecture} illustrates the SBBF architecture. A spatial 
 \draw[arrow, dashed] (bi) -- (maglabel);
 \draw[arrow] (high) |- (hashlab);
 \end{tikzpicture}
-\caption{SBBF Architecture. Low SFC bits select block $B_i$ (enabling sequential access). High bits derive $k$ bit positions within the block via double-hashing or pattern lookup.}
+\caption{SBBF Architecture. Low SFC bits ($s_L$) select block $B_i$ (enabling sequential access). The seed for intra-block hashing is computed as $s_H \oplus s_L$, combining regional and local information to derive $k$ bit positions via double-hashing or pattern lookup.}
 \label{fig:sbbf-architecture}
 \end{figure}
 
 \subsection{Spatial Mapping and Bit-Splitting}
-The core of SBBF is the mapping function that converts a spatial coordinate $\mathbf{p}$ into a block index and a bit mask. Given an SFC value $s = \text{SFC}(\mathbf{p})$, we partition $s$ into two components:
+The core of SBBF is the mapping function that converts a spatial coordinate $\mathbf{p}$ into a block index and a bit mask seed. Given an SFC value $s = \text{SFC}(\mathbf{p})$, we partition $s$ into two components:
 \begin{equation}
     s = s_{\text{high}} \cdot 2^p + s_{\text{low}}
 \end{equation}
 where $p = \log_2 N$ and $N$ is the number of blocks. We use:
 \begin{itemize}
     \item \textbf{Block index:} $\text{block\_idx} = s_{\text{low}} = s \bmod 2^p$
-    \item \textbf{Bit mask seed:} $s_{\text{high}} = \lfloor s / 2^p \rfloor$
+    \item \textbf{Bit mask seed:} $\text{seed} = s_{\text{high}} \oplus s_{\text{low}}$
 \end{itemize}
 
 \textbf{Why low bits for block index?} The low-order bits of an SFC change with every unit step in the coordinate space. Spatial neighbors map to blocks $B_i, B_{i+1}, \ldots$, enabling the CPU to leverage L1/L2 prefetching during neighborhood queries and raster/volume traversals.
 
-\textbf{Why high bits for bit mask?} High-order bits represent coarse spatial regions. Using them as a structural signature prevents local clusters from saturating a single bit index. Empty coarse regions will not add any bits to the bit mask, while occupied coarse regions will yield a reasonable collision with other coarse regions.
+\textbf{Why XOR for bit mask seed?} Using only the high bits ($s_{\text{high}}$) as the seed causes false positives to appear as topologically coherent partial ``copies'' of the original data, since coarse spatial regions share identical seeds. XORing high and low bits provides better entropy distribution: false positives manifest as spatially incoherent noise rather than structured artifacts. Our experiments show XOR achieves ${\sim}33\%$ lower FPR than multiply-shift hashing, with identical instruction counts (Section~\ref{sec:seed-strategy}). More sophisticated hash functions could further reduce FPR, but would negate the speed advantage we seek.
 
 \subsection{Intra-Block Hashing}
-Once block $B_i$ is selected, we must determine which $k$ bits to set within that block. Standard Bloom filters would invoke $k$ independent hash functions, but this is computationally expensive. Following \citet{Kirsch2008}, we use double-hashing to generate $k$ positions from a single seed value:
+Once block $B_i$ is selected, we must determine which $k$ bits to set within that block. Standard Bloom filters would invoke $k$ independent hash functions, but this is computationally expensive. Following \citet{Kirsch2008}, we use double-hashing to generate $k$ positions from the seed value $\text{seed} = s_H \oplus s_L$:
 \begin{align}
-    h_1 &= s_{\text{high}} \bmod B \\
-    h_2 &= \lfloor s_{\text{high}} / B \rfloor \bmod B, \quad h_2 = 1 \text{ if } h_2 = 0 \\
+    h_1 &= \text{seed} \bmod B \\
+    h_2 &= \lfloor \text{seed} / B \rfloor \bmod B, \quad h_2 = 1 \text{ if } h_2 = 0 \\
     \text{bit}_i &= (h_1 + i \cdot h_2) \bmod B, \quad i \in [1, k]
 \end{align}
 
 Here, $h_1$ provides the starting position and $h_2$ the step size. The constraint $h_2 \neq 0$ ensures all $k$ positions are distinct when $k \leq B$ and $\gcd(h_2, B) = 1$. For power-of-two block sizes ($B = 2^b$), we ensure $h_2$ is odd by setting the least significant bit.
 
-\textbf{Alternative: Pattern Lookup.} For SIMD implementations, precomputed $k$-bit patterns can replace the double-hashing loop entirely. A table of $\Omega$ random patterns (typically $\Omega = 2^{16}$) is indexed by $s_{\text{high}} \bmod \Omega$, yielding the bit mask in a single memory access. This trades 4~KB of table space for reduced instruction count (11 vs.\ 25 instructions per operation, see Table~\ref{tab:hash-comparison}).
+\textbf{Alternative: Pattern Lookup.} For SIMD implementations, precomputed $k$-bit patterns can replace the double-hashing loop entirely. A table of $\Omega$ random patterns (typically $\Omega = 2^{16}$) is indexed by $\text{seed} \bmod \Omega$, yielding the bit mask in a single memory access. This trades 4~KB of table space for reduced instruction count (11 vs.\ 25 instructions per operation, see Table~\ref{tab:hash-comparison}).
 
-\textbf{Collision behavior.} Unlike standard Bloom filters where collisions are uniformly distributed, SBBF collisions are spatially clustered. Two points $\mathbf{p}$ and $\mathbf{q}$ collide (map to identical block and mask) only if their SFC values share both low bits (same block) and high bits (same mask seed). This occurs when $\mathbf{p}$ and $\mathbf{q}$ lie in the same coarse spatial region---a property we exploit for topological verification in Section~\ref{sec:denoising}.
+\textbf{Collision behavior.} Unlike standard Bloom filters where collisions are uniformly distributed, SBBF collisions exhibit spatial structure. Two points $\mathbf{p}$ and $\mathbf{q}$ collide (map to identical block and mask) when they share the same low bits (same block) and when their XOR seeds $s_H \oplus s_L$ are identical. Since the seed combines both coarse (high bits) and fine (low bits) spatial information, collisions occur between points that share structural similarity at multiple scales---a property we exploit for topological verification in Section~\ref{sec:denoising}.
 
 \subsection{Efficient SFC Encoding}
 
@@ -178,18 +178,18 @@ The encoding loop extracts 4-bit nibbles from coordinates, looks up the correspo
     \text{state} &= (\text{LUT}[\text{idx}] \gg 8) \land \text{0x3}
 \end{align}
 
-This achieves 3~ns per encode (Table~\ref{tab:hash-comparison}), a 25$\times$ speedup over the reference implementation while fitting entirely in L1 cache.
+In our experiments, this achieves ${\sim}12$ cycles per encode (Table~\ref{tab:hash-comparison}), a 25$\times$ speedup over the reference implementation while fitting entirely in L1 cache.
 
 \textbf{3D Hilbert: Morton-Hilbert Decomposition.} Direct 3D LUT encoding would require prohibitive table sizes. Instead, we decompose the problem:
 \begin{enumerate}
-    \item \textbf{Morton encode:} $(x, y, z) \rightarrow$ Morton code via bit-interleaving (1~ns with BMI2 PDEP)
+    \item \textbf{Morton encode:} $(x, y, z) \rightarrow$ Morton code via bit-interleaving (${\sim}3$ cycles with BMI2 PDEP)
     \item \textbf{Transform:} Morton code $\rightarrow$ Hilbert code via 96-byte LUT
 \end{enumerate}
 
-The transform LUT exploits the A4 alternating group structure of 3D Hilbert curves, which has 12 distinct states. Each 3-bit octant of the Morton code indexes into the LUT to produce the corresponding Hilbert octant and next state. This decomposition achieves 6~ns per encode (14$\times$ speedup) while requiring only 96 bytes of table space.
+The transform LUT exploits the A4 alternating group structure of 3D Hilbert curves, which has 12 distinct states. Each 3-bit octant of the Morton code indexes into the LUT to produce the corresponding Hilbert octant and next state. In our experiments, this decomposition achieves ${\sim}24$ cycles per encode (14$\times$ speedup) while requiring only 96 bytes of table space.
 
 \subsection{Implementation}
-Algorithm~\ref{alg:sbbf} shows the complete insertion and query procedures. Note that Morton codes use simple bit-interleaving (PDEP instruction on x86), which is faster than cryptographic hashes like MurmurHash.
+Algorithm~\ref{alg:sbbf} shows the complete insertion and query procedures. Note that Morton codes use simple bit-interleaving (BMI2 PDEP instruction on x86), which is orders of magnitude faster than cryptographic hashes like MurmurHash or even XXHash.
 
 \begin{algorithm}[htbp]
 \caption{SBBF Core Operations}\label{alg:sbbf}
@@ -200,8 +200,9 @@ Algorithm~\ref{alg:sbbf} shows the complete insertion and query procedures. Note
 \SetKwProg{Fn}{Function}{:}{}
 
 \Fn{\FGetLoc{$s$}}{
-    $\textit{idx} \gets s \bmod 2^p$\;
-    $\textit{seed} \gets \lfloor s / 2^p \rfloor$\;
+    $s_L \gets s \bmod 2^p$\tcp*{Low bits: block index}
+    $s_H \gets \lfloor s / 2^p \rfloor$\tcp*{High bits}
+    $\textit{seed} \gets s_H \oplus s_L$\tcp*{XOR for better distribution}
     $h_1 \gets \textit{seed} \bmod B$\;
     $h_2 \gets \lfloor \textit{seed} / B \rfloor \bmod B$\;
     \lIf{$h_2 = 0$}{$h_2 \gets 1$}
@@ -209,7 +210,7 @@ Algorithm~\ref{alg:sbbf} shows the complete insertion and query procedures. Note
     \For{$i \gets 1$ \KwTo $k$}{
         $\textit{mask} \gets \textit{mask} \lor (1 \ll ((h_1 + i \cdot h_2) \bmod B))$\;
     }
-    \Return $(\textit{idx}, \textit{mask})$\;
+    \Return $(s_L, \textit{mask})$\;
 }
 \vspace{0.2cm}
 \Fn{\FInsert{$\mathbf{p}$}}{
@@ -352,6 +353,29 @@ Dist. & Filter & Strat. & FPR & $\times$BL & FPR & $\times$BL \\
 \end{table}
 
 SBBF achieves 3--6$\times$ lower FPR than BlockedBF across all configurations. The \texttt{double\_hash} strategy yields slightly better FPR than \texttt{pattern} because it uses more entropy in bit position selection. RegisterBF achieves similar FPR to SBBF but requires 4--6$\times$ more instructions (Table~\ref{tab:sbbf-performance}).
+
+\subsection{Seed Strategy Comparison}\label{sec:seed-strategy}
+Table~\ref{tab:seed-strategy} compares two strategies for deriving the intra-block hash seed from the SFC code: XOR ($s_H \oplus s_L$) and multiplicative hashing ($s \cdot \phi \gg 16$, where $\phi$ is the golden ratio prime). Both strategies use identical memory budgets (1.02~MB) and the \texttt{double\_hash} intra-block strategy.
+
+\begin{table}[htbp]
+\centering
+\caption{Seed Strategy Comparison (2D, 100K elements)}
+\label{tab:seed-strategy}
+\begin{tabular}{@{}llrrrrr@{}}
+\toprule
+SFC & Seed & FPR & Ins. & Cyc. & IPC \\
+\midrule
+Morton & XOR & 0.06\% & 81/84 & 19/17 & 4.2/4.7 \\
+Morton & Mult. & 0.09\% & 81/84 & 19/18 & 4.2/4.6 \\
+Hilbert & XOR & 0.06\% & 136/139 & 32/32 & 4.2/4.3 \\
+Hilbert & Mult. & 0.09\% & 136/139 & 32/31 & 4.2/4.4 \\
+\bottomrule
+\end{tabular}
+\vspace{0.2cm}
+\footnotesize{Values shown as insert/query. Mult.\ = multiplicative hash.}
+\end{table}
+
+XOR achieves 33\% lower FPR (0.06\% vs 0.09\%) with identical instruction counts and cycle latency. The XOR operation combines the regional signature from high bits with local position from low bits, providing better entropy distribution for the double-hashing function's modular arithmetic. All subsequent experiments use the XOR strategy.
 
 \subsection{Neighborhood Query Performance}
 Table~\ref{tab:neighbor-performance} compares neighborhood query performance for 3D data (6 neighbors per point). SBBF exploits SFC locality: spatially adjacent cells map to nearby memory addresses, enabling cache-line reuse across neighbor queries.

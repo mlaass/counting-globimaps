@@ -42,8 +42,8 @@ except ImportError as e:
 
 # Paths
 HDF5_DIR = PROJECT_ROOT / "datasets" / "hdf5"
-RESULTS_DIR = PROJECT_ROOT / "results" / "sbbf_voxel"
-FIGURES_DIR = PROJECT_ROOT / "reports" / "figures"
+RESULTS_DIR = PROJECT_ROOT / "sbbf_results"
+FIGURES_DIR = PROJECT_ROOT / "sbbf_results" / "figures"
 
 
 # ============================================================
@@ -308,9 +308,94 @@ def run_globimap(
     }
 
 
+def get_seed_strategy(name: str) -> cg.SeedStrategy:
+    """Convert string seed strategy to enum."""
+    strategy_map = {
+        "XOR": cg.SeedStrategy.XOR,
+        "MULTIPLY_SHIFT": cg.SeedStrategy.MULTIPLY_SHIFT,
+    }
+    return strategy_map.get(name, cg.SeedStrategy.XOR)
+
+
+def run_sbbf(
+    voxel_coords: np.ndarray,
+    true_set: set,
+    resolution: int,
+    min_neighbors: int,
+    sfc_type: cg.SFCType,
+    log_num_blocks: int,
+    hash_k: int,
+    seed_strategy: cg.SeedStrategy,
+    strategy_name: str,
+) -> dict:
+    """Run SBBF with a specific seed strategy."""
+    num_negatives = resolution**3 - len(voxel_coords)
+
+    # Configure SBBF
+    config = cg.SBBFConfig()
+    config.sfc_type = sfc_type
+    config.log_num_blocks = log_num_blocks
+    config.hash_k = hash_k
+    config.bits_per_block = 64
+    config.sfc_bits = max(8, int(math.ceil(math.log2(resolution + 1))))
+    config.seed_strategy = seed_strategy
+
+    sbbf = cg.SpatialBlockedBloomFilter(config)
+
+    # Insert all voxels
+    for x, y, z in tqdm(voxel_coords, desc=f"  Insert ({strategy_name})", leave=False):
+        sbbf.put3d(int(x), int(y), int(z))
+
+    # Query all grid points
+    queried_points = []
+    false_positives = []
+
+    for x in tqdm(range(resolution), desc=f"  Query ({strategy_name})", leave=False):
+        for y in range(resolution):
+            for z in range(resolution):
+                if sbbf.query3d(x, y, z):
+                    queried_points.append((x, y, z))
+                    if (x, y, z) not in true_set:
+                        false_positives.append((x, y, z))
+
+    queried = np.array(queried_points) if queried_points else np.empty((0, 3))
+    fps = np.array(false_positives) if false_positives else np.empty((0, 3))
+
+    raw_fpr = len(fps) / num_negatives if num_negatives > 0 else 0.0
+
+    # Apply denoising
+    denoised = []
+    for x, y, z in tqdm(queried, desc=f"  Denoise ({strategy_name})", leave=False):
+        neighbor_count = sbbf.neighbors3d(int(x), int(y), int(z), full_26=True)
+        if neighbor_count >= min_neighbors:
+            denoised.append((x, y, z))
+
+    denoised = np.array(denoised) if denoised else np.empty((0, 3))
+
+    denoised_fps = sum(1 for p in denoised if tuple(p) not in true_set)
+    denoised_fpr = denoised_fps / num_negatives if num_negatives > 0 else 0.0
+
+    fps_removed = len(fps) - denoised_fps
+    correction_rate = fps_removed / len(fps) if len(fps) > 0 else 0.0
+
+    return {
+        "queried": queried,
+        "fps": fps,
+        "denoised": denoised,
+        "raw_fpr": raw_fpr,
+        "raw_fps": len(fps),
+        "denoised_fpr": denoised_fpr,
+        "denoised_fps": denoised_fps,
+        "fps_removed": fps_removed,
+        "correction_rate": correction_rate,
+        "memory_kb": sbbf.memory_bytes() / 1024,
+        "fill_ratio": sbbf.fill_ratio(),
+    }
+
+
 def run_single_experiment(exp: dict) -> dict:
     """
-    Run a single SBBF experiment.
+    Run a single experiment comparing SBBF (XOR vs MULTIPLY_SHIFT), BlockedBF, and GloBiMap.
 
     Returns dict with config and stats.
     """
@@ -325,61 +410,21 @@ def run_single_experiment(exp: dict) -> dict:
     voxel_coords = load_voxels(mesh_name, resolution)
     true_set = set(map(tuple, voxel_coords))
 
-    # Configure SBBF
-    config = cg.SBBFConfig()
-    config.sfc_type = sfc_type
-    config.log_num_blocks = log_num_blocks
-    config.hash_k = hash_k
-    config.bits_per_block = 64
-    config.sfc_bits = max(8, int(math.ceil(math.log2(resolution + 1))))
+    # Run SBBF with XOR strategy
+    print("  Running SBBF (XOR)...")
+    sbbf_xor = run_sbbf(
+        voxel_coords, true_set, resolution, min_neighbors,
+        sfc_type, log_num_blocks, hash_k, cg.SeedStrategy.XOR, "XOR"
+    )
+    print(f"  SBBF XOR FPR: {sbbf_xor['raw_fpr']:.4%} -> {sbbf_xor['denoised_fpr']:.4%}")
 
-    sbbf = cg.SpatialBlockedBloomFilter(config)
-
-    # Insert all voxels
-    print(f"  Inserting {len(voxel_coords):,} voxels...")
-    for x, y, z in tqdm(voxel_coords, desc="  Insert", leave=False):
-        sbbf.put3d(int(x), int(y), int(z))
-
-    # Query all grid points
-    print(f"  Querying {resolution**3:,} grid points...")
-    queried_points = []
-    false_positives = []
-
-    for x in tqdm(range(resolution), desc="  Query", leave=False):
-        for y in range(resolution):
-            for z in range(resolution):
-                if sbbf.query3d(x, y, z):
-                    queried_points.append((x, y, z))
-                    if (x, y, z) not in true_set:
-                        false_positives.append((x, y, z))
-
-    queried = np.array(queried_points) if queried_points else np.empty((0, 3))
-    fps = np.array(false_positives) if false_positives else np.empty((0, 3))
-
-    # Calculate raw FPR
-    num_negatives = resolution**3 - len(voxel_coords)
-    raw_fpr = len(fps) / num_negatives if num_negatives > 0 else 0.0
-
-    print(f"  Raw FPR: {raw_fpr:.4%} ({len(fps):,} false positives)")
-
-    # Apply denoising
-    print(f"  Denoising (min_neighbors={min_neighbors})...")
-    denoised = []
-    for x, y, z in tqdm(queried, desc="  Denoise", leave=False):
-        neighbor_count = sbbf.neighbors3d(int(x), int(y), int(z), full_26=True)
-        if neighbor_count >= min_neighbors:
-            denoised.append((x, y, z))
-
-    denoised = np.array(denoised) if denoised else np.empty((0, 3))
-
-    # Calculate denoised FPR
-    denoised_fps = sum(1 for p in denoised if tuple(p) not in true_set)
-    denoised_fpr = denoised_fps / num_negatives if num_negatives > 0 else 0.0
-
-    fps_removed = len(fps) - denoised_fps
-    correction_rate = fps_removed / len(fps) if len(fps) > 0 else 0.0
-
-    print(f"  Denoised FPR: {denoised_fpr:.4%} ({fps_removed:,} FPs removed)")
+    # Run SBBF with MULTIPLY_SHIFT strategy
+    print("  Running SBBF (MULTIPLY_SHIFT)...")
+    sbbf_ms = run_sbbf(
+        voxel_coords, true_set, resolution, min_neighbors,
+        sfc_type, log_num_blocks, hash_k, cg.SeedStrategy.MULTIPLY_SHIFT, "MS"
+    )
+    print(f"  SBBF MultShift FPR: {sbbf_ms['raw_fpr']:.4%} -> {sbbf_ms['denoised_fpr']:.4%}")
 
     # Run BlockedBloomFilter comparison
     print("  Running BlockedBloomFilter...")
@@ -404,15 +449,24 @@ def run_single_experiment(exp: dict) -> dict:
         "stats": {
             "num_voxels": len(voxel_coords),
             "grid_points": resolution**3,
-            # SBBF stats
-            "sbbf_memory_kb": sbbf.memory_bytes() / 1024,
-            "sbbf_fill_ratio": sbbf.fill_ratio(),
-            "sbbf_raw_fpr": raw_fpr,
-            "sbbf_raw_fps": len(fps),
-            "sbbf_denoised_fpr": denoised_fpr,
-            "sbbf_denoised_fps": denoised_fps,
-            "sbbf_fps_removed": fps_removed,
-            "sbbf_correction_rate": correction_rate,
+            # SBBF XOR stats
+            "sbbf_xor_memory_kb": sbbf_xor["memory_kb"],
+            "sbbf_xor_fill_ratio": sbbf_xor["fill_ratio"],
+            "sbbf_xor_raw_fpr": sbbf_xor["raw_fpr"],
+            "sbbf_xor_raw_fps": sbbf_xor["raw_fps"],
+            "sbbf_xor_denoised_fpr": sbbf_xor["denoised_fpr"],
+            "sbbf_xor_denoised_fps": sbbf_xor["denoised_fps"],
+            "sbbf_xor_fps_removed": sbbf_xor["fps_removed"],
+            "sbbf_xor_correction_rate": sbbf_xor["correction_rate"],
+            # SBBF MULTIPLY_SHIFT stats
+            "sbbf_ms_memory_kb": sbbf_ms["memory_kb"],
+            "sbbf_ms_fill_ratio": sbbf_ms["fill_ratio"],
+            "sbbf_ms_raw_fpr": sbbf_ms["raw_fpr"],
+            "sbbf_ms_raw_fps": sbbf_ms["raw_fps"],
+            "sbbf_ms_denoised_fpr": sbbf_ms["denoised_fpr"],
+            "sbbf_ms_denoised_fps": sbbf_ms["denoised_fps"],
+            "sbbf_ms_fps_removed": sbbf_ms["fps_removed"],
+            "sbbf_ms_correction_rate": sbbf_ms["correction_rate"],
             # BlockedBF stats
             "blocked_memory_kb": blocked_result["memory_kb"],
             "blocked_raw_fpr": blocked_result["raw_fpr"],
@@ -428,9 +482,12 @@ def run_single_experiment(exp: dict) -> dict:
         },
         # Keep arrays for rendering (not saved to JSON)
         "_ground_truth": voxel_coords,
-        "_sbbf_queried": queried,
-        "_sbbf_fps": fps,
-        "_sbbf_denoised": denoised,
+        "_sbbf_xor_queried": sbbf_xor["queried"],
+        "_sbbf_xor_fps": sbbf_xor["fps"],
+        "_sbbf_xor_denoised": sbbf_xor["denoised"],
+        "_sbbf_ms_queried": sbbf_ms["queried"],
+        "_sbbf_ms_fps": sbbf_ms["fps"],
+        "_sbbf_ms_denoised": sbbf_ms["denoised"],
         "_blocked_queried": blocked_result["queried"],
         "_blocked_fps": blocked_result["fps"],
         "_blocked_denoised": blocked_result["denoised"],
@@ -477,10 +534,12 @@ def render_comparison(
     """
     Render side-by-side comparison with PyVista.
 
-    Creates a 1x7 subplot:
+    Creates a 1x9 subplot:
     - Ground truth (green)
-    - SBBF Raw (TP=blue, FP=red)
-    - SBBF Denoised (cyan)
+    - SBBF XOR Raw (TP=blue, FP=red)
+    - SBBF XOR Denoised (cyan)
+    - SBBF MultShift Raw (TP=blue, FP=red)
+    - SBBF MultShift Denoised (cyan)
     - BlockedBF Raw (TP=blue, FP=red)
     - BlockedBF Denoised (cyan)
     - GloBiMap Raw (TP=blue, FP=red)
@@ -495,7 +554,7 @@ def render_comparison(
     # Use off-screen rendering
     pv.OFF_SCREEN = True
 
-    plotter = pv.Plotter(shape=(1, 7), window_size=(4200, 600), off_screen=True)
+    plotter = pv.Plotter(shape=(1, 9), window_size=(5400, 600), off_screen=True)
 
     point_size = max(2, 8 - resolution // 64)
 
@@ -508,33 +567,43 @@ def render_comparison(
     plotter.add_axes()
     plotter.camera_position = "iso"
 
-    # Panel 1: SBBF Raw
+    # Panel 1: SBBF XOR Raw
     plotter.subplot(0, 1)
-    render_panel_raw(plotter, result["_sbbf_queried"], result["_sbbf_fps"],
-                     "SBBF Raw", stats["sbbf_raw_fpr"], point_size)
+    render_panel_raw(plotter, result["_sbbf_xor_queried"], result["_sbbf_xor_fps"],
+                     "SBBF XOR Raw", stats["sbbf_xor_raw_fpr"], point_size)
 
-    # Panel 2: SBBF Denoised
+    # Panel 2: SBBF XOR Denoised
     plotter.subplot(0, 2)
-    render_panel_denoised(plotter, result["_sbbf_denoised"],
-                          "SBBF Denoised", stats["sbbf_denoised_fpr"], point_size)
+    render_panel_denoised(plotter, result["_sbbf_xor_denoised"],
+                          "SBBF XOR Denoised", stats["sbbf_xor_denoised_fpr"], point_size)
 
-    # Panel 3: BlockedBF Raw
+    # Panel 3: SBBF MultShift Raw
     plotter.subplot(0, 3)
+    render_panel_raw(plotter, result["_sbbf_ms_queried"], result["_sbbf_ms_fps"],
+                     "SBBF MS Raw", stats["sbbf_ms_raw_fpr"], point_size)
+
+    # Panel 4: SBBF MultShift Denoised
+    plotter.subplot(0, 4)
+    render_panel_denoised(plotter, result["_sbbf_ms_denoised"],
+                          "SBBF MS Denoised", stats["sbbf_ms_denoised_fpr"], point_size)
+
+    # Panel 5: BlockedBF Raw
+    plotter.subplot(0, 5)
     render_panel_raw(plotter, result["_blocked_queried"], result["_blocked_fps"],
                      "BlockedBF Raw", stats["blocked_raw_fpr"], point_size)
 
-    # Panel 4: BlockedBF Denoised
-    plotter.subplot(0, 4)
+    # Panel 6: BlockedBF Denoised
+    plotter.subplot(0, 6)
     render_panel_denoised(plotter, result["_blocked_denoised"],
                           "BlockedBF Denoised", stats["blocked_denoised_fpr"], point_size)
 
-    # Panel 5: GloBiMap Raw
-    plotter.subplot(0, 5)
+    # Panel 7: GloBiMap Raw
+    plotter.subplot(0, 7)
     render_panel_raw(plotter, result["_globimap_queried"], result["_globimap_fps"],
                      "GloBiMap Raw", stats["globimap_raw_fpr"], point_size)
 
-    # Panel 6: GloBiMap Denoised
-    plotter.subplot(0, 6)
+    # Panel 8: GloBiMap Denoised
+    plotter.subplot(0, 8)
     render_panel_denoised(plotter, result["_globimap_denoised"],
                           "GloBiMap Denoised", stats["globimap_denoised_fpr"], point_size)
 
@@ -607,11 +676,11 @@ def main():
 
     # Save all results to JSON
     if results:
-        save_results(results, RESULTS_DIR / "experiments.json")
+        save_results(results, RESULTS_DIR / "voxel_experiments.json")
 
     print("\n" + "=" * 60)
     print("Experiments complete!")
-    print(f"  Results: {RESULTS_DIR / 'experiments.json'}")
+    print(f"  Results: {RESULTS_DIR / 'voxel_experiments.json'}")
     print(f"  Images:  {FIGURES_DIR}/*.png")
     print("=" * 60)
 

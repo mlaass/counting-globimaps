@@ -359,6 +359,10 @@ PYBIND11_MODULE(counting_globimap, m) {
         .value("PATTERN_LOOKUP", sbbf::IntraBlockStrategy::PATTERN_LOOKUP)
         .value("MULTIPLEXED", sbbf::IntraBlockStrategy::MULTIPLEXED);
 
+    py::enum_<sbbf::SeedStrategy>(m, "SeedStrategy")
+        .value("XOR", sbbf::SeedStrategy::XOR)
+        .value("MULTIPLY_SHIFT", sbbf::SeedStrategy::MULTIPLY_SHIFT);
+
     py::class_<sbbf::SBBFConfig>(m, "SBBFConfig")
         .def(py::init<>())
         .def_readwrite("sfc_type", &sbbf::SBBFConfig::sfc_type,
@@ -373,6 +377,8 @@ PYBIND11_MODULE(counting_globimap, m) {
             "Number of bits set per element within a block")
         .def_readwrite("intra_strategy", &sbbf::SBBFConfig::intra_strategy,
             "Intra-block hashing strategy")
+        .def_readwrite("seed_strategy", &sbbf::SBBFConfig::seed_strategy,
+            "Seed derivation strategy (XOR or MULTIPLY_SHIFT)")
         .def_readwrite("pattern_table_size", &sbbf::SBBFConfig::pattern_table_size,
             "Pattern table size for PATTERN_LOOKUP strategy")
         .def("num_blocks", &sbbf::SBBFConfig::computed_num_blocks,

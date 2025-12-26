@@ -1,0 +1,374 @@
+{
+  "metadata": {
+    "benchmark_version": "1.0",
+    "suite": null,
+    "timestamp": "2025-12-26T18:09:13Z"
+  },
+  "parameters": {
+    "coord_bits": [
+      16
+    ],
+    "dimensions": [
+      2,
+      3
+    ],
+    "distributions": [
+      "uniform"
+    ],
+    "elements": [
+      134217728
+    ],
+    "hash_k": [
+      4
+    ],
+    "log_blocks": [
+      24
+    ],
+    "sfc_types": [
+      "morton",
+      "hilbert"
+    ],
+    "strategies": [
+      "double_hash",
+      "pattern_lookup"
+    ]
+  },
+  "results": [
+    {
+      "config": {
+        "coord_bits": 16,
+        "dataset": "uniform",
+        "dimensions": 2,
+        "distribution": "uniform",
+        "filter_type": "sbbf",
+        "hash_k": 4,
+        "log_blocks": 24,
+        "name": "SBBF-Morton2D",
+        "num_elements": 134217728,
+        "sfc_type": "Morton2D",
+        "strategy": "double_hash"
+      },
+      "metrics": {
+        "fpr": 0.07504872977733612,
+        "insert_cyc": 314,
+        "insert_ins": 81,
+        "insert_ns": 87.86092102829666,
+        "memory_bytes": 134217728,
+        "neighbor_cyc": 124,
+        "neighbor_ins": 98,
+        "neighbor_ns": 277.0151715039578,
+        "query_cyc": 225,
+        "query_ins": 84,
+        "query_ns": 62.62703622659859
+      }
+    },
+    {
+      "config": {
+        "coord_bits": 16,
+        "dataset": "uniform",
+        "dimensions": 2,
+        "distribution": "uniform",
+        "filter_type": "sbbf",
+        "hash_k": 4,
+        "log_blocks": 24,
+        "name": "SBBF-Morton2D",
+        "num_elements": 134217728,
+        "sfc_type": "Morton2D",
+        "strategy": "pattern_lookup"
+      },
+      "metrics": {
+        "fpr": 0.05998867005109787,
+        "insert_cyc": 240,
+        "insert_ins": 51,
+        "insert_ns": 67.14424070950541,
+        "memory_bytes": 134225920,
+        "neighbor_cyc": 195,
+        "neighbor_ins": 64,
+        "neighbor_ns": 435.40472175379426,
+        "query_cyc": 163,
+        "query_ins": 54,
+        "query_ns": 45.30397210430564
+      }
+    },
+    {
+      "config": {
+        "coord_bits": 16,
+        "dataset": "uniform",
+        "dimensions": 2,
+        "distribution": "uniform",
+        "filter_type": "sbbf",
+        "hash_k": 4,
+        "log_blocks": 24,
+        "name": "SBBF-Hilbert2D",
+        "num_elements": 134217728,
+        "sfc_type": "Hilbert2D",
+        "strategy": "double_hash"
+      },
+      "metrics": {
+        "fpr": 0.07505647838115692,
+        "insert_cyc": 174,
+        "insert_ins": 136,
+        "insert_ns": 48.5219606757131,
+        "memory_bytes": 134217728,
+        "neighbor_cyc": 158,
+        "neighbor_ins": 98,
+        "neighbor_ns": 375.63300220750557,
+        "query_cyc": 215,
+        "query_ins": 139,
+        "query_ns": 59.710006253908695
+      }
+    },
+    {
+      "config": {
+        "coord_bits": 16,
+        "dataset": "uniform",
+        "dimensions": 2,
+        "distribution": "uniform",
+        "filter_type": "sbbf",
+        "hash_k": 4,
+        "log_blocks": 24,
+        "name": "SBBF-Hilbert2D",
+        "num_elements": 134217728,
+        "sfc_type": "Hilbert2D",
+        "strategy": "pattern_lookup"
+      },
+      "metrics": {
+        "fpr": 0.059988148510456085,
+        "insert_cyc": 163,
+        "insert_ins": 106,
+        "insert_ns": 45.31435307280428,
+        "memory_bytes": 134225920,
+        "neighbor_cyc": 67,
+        "neighbor_ins": 64,
+        "neighbor_ns": 150.15046296296296,
+        "query_cyc": 148,
+        "query_ins": 109,
+        "query_ns": 41.2972820616066
+      }
+    },
+    {
+      "config": {
+        "coord_bits": 16,
+        "dataset": null,
+        "dimensions": 2,
+        "distribution": "uniform",
+        "filter_type": "blocked_bf",
+        "hash_k": 4,
+        "log_blocks": 24,
+        "name": "BlockedBF-Wy+Pat",
+        "num_elements": 134217728,
+        "sfc_type": "none",
+        "strategy": "pattern_lookup"
+      },
+      "metrics": {
+        "fpr": 0.09666011482477188,
+        "insert_cyc": 232,
+        "insert_ins": 241,
+        "insert_ns": 64.61655982265893,
+        "memory_bytes": 134250496,
+        "neighbor_cyc": 273,
+        "neighbor_ins": 247,
+        "neighbor_ns": 605.7380824852705,
+        "query_cyc": 228,
+        "query_ins": 255,
+        "query_ns": 63.403790174062856
+      }
+    },
+    {
+      "config": {
+        "coord_bits": 16,
+        "dataset": null,
+        "dimensions": 2,
+        "distribution": "uniform",
+        "filter_type": "register_bf",
+        "hash_k": 4,
+        "log_blocks": 24,
+        "name": "RegisterBF-Wy+Pat",
+        "num_elements": 134217728,
+        "sfc_type": "none",
+        "strategy": "pattern_lookup"
+      },
+      "metrics": {
+        "fpr": 0.1106572151184082,
+        "insert_cyc": 175,
+        "insert_ins": 236,
+        "insert_ns": 48.752063735841816,
+        "memory_bytes": 134225920,
+        "neighbor_cyc": 220,
+        "neighbor_ins": 243,
+        "neighbor_ns": 489.0467289719627,
+        "query_cyc": 325,
+        "query_ins": 239,
+        "query_ns": 90.38168238993711
+      }
+    },
+    {
+      "config": {
+        "coord_bits": 16,
+        "dataset": "uniform",
+        "dimensions": 3,
+        "distribution": "uniform",
+        "filter_type": "sbbf",
+        "hash_k": 4,
+        "log_blocks": 24,
+        "name": "SBBF-Morton3D",
+        "num_elements": 134217728,
+        "sfc_type": "Morton3D",
+        "strategy": "double_hash"
+      },
+      "metrics": {
+        "fpr": 0.036824263632297516,
+        "insert_cyc": 90,
+        "insert_ins": 69,
+        "insert_ns": 25.059734270341497,
+        "memory_bytes": 134217728,
+        "neighbor_cyc": 45,
+        "neighbor_ins": 83,
+        "neighbor_ns": 325.273516642547,
+        "query_cyc": 111,
+        "query_ins": 81,
+        "query_ns": 31.009951049851864
+      }
+    },
+    {
+      "config": {
+        "coord_bits": 16,
+        "dataset": "uniform",
+        "dimensions": 3,
+        "distribution": "uniform",
+        "filter_type": "sbbf",
+        "hash_k": 4,
+        "log_blocks": 24,
+        "name": "SBBF-Morton3D",
+        "num_elements": 134217728,
+        "sfc_type": "Morton3D",
+        "strategy": "pattern_lookup"
+      },
+      "metrics": {
+        "fpr": 0.03885818272829056,
+        "insert_cyc": 69,
+        "insert_ins": 40,
+        "insert_ns": 19.415417638824078,
+        "memory_bytes": 134225920,
+        "neighbor_cyc": 43,
+        "neighbor_ins": 56,
+        "neighbor_ns": 312.43113612004294,
+        "query_cyc": 85,
+        "query_ins": 54,
+        "query_ns": 23.835512974382322
+      }
+    },
+    {
+      "config": {
+        "coord_bits": 16,
+        "dataset": "uniform",
+        "dimensions": 3,
+        "distribution": "uniform",
+        "filter_type": "sbbf",
+        "hash_k": 4,
+        "log_blocks": 24,
+        "name": "SBBF-Hilbert3D",
+        "num_elements": 134217728,
+        "sfc_type": "Hilbert3D",
+        "strategy": "double_hash"
+      },
+      "metrics": {
+        "fpr": 0.03682108223438263,
+        "insert_cyc": 263,
+        "insert_ins": 224,
+        "insert_ns": 73.14664016414466,
+        "memory_bytes": 134217728,
+        "neighbor_cyc": 57,
+        "neighbor_ins": 134,
+        "neighbor_ns": 414.53613511390415,
+        "query_cyc": 237,
+        "query_ins": 236,
+        "query_ns": 65.84156401853316
+      }
+    },
+    {
+      "config": {
+        "coord_bits": 16,
+        "dataset": "uniform",
+        "dimensions": 3,
+        "distribution": "uniform",
+        "filter_type": "sbbf",
+        "hash_k": 4,
+        "log_blocks": 24,
+        "name": "SBBF-Hilbert3D",
+        "num_elements": 134217728,
+        "sfc_type": "Hilbert3D",
+        "strategy": "pattern_lookup"
+      },
+      "metrics": {
+        "fpr": 0.03886716812849045,
+        "insert_cyc": 256,
+        "insert_ins": 195,
+        "insert_ns": 71.38981351513937,
+        "memory_bytes": 134225920,
+        "neighbor_cyc": 49,
+        "neighbor_ins": 107,
+        "neighbor_ns": 359.46186031541686,
+        "query_cyc": 232,
+        "query_ins": 209,
+        "query_ns": 64.55738306328341
+      }
+    },
+    {
+      "config": {
+        "coord_bits": 16,
+        "dataset": null,
+        "dimensions": 3,
+        "distribution": "uniform",
+        "filter_type": "blocked_bf",
+        "hash_k": 4,
+        "log_blocks": 24,
+        "name": "BlockedBF-Wy+Pat",
+        "num_elements": 134217728,
+        "sfc_type": "none",
+        "strategy": "pattern_lookup"
+      },
+      "metrics": {
+        "fpr": 0.07109308242797852,
+        "insert_cyc": 232,
+        "insert_ins": 261,
+        "insert_ns": 64.4327049278129,
+        "memory_bytes": 134250496,
+        "neighbor_cyc": 279,
+        "neighbor_ins": 262,
+        "neighbor_ns": 2015.547267996531,
+        "query_cyc": 230,
+        "query_ins": 273,
+        "query_ns": 64.02503399678575
+      }
+    },
+    {
+      "config": {
+        "coord_bits": 16,
+        "dataset": null,
+        "dimensions": 3,
+        "distribution": "uniform",
+        "filter_type": "register_bf",
+        "hash_k": 4,
+        "log_blocks": 24,
+        "name": "RegisterBF-Wy+Pat",
+        "num_elements": 134217728,
+        "sfc_type": "none",
+        "strategy": "pattern_lookup"
+      },
+      "metrics": {
+        "fpr": 0.08644440025091171,
+        "insert_cyc": 217,
+        "insert_ins": 250,
+        "insert_ns": 60.348118627400254,
+        "memory_bytes": 134225920,
+        "neighbor_cyc": 212,
+        "neighbor_ins": 254,
+        "neighbor_ns": 1530.2989289191823,
+        "query_cyc": 205,
+        "query_ins": 253,
+        "query_ns": 56.978506899632684
+      }
+    }
+  ]
+}

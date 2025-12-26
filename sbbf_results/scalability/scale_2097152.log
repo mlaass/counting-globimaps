@@ -1,0 +1,84 @@
+
+=================================================
+  Spatial-Blocked Bloom Filter Benchmark Suite
+  With Hardware Performance Counters
+=================================================
+
+Note: For accurate cycle/instruction counts, run with:
+  sudo sysctl kernel.perf_event_paranoid=1
+
+Benchmark configuration:
+  Epochs: 11
+  Min iterations/epoch: 1000
+  Warmup iterations: 100
+  Max epoch time: 100 ms
+  Scenario: sweep
+  Elements: 2097152
+  Log blocks: 18
+  Hash k: 4
+  Coord bits: 16
+  SFC types: morton,hilbert
+  Strategies: double_hash,pattern_lookup
+  Dimensions: 2D,3D
+  Distributions: uniform
+  Baseline mode: reduced
+  Output: sbbf_results/scalability/scale_2097152.json
+
+========================================
+Parameter Sweep Benchmark
+========================================
+Total configurations: 8
+
+[1/8] 2D morton double_hash n=2097152 log=18 k=4 bits=16        Warning, results might be unstable:
+* CPU frequency scaling enabled: CPU 0 between 800.0 and 3,601.0 MHz
+
+Recommendations
+* Use 'pyperf system tune' before benchmarking. See https://github.com/psf/pyperf
+
+|               ns/op |                op/s |    err% |          ins/op |          cyc/op |    IPC |         bra/op |   miss% |     total | benchmark
+|--------------------:|--------------------:|--------:|----------------:|----------------:|-------:|---------------:|--------:|----------:|:----------
+|                6.29 |      158,975,990.64 |    1.0% |           81.00 |           22.67 |  3.573 |          10.00 |    0.0% |      0.01 | `SBBF-Morton2D insert`
+|                5.85 |      170,857,888.26 |    0.1% |           84.00 |           21.09 |  3.983 |          10.00 |    0.0% |      0.01 | `SBBF-Morton2D query`
+|                5.01 |      199,763,063.96 |    0.3% |           97.93 |           18.05 |  5.425 |          16.62 |    0.2% |      0.01 | `SBBF-Morton2D neighbor`
+[2/8] 2D morton pattern_lookup n=2097152 log=18 k=4 bits=16        |                4.52 |      221,346,477.43 |    0.6% |           51.00 |           16.27 |  3.134 |           5.00 |    0.0% |      0.01 | `SBBF-Morton2D insert`
+|                4.52 |      220,994,878.79 |    0.2% |           54.00 |           16.32 |  3.309 |           5.00 |    0.0% |      0.01 | `SBBF-Morton2D query`
+|                4.20 |      238,353,544.23 |    0.4% |           64.19 |           15.11 |  4.247 |          11.00 |    0.4% |      0.01 | `SBBF-Morton2D neighbor`
+[3/8] 2D hilbert double_hash n=2097152 log=18 k=4 bits=16        |                9.75 |      102,538,146.59 |    0.2% |          136.00 |           35.15 |  3.869 |          12.00 |    0.0% |      0.01 | `SBBF-Hilbert2D insert`
+|               11.32 |       88,339,102.57 |    0.7% |          139.00 |           40.78 |  3.409 |          12.00 |    0.0% |      0.01 | `SBBF-Hilbert2D query`
+|                5.97 |      167,445,925.28 |    0.3% |           98.76 |           21.53 |  4.587 |          14.15 |    0.6% |      0.01 | `SBBF-Hilbert2D neighbor`
+[4/8] 2D hilbert pattern_lookup n=2097152 log=18 k=4 bits=16        |                8.76 |      114,190,437.73 |    0.2% |          106.00 |           31.58 |  3.356 |           7.00 |    0.0% |      0.01 | `SBBF-Hilbert2D insert`
+|                8.73 |      114,484,284.87 |    0.3% |          109.00 |           31.50 |  3.460 |           7.00 |    0.0% |      0.01 | `SBBF-Hilbert2D query`
+|                6.08 |      164,365,616.58 |    0.1% |           63.90 |           21.94 |  2.912 |           8.53 |    1.0% |      0.01 | `SBBF-Hilbert2D neighbor`
+|               14.68 |       68,128,426.00 |    0.8% |          241.00 |           52.93 |  4.553 |          41.00 |    0.0% |      0.01 | `BlockedBF-Wy+Pat insert`
+|               16.84 |       59,369,189.50 |    1.0% |          255.00 |           60.75 |  4.198 |          45.00 |    0.0% |      0.01 | `BlockedBF-Wy+Pat query`
+|               30.64 |       32,634,207.43 |    2.2% |          247.50 |          110.49 |  2.240 |          45.22 |    2.2% |      0.01 | `BlockedBF-Wy+Pat neighbor`
+|               13.18 |       75,869,262.93 |    0.3% |          236.00 |           47.51 |  4.967 |          41.00 |    0.0% |      0.01 | `RegisterBF-Wy+Pat insert`
+|               15.67 |       63,798,307.50 |    1.2% |          239.00 |           56.54 |  4.227 |          41.00 |    0.0% |      0.01 | `RegisterBF-Wy+Pat query`
+|               15.90 |       62,897,483.01 |    1.1% |          243.13 |           57.34 |  4.240 |          43.38 |    0.0% |      0.01 | `RegisterBF-Wy+Pat neighbor`
+[5/8] 3D morton double_hash n=2097152 log=18 k=4 bits=16        |                4.91 |      203,691,400.39 |    1.1% |           69.00 |           17.70 |  3.898 |          10.00 |    0.0% |      0.01 | `SBBF-Morton3D insert`
+|                5.99 |      166,879,867.87 |    0.2% |           81.00 |           21.61 |  3.748 |          10.00 |    0.0% |      0.01 | `SBBF-Morton3D query`
+|                4.04 |      247,578,162.04 |    1.4% |           83.26 |           14.56 |  5.718 |          13.07 |    0.6% |      0.01 | `SBBF-Morton3D neighbor`
+[6/8] 3D morton pattern_lookup n=2097152 log=18 k=4 bits=16        |                4.33 |      230,771,621.27 |    0.0% |           40.00 |           15.62 |  2.561 |           4.00 |    0.0% |      0.01 | `SBBF-Morton3D insert`
+|                5.07 |      197,083,781.64 |    0.2% |           54.00 |           18.29 |  2.952 |           5.00 |    0.0% |      0.01 | `SBBF-Morton3D query`
+|                3.55 |      281,958,649.17 |    0.1% |           56.27 |           12.79 |  4.400 |           8.08 |    1.0% |      0.01 | `SBBF-Morton3D neighbor`
+[7/8] 3D hilbert double_hash n=2097152 log=18 k=4 bits=16        |               19.37 |       51,624,204.98 |    0.2% |          224.00 |           69.84 |  3.207 |          11.00 |    0.0% |      0.01 | `SBBF-Hilbert3D insert`
+|               20.78 |       48,112,005.71 |    0.1% |          236.00 |           74.92 |  3.150 |          11.00 |    0.0% |      0.01 | `SBBF-Hilbert3D query`
+|                7.65 |      130,667,440.36 |    0.4% |          134.55 |           27.57 |  4.881 |          14.82 |    1.0% |      0.01 | `SBBF-Hilbert3D neighbor`
+[8/8] 3D hilbert pattern_lookup n=2097152 log=18 k=4 bits=16        |               18.17 |       55,044,268.46 |    0.2% |          195.00 |           65.47 |  2.979 |           5.00 |    0.0% |      0.01 | `SBBF-Hilbert3D insert`
+|               18.60 |       53,761,007.38 |    0.4% |          209.00 |           67.10 |  3.115 |           6.00 |    0.0% |      0.01 | `SBBF-Hilbert3D query`
+|                6.75 |      148,235,927.91 |    0.4% |          107.66 |           24.32 |  4.427 |           9.82 |    1.6% |      0.01 | `SBBF-Hilbert3D neighbor`
+|               14.96 |       66,830,937.53 |    0.5% |          261.00 |           53.96 |  4.837 |          42.00 |    0.0% |      0.01 | `BlockedBF-Wy+Pat insert`
+|               16.15 |       61,917,874.26 |    0.8% |          273.00 |           58.23 |  4.688 |          45.00 |    0.0% |      0.01 | `BlockedBF-Wy+Pat query`
+|               30.72 |       32,551,090.75 |    0.7% |          262.56 |          110.80 |  2.370 |          45.31 |    2.4% |      0.01 | `BlockedBF-Wy+Pat neighbor`
+|               14.22 |       70,309,864.50 |    0.2% |          250.00 |           51.26 |  4.877 |          41.00 |    0.0% |      0.01 | `RegisterBF-Wy+Pat insert`
+|               15.50 |       64,532,546.86 |    0.2% |          253.00 |           55.87 |  4.529 |          41.00 |    0.0% |      0.01 | `RegisterBF-Wy+Pat query`
+|               16.05 |       62,299,835.34 |    1.4% |          254.19 |           57.87 |  4.392 |          43.46 |    0.2% |      0.01 | `RegisterBF-Wy+Pat neighbor`
+
+
+Sweep complete: 12 configurations benchmarked.
+Results saved to: sbbf_results/scalability/scale_2097152.json
+
+=================================================
+  Benchmark Complete!
+=================================================
+

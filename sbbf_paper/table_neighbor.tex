@@ -1,0 +1,19 @@
+% Table: 3D Neighbor Query Performance
+% Baseline: BlockedBF
+% Requires: \usepackage{booktabs}, \usepackage[table]{xcolor}
+
+\begin{table}[htbp]
+\centering
+\caption{3D Neighborhood Query Performance (6 neighbors)}
+\label{tab:neighbor-performance}
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+Filter & Strat. & Instr. & Cyc. & IPC & $\times$BL \\
+\midrule
+SBBF-Morton & pat & \cellcolor{green!20}\textbf{56} & \cellcolor{green!20}\textbf{9} & 6.2 & 0.21$\times$ \\
+SBBF-Hilbert & pat & 104 & 23 & 4.5 & 0.53$\times$ \\
+BlockedBF & pat & 258 & 43 & 6.0 & 1.00$\times$ \\
+RegisterBF & pat & 254 & 39 & \cellcolor{green!20}\textbf{6.5} & 0.91$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -12,6 +12,8 @@
 \graphicspath{{Figures/PDF/}{Figures/PNG/}}
 
 \usepackage{booktabs}
+\usepackage[table]{xcolor}
+
 \usepackage{siunitx}
 \usepackage[numbers,compress]{natbib}
 \usepackage{bm}
@@ -303,34 +305,10 @@ The LUT-based Hilbert encoders demonstrate the effectiveness of trading table sp
 \subsection{SBBF End-to-End Performance}
 Table~\ref{tab:sbbf-performance} compares end-to-end operation performance using the same system-independent metrics as Table~\ref{tab:hash-comparison}. We show both intra-block strategies: \texttt{double\_hash} computes bit positions on-the-fly, while \texttt{pattern} uses pre-computed k-bit patterns for fewer instructions.
 
-\begin{table}[htbp]
-\centering
-\caption{SBBF End-to-End Operation Performance}
-\label{tab:sbbf-performance}
-\begin{tabular}{@{}lllrrrrrr@{}}
-\toprule
- & & & \multicolumn{2}{c}{Insert} & \multicolumn{2}{c}{Query} \\
-\cmidrule(lr){4-5} \cmidrule(lr){6-7}
-Dim & Filter & Strat. & Instr. & Cyc. & Instr. & Cyc. \\
-\midrule
-\multicolumn{7}{@{}l}{\textit{2D}} \\
- & SBBF-Morton & dbl & 79 & 19 & 82 & 18 \\
- & SBBF-Morton & pat & 49 & 16 & 52 & 16 \\
- & SBBF-Hilbert & dbl & 134 & 32 & 137 & 32 \\
- & SBBF-Hilbert & pat & 104 & 28 & 107 & 28 \\
- & BlockedBF & pat & 241 & 46 & 255 & 46 \\
- & RegisterBF & pat & 236 & 43 & 239 & 43 \\
-\midrule
-\multicolumn{7}{@{}l}{\textit{3D}} \\
- & SBBF-Morton & dbl & 67 & 16 & 80 & 19 \\
- & SBBF-Morton & pat & 38 & 15 & 53 & 16 \\
- & SBBF-Hilbert & dbl & 162 & 48 & 175 & 53 \\
- & SBBF-Hilbert & pat & 133 & 42 & 148 & 48 \\
- & BlockedBF & pat & 261 & 51 & 273 & 51 \\
- & RegisterBF & pat & 250 & 47 & 253 & 46 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\input{table_performance.tex}
+
+
+
 
 SBBF-Morton with pattern lookup uses 4.9$\times$ fewer instructions than BlockedBF in 2D (49 vs 241 for insert) and 6.9$\times$ fewer in 3D (38 vs 261). The \texttt{double\_hash} strategy requires 60\% more instructions but avoids the pattern table memory overhead. SBBF-Hilbert uses 2.3$\times$ fewer instructions while providing better spatial locality. The lower IPC for SBBF reflects reduced instruction-level parallelism but is offset by the significantly reduced instruction count.
 
@@ -339,42 +317,17 @@ The primary advantage of SBBF is revealed during linear spatial scans. In a $256
 
 \begin{figure}[htbp]
 \centering
-\fbox{\parbox{0.9\columnwidth}{\centering\vspace{2cm}\textit{TODO: Query throughput comparison}\\\textit{Random access vs.\ SFC-ordered scans}\vspace{2cm}}}
-\caption{Query throughput for random access patterns vs.\ SFC-ordered spatial scans, demonstrating L1/L2 prefetch benefits during raster/volume traversals.}
-\label{fig:traversal-throughput}
+\includegraphics[width=\columnwidth]{Figures/PDF/throughput_3d.pdf}\\[0.3em]
+\includegraphics[width=\columnwidth]{Figures/PDF/latency_combined_3d.pdf}\\[0.3em]
+\includegraphics[width=\columnwidth]{Figures/PDF/query_neighbor_combined_3d.pdf}
+\caption{3D scalability benchmarks (128K--2B elements). Top: insert and query throughput. Middle: insert and query latency. Bottom: query and neighbor latency. Solid lines: double-hash strategy; dashed lines: pattern-lookup strategy.}
+\label{fig:scalability}
 \end{figure}
 
 \subsection{False Positive Rate Analysis}
 Table~\ref{tab:fpr-datasets} compares observed FPR across synthetic distributions. All filters use identical memory budgets (1.02~MB, 100K elements) for fair comparison. Both intra-block strategies are shown for SBBF.
 
-\begin{table}[htbp]
-\centering
-\caption{False Positive Rate Comparison}
-\label{tab:fpr-datasets}
-\begin{tabular}{@{}lllrrrr@{}}
-\toprule
- & & & \multicolumn{2}{c}{2D} & \multicolumn{2}{c}{3D} \\
-\cmidrule(lr){4-5} \cmidrule(lr){6-7}
-Dist. & Filter & Strat. & FPR & $\times$BL & FPR & $\times$BL \\
-\midrule
-\multicolumn{7}{@{}l}{\textit{Synthetic Uniform (100K elements)}} \\
- & SBBF-Morton & dbl & 5.0e-4 & 0.16$\times$ & 7.0e-4 & 0.21$\times$ \\
- & SBBF-Morton & pat & 8.0e-4 & 0.25$\times$ & 1.0e-3 & 0.30$\times$ \\
- & SBBF-Hilbert & dbl & 5.0e-4 & 0.16$\times$ & 6.0e-4 & 0.18$\times$ \\
- & SBBF-Hilbert & pat & 9.0e-4 & 0.28$\times$ & 8.0e-4 & 0.24$\times$ \\
- & BlockedBF & pat & 3.2e-3 & 1.00$\times$ & 3.3e-3 & 1.00$\times$ \\
- & RegisterBF & pat & 8.0e-4 & 0.25$\times$ & 1.0e-3 & 0.30$\times$ \\
-\midrule
-\multicolumn{7}{@{}l}{\textit{Synthetic Clustered (100K elements, 100 clusters)}} \\
- & SBBF-Morton & dbl & 6.0e-4 & 0.21$\times$ & 6.0e-4 & 0.18$\times$ \\
- & SBBF-Morton & pat & 9.0e-4 & 0.31$\times$ & 1.0e-3 & 0.30$\times$ \\
- & SBBF-Hilbert & dbl & 6.0e-4 & 0.21$\times$ & 7.0e-4 & 0.21$\times$ \\
- & SBBF-Hilbert & pat & 9.0e-4 & 0.31$\times$ & 9.0e-4 & 0.27$\times$ \\
- & BlockedBF & pat & 2.9e-3 & 1.00$\times$ & 3.3e-3 & 1.00$\times$ \\
- & RegisterBF & pat & 8.0e-4 & 0.28$\times$ & 8.0e-4 & 0.24$\times$ \\
-\bottomrule
-\end{tabular}
-\end{table}
+\input{table_fpr.tex}
 
 SBBF achieves 3--6$\times$ lower FPR than BlockedBF across all configurations. The \texttt{double\_hash} strategy yields slightly better FPR than \texttt{pattern} because it uses more entropy in bit position selection. RegisterBF achieves similar FPR to SBBF but requires 4--6$\times$ more instructions (Table~\ref{tab:sbbf-performance}).
 
@@ -396,13 +349,14 @@ Table~\ref{tab:seed-strategy} compares both strategies on synthetic 2D data (100
 SFC & Seed & FPR & Ins. & Cyc. & IPC \\
 \midrule
 Morton & XOR & 0.06\% & 81/84 & 19/17 & 4.2/4.7 \\
-Morton & Mult. & 0.09\% & 81/84 & 19/18 & 4.2/4.6 \\
+Morton & MS & 0.09\% & 81/84 & 19/18 & 4.2/4.6 \\
 Hilbert & XOR & 0.06\% & 136/139 & 32/32 & 4.2/4.3 \\
-Hilbert & Mult. & 0.09\% & 136/139 & 32/31 & 4.2/4.4 \\
+Hilbert & MS & 0.09\% & 136/139 & 32/31 & 4.2/4.4 \\
 \bottomrule
 \end{tabular}
-\vspace{0.1cm}
-\footnotesize{Values shown as insert/query. Mult.\ = multiply-shift.}
+
+\vspace{0.2cm}
+\parbox{\linewidth}{\footnotesize Values shown as insert/query. MS\ = multiply-shift.}
 \end{table}
 
 On synthetic data, XOR achieves 33\% lower FPR (0.06\% vs 0.09\%) with identical instruction counts and cycle latency. The XOR operation's direct combination of regional and local bits provides better entropy distribution for the double-hashing function's modular arithmetic when data is uniformly distributed.
@@ -434,23 +388,7 @@ While XOR achieves lower raw FPR on synthetic data, multiply-shift achieves 6--2
 \subsection{Neighborhood Query Performance}
 Table~\ref{tab:neighbor-performance} compares neighborhood query performance for 3D data (6 neighbors per point). SBBF exploits SFC locality: spatially adjacent cells map to nearby memory addresses, enabling cache-line reuse across neighbor queries.
 
-\begin{table}[htbp]
-\centering
-\caption{3D Neighborhood Query Performance (6 neighbors)}
-\label{tab:neighbor-performance}
-\begin{tabular}{@{}llrrrr@{}}
-\toprule
-Filter & Strat. & Instr. & Cyc. & IPC & $\times$BL \\
-\midrule
-SBBF-Morton & dbl & 83 & 11 & 7.5 & 0.24$\times$ \\
-SBBF-Morton & pat & 57 & 10 & 5.7 & 0.22$\times$ \\
-SBBF-Hilbert & dbl & 108 & 19 & 5.7 & 0.42$\times$ \\
-SBBF-Hilbert & pat & 81 & 18 & 4.5 & 0.40$\times$ \\
-BlockedBF & pat & 258 & 45 & 5.7 & 1.00$\times$ \\
-RegisterBF & pat & 254 & 40 & 6.4 & 0.89$\times$ \\
-\bottomrule
-\end{tabular}
-\end{table}
+\input{table_neighbor.tex}
 
 SBBF-Morton achieves 4--5$\times$ fewer cycles than baselines for neighbor queries. The high IPC (7.5) indicates excellent instruction-level parallelism from cache hits. Morton outperforms Hilbert here because its simpler encoding allows faster neighbor coordinate computation.
 

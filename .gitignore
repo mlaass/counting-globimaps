@@ -52,7 +52,7 @@ datasets/*
 results/*
 results_*/*
 sbbf_paper/IGARSS2026LaTeXTemplate.tex
-sbbf_paper/sbbf_paper.aux
+sbbf_paper/*.aux
 sbbf_paper/sbbf_paper.bbl
 sbbf_paper/sbbf_paper.blg
 sbbf_paper/sbbf_paper.fdb_latexmk
@@ -65,3 +65,4 @@ sbbf_paper/Code/Plots.R
 sbbf_paper/Figures/PDF/SinglePlot.pdf
 sbbf_paper/Figures/PNG/Day-IMRaD.png
 sbbf_paper/sbbf_paper.synctex.gz
+sbbf_paper/table_neighbor!.aux

@@ -95,7 +95,7 @@ Figure~\ref{fig:sbbf-architecture} illustrates the SBBF architecture. A spatial 
 
 % Bit splitting
 \node[box, below left=0.6cm and 0.3cm of sfc] (low) {Low bits $s_L$\\Block Index};
-\node[box, below right=0.6cm and 0.3cm of sfc] (high) {High bits  XOR Low bits \\ $s_H \oplus s_L$};
+\node[box, below right=0.6cm and 0.3cm of sfc] (high) {Seed Strategy\\XOR: $s_H \oplus s_L$\\Mult-shift: $s \cdot \phi \gg b$};
 
 % Block array - draw as individual cells
 \node[below=1.6cm of low, font=\scriptsize] (blabel) {};
@@ -128,7 +128,7 @@ Figure~\ref{fig:sbbf-architecture} illustrates the SBBF architecture. A spatial 
 \draw[arrow, dashed] (bi) -- (maglabel);
 \draw[arrow] (high) |- (hashlab);
 \end{tikzpicture}
-\caption{SBBF Architecture. Low SFC bits ($s_L$) select block $B_i$ (enabling sequential access). The seed for intra-block hashing is computed as $s_H \oplus s_L$, combining regional and local information to derive $k$ bit positions via double-hashing or pattern lookup.}
+\caption{SBBF Architecture. Low SFC bits ($s_L$) select block $B_i$ (enabling sequential access). The seed for intra-block hashing combines high and low bits (e.g., $s_H \oplus s_L$ or multiply-shift) to derive $k$ bit positions via double-hashing or pattern lookup.}
 \label{fig:sbbf-architecture}
 \end{figure}
 
@@ -145,7 +145,7 @@ where $p = \log_2 N$ and $N$ is the number of blocks. We use:
 
 \textbf{Why low bits for block index?} The low-order bits of an SFC change with every unit step in the coordinate space. Spatial neighbors map to blocks $B_i, B_{i+1}, \ldots$, enabling the CPU to leverage L1/L2 prefetching during neighborhood queries and raster/volume traversals.
 
-\textbf{Why XOR for bit mask seed?} Using only the high bits ($s_{\text{high}}$) as the seed causes false positives to appear as topologically coherent partial ``copies'' of the original data, since coarse spatial regions share identical seeds. XORing high and low bits provides better entropy distribution: false positives manifest as spatially incoherent noise rather than structured artifacts. Our experiments show XOR achieves ${\sim}33\%$ lower FPR than multiply-shift hashing, with identical instruction counts (Section~\ref{sec:seed-strategy}). More sophisticated hash functions could further reduce FPR, but would negate the speed advantage we seek.
+\textbf{Why combine high and low bits?} Using only the high bits ($s_{\text{high}}$) as the seed causes false positives to appear as topologically coherent partial ``copies'' of the original data, since coarse spatial regions share identical seeds. We evaluate two combination strategies: XOR ($s_H \oplus s_L$) and multiply-shift ($s \cdot \phi \gg b$). XOR provides simpler implementation and lower FPR on uniformly distributed data, while multiply-shift's superior avalanche properties create more spatially incoherent false positives that are better filtered by topological verification (Section~\ref{sec:seed-strategy}).
 
 \subsection{Intra-Block Hashing}
 Once block $B_i$ is selected, we must determine which $k$ bits to set within that block. Standard Bloom filters would invoke $k$ independent hash functions, but this is computationally expensive. Following \citet{Kirsch2008}, we use double-hashing to generate $k$ positions from the seed value $\text{seed} = s_H \oplus s_L$:
@@ -355,11 +355,17 @@ Dist. & Filter & Strat. & FPR & $\times$BL & FPR & $\times$BL \\
 SBBF achieves 3--6$\times$ lower FPR than BlockedBF across all configurations. The \texttt{double\_hash} strategy yields slightly better FPR than \texttt{pattern} because it uses more entropy in bit position selection. RegisterBF achieves similar FPR to SBBF but requires 4--6$\times$ more instructions (Table~\ref{tab:sbbf-performance}).
 
 \subsection{Seed Strategy Comparison}\label{sec:seed-strategy}
-Table~\ref{tab:seed-strategy} compares two strategies for deriving the intra-block hash seed from the SFC code: XOR ($s_H \oplus s_L$) and multiplicative hashing ($s \cdot \phi \gg 16$, where $\phi$ is the golden ratio prime). Both strategies use identical memory budgets (1.02~MB) and the \texttt{double\_hash} intra-block strategy.
+The seed derivation strategy determines how the SFC code is transformed into the intra-block hash seed. We evaluate two strategies:
+
+\textbf{XOR Strategy.} The seed is computed as $\text{seed} = s_H \oplus s_L$, combining the high-order bits (regional signature) with low-order bits (local position) via bitwise XOR. This approach requires no additional constants and provides direct bit mixing through the XOR operation's property that each output bit depends on exactly two input bits.
+
+\textbf{Multiply-Shift Strategy.} The seed is computed as $\text{seed} = (s \cdot \phi) \gg b$, where $\phi = 2654435769$ (the golden ratio prime) and $b$ is the shift amount. Multiplicative hashing provides superior avalanche properties: small changes in $s$ affect all bits of the product, creating more uniform seed distribution. However, it requires a multiplication instruction and magic constant.
+
+Table~\ref{tab:seed-strategy} compares both strategies on synthetic 2D data (100K uniformly distributed elements, 1.02~MB memory budget, \texttt{double\_hash} intra-block strategy).
 
 \begin{table}[htbp]
 \centering
-\caption{Seed Strategy Comparison (2D, 100K elements)}
+\caption{Seed Strategy Comparison (2D Synthetic, 100K elements)}
 \label{tab:seed-strategy}
 \begin{tabular}{@{}llrrrrr@{}}
 \toprule
@@ -371,11 +377,35 @@ Hilbert & XOR & 0.06\% & 136/139 & 32/32 & 4.2/4.3 \\
 Hilbert & Mult. & 0.09\% & 136/139 & 32/31 & 4.2/4.4 \\
 \bottomrule
 \end{tabular}
-\vspace{0.2cm}
-\footnotesize{Values shown as insert/query. Mult.\ = multiplicative hash.}
+\vspace{0.1cm}
+\footnotesize{Values shown as insert/query. Mult.\ = multiply-shift.}
 \end{table}
 
-XOR achieves 33\% lower FPR (0.06\% vs 0.09\%) with identical instruction counts and cycle latency. The XOR operation combines the regional signature from high bits with local position from low bits, providing better entropy distribution for the double-hashing function's modular arithmetic. All subsequent experiments use the XOR strategy.
+On synthetic data, XOR achieves 33\% lower FPR (0.06\% vs 0.09\%) with identical instruction counts and cycle latency. The XOR operation's direct combination of regional and local bits provides better entropy distribution for the double-hashing function's modular arithmetic when data is uniformly distributed.
+
+\textbf{Voxelized Mesh Results.} However, the picture changes dramatically for structured spatial data when topological verification (Section~\ref{sec:denoising}) is applied. Table~\ref{tab:seed-voxel} shows results on voxelized 3D meshes (Stanford Bunny and Utah Teapot) using SBBF-Hilbert with 128~KB memory and $k=4$.
+
+\begin{table}[htbp]
+\centering
+\caption{Seed Strategy on Voxelized Meshes (3D, Hilbert)}
+\label{tab:seed-voxel}
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+ & & \multicolumn{2}{c}{XOR} & \multicolumn{2}{c}{Mult-Shift} \\
+\cmidrule(lr){3-4} \cmidrule(lr){5-6}
+Mesh & Res. & Raw & Denoised & Raw & Denoised \\
+\midrule
+Bunny & $64^3$ & 0.082\% & 0.044\% & 0.004\% & 0.000\% \\
+Bunny & $128^3$ & 0.153\% & 0.107\% & 0.063\% & 0.002\% \\
+Teapot & $64^3$ & 0.067\% & 0.033\% & 0.000\% & 0.000\% \\
+Teapot & $128^3$ & 0.063\% & 0.044\% & 0.035\% & 0.001\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+While XOR achieves lower raw FPR on synthetic data, multiply-shift achieves 6--20$\times$ lower FPR on voxelized meshes after denoising. We hypothesize this occurs because multiply-shift's superior avalanche effect creates more spatially \emph{incoherent} false positives---isolated noise voxels rather than clustered artifacts. Topological verification effectively filters incoherent noise but struggles with coherent false positive clusters that XOR's regional correlation produces.
+
+\textbf{Recommendation.} For applications using topological verification on structured spatial data (voxels, point clouds), multiply-shift is preferred. For raw membership queries on uniformly distributed data, XOR provides better FPR with simpler implementation.
 
 \subsection{Neighborhood Query Performance}
 Table~\ref{tab:neighbor-performance} compares neighborhood query performance for 3D data (6 neighbors per point). SBBF exploits SFC locality: spatially adjacent cells map to nearby memory addresses, enabling cache-line reuse across neighbor queries.

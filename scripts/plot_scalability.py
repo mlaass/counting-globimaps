@@ -16,12 +16,12 @@ import numpy as np
 
 # Style configuration for academic papers
 plt.rcParams.update({
-    'font.size': 10,
-    'axes.labelsize': 11,
-    'axes.titlesize': 12,
-    'legend.fontsize': 8,
-    'xtick.labelsize': 9,
-    'ytick.labelsize': 9,
+    'font.size': 14,
+    'axes.labelsize': 16,
+    'axes.titlesize': 18,
+    'legend.fontsize': 12,
+    'xtick.labelsize': 12,
+    'ytick.labelsize': 12,
     'figure.figsize': (6, 4),
     'figure.dpi': 150,
     'savefig.bbox': 'tight',
@@ -275,6 +275,49 @@ def plot_combined_latency(results: list, output_dir: str, dim: int):
     plt.close()
 
 
+def plot_query_neighbor_combined(results: list, output_dir: str, dim: int):
+    """Create a combined figure with query and neighbor latency."""
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+    metrics = [
+        ('query_ns', 'Query Latency (ns)', axes[0]),
+        ('neighbor_ns', 'Neighbor Latency (ns)', axes[1]),
+    ]
+
+    for metric, ylabel, ax in metrics:
+        has_data = False
+
+        for filter_pattern, strategy, style in SERIES_CONFIG:
+            elements, values = extract_series(results, filter_pattern, dim, metric, strategy)
+
+            if len(elements) > 0:
+                has_data = True
+                ax.plot(elements, values,
+                       marker=style['marker'], color=style['color'],
+                       linestyle=style['linestyle'], label=style['label'],
+                       markersize=5, linewidth=1.5)
+
+        if has_data:
+            ax.set_xscale('log')
+            ax.set_xlabel('Number of Elements')
+            ax.set_ylabel(ylabel)
+            ax.legend(loc='best', fontsize=7)
+            ax.grid(True, alpha=0.3)
+            ax.xaxis.set_major_formatter(plt.FuncFormatter(
+                lambda x, _: f'{x/1e6:.0f}M' if x >= 1e6 else f'{x/1e3:.0f}K'))
+
+    fig.suptitle(f'{dim}D Query Performance vs Scale', fontsize=12)
+    fig.tight_layout()
+
+    base_name = f"query_neighbor_combined_{dim}d"
+    for ext in ['pdf', 'png']:
+        filepath = Path(output_dir) / f"{base_name}.{ext}"
+        fig.savefig(filepath, dpi=150 if ext == 'png' else None)
+        print(f"  Saved: {filepath}")
+
+    plt.close()
+
+
 def plot_throughput_scalability(results: list, output_dir: str, dim: int):
     """Plot throughput (ops/sec) vs element count."""
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
@@ -384,17 +427,10 @@ def main():
     for dim in [2, 3]:
         print(f"\n{dim}D Plots:")
 
-        # Individual latency plots
-        plot_latency_scalability(results, args.output, dim, 'insert_ns',
-                                f'{dim}D Insert Latency vs Scale', 'Insert Latency (ns)')
-        plot_latency_scalability(results, args.output, dim, 'query_ns',
-                                f'{dim}D Query Latency vs Scale', 'Query Latency (ns)')
-        plot_latency_scalability(results, args.output, dim, 'neighbor_ns',
-                                f'{dim}D Neighbor Query Latency vs Scale', 'Neighbor Latency (ns)')
-
-        # Combined plots
-        plot_combined_latency(results, args.output, dim)
-        plot_throughput_scalability(results, args.output, dim)
+        # Combined plots (1x2 each)
+        plot_throughput_scalability(results, args.output, dim)      # insert + query throughput
+        plot_combined_latency(results, args.output, dim)            # insert + query latency
+        plot_query_neighbor_combined(results, args.output, dim)     # query + neighbor latency
 
         # FPR and memory
         plot_fpr_scalability(results, args.output, dim)

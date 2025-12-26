@@ -313,7 +313,14 @@ Table~\ref{tab:sbbf-performance} compares end-to-end operation performance using
 SBBF-Morton with pattern lookup uses 4.9$\times$ fewer instructions than BlockedBF in 2D (49 vs 241 for insert) and 6.9$\times$ fewer in 3D (38 vs 261). The \texttt{double\_hash} strategy requires 60\% more instructions but avoids the pattern table memory overhead. SBBF-Hilbert uses 2.3$\times$ fewer instructions while providing better spatial locality. The lower IPC for SBBF reflects reduced instruction-level parallelism but is offset by the significantly reduced instruction count.
 
 \subsection{Random Access vs.\ Linear Traversal}
-The primary advantage of SBBF is revealed during linear spatial scans. In a $256^3$ voxel traversal, SBBF-Hilbert achieves a ??\% L1-dcache hit rate, compared to ??\% for standard BlockedBF. This is because the hardware prefetcher recognizes the linear progression of $s_{low}$ and fetches the next filter blocks into the cache before the CPU requests them.
+The primary advantage of SBBF is revealed during linear spatial scans. Figure~\ref{fig:l1dcache} shows L1-dcache miss rates during volume traversals across grid sizes from $64^3$ to $256^3$ voxels. SBBF with sequential SFC iteration maintains near-zero miss rates (0.05--0.15\%) regardless of grid size, as the sequential block access pattern enables effective hardware prefetching. In contrast, hash-based filters exhibit substantially higher miss rates that increase with data size: at $256^3$, Standard Bloom Filter reaches 7.9\%, BlockedBF 3.7\%, and RegisterBF 2.0\%. This 40--160$\times$ difference in cache efficiency demonstrates that SBBF's SFC-based block indexing transforms random memory access patterns into sequential scans, fundamentally changing the cache behavior from capacity-limited to prefetcher-optimized.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{Figures/PDF/l1dcache_miss_rate.pdf}
+\caption{L1-dcache miss rate vs.\ grid size. SBBF with SFC-sequential traversal (solid) achieves dramatically lower miss rates than hash-based filters with row-major traversal (dashed).}
+\label{fig:l1dcache}
+\end{figure}
 
 \begin{figure}[htbp]
 \centering

@@ -246,4 +246,10 @@ target_link_libraries(hash_benchmark
 PUBLIC OpenMP::OpenMP_CXX
 )
 
+# L1-dcache benchmark for SBBF paper
+add_executable(l1dcache_benchmark experiments/src/l1dcache_benchmark.cpp)
+target_link_libraries(l1dcache_benchmark
+PUBLIC OpenMP::OpenMP_CXX
+)
+
 endif()

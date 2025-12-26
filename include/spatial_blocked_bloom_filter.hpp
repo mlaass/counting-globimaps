@@ -275,6 +275,42 @@ public:
     }
 
     // ========================================================================
+    // Direct SFC Code Access (for sequential iteration benchmarks)
+    // ========================================================================
+
+    /**
+     * Query membership by raw SFC code (skips coordinate encoding).
+     *
+     * This enables optimal cache performance during sequential SFC traversal:
+     *   for (uint64_t sfc = 0; sfc < max_sfc; ++sfc)
+     *       filter.get_bool_by_sfc(sfc);
+     *
+     * Since block_idx = sfc & mask, sequential SFC codes yield sequential
+     * block accesses, enabling hardware prefetching.
+     *
+     * @param sfc_code  Raw space-filling curve code
+     * @return true if all k bits are set in the corresponding block
+     */
+    bool get_bool_by_sfc(uint64_t sfc_code) const {
+        uint64_t block_idx, seed;
+        compute_location(sfc_code, block_idx, seed);
+        uint64_t mask = construct_mask(seed);
+        return (blocks_[block_idx] & mask) == mask;
+    }
+
+    /**
+     * Insert using raw SFC code (skips coordinate encoding).
+     *
+     * @param sfc_code  Raw space-filling curve code
+     */
+    void put_by_sfc(uint64_t sfc_code) {
+        uint64_t block_idx, seed;
+        compute_location(sfc_code, block_idx, seed);
+        uint64_t mask = construct_mask(seed);
+        blocks_[block_idx] |= mask;
+    }
+
+    // ========================================================================
     // Neighborhood Queries (key SBBF advantage)
     // ========================================================================
 

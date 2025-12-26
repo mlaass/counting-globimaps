@@ -45,6 +45,12 @@ enum class IntraBlockStrategy {
     MULTIPLEXED      // OR x patterns of k/x bits each
 };
 
+/// Seed derivation strategy for intra-block hashing
+enum class SeedStrategy {
+    XOR,            // (sfc >> log_blocks) ^ (sfc & mask) - combines high and low bits
+    MULTIPLY_SHIFT  // (sfc * prime) >> shift - mixes all bits via multiplication
+};
+
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -77,6 +83,9 @@ struct SBBFConfig {
 
     /// Number of patterns to OR for MULTIPLEXED strategy
     unsigned multiplex_count = 2;
+
+    /// Seed derivation strategy
+    SeedStrategy seed_strategy = SeedStrategy::XOR;
 
     void validate() const {
         if (sfc_bits == 0 || sfc_bits > 32) {
@@ -139,6 +148,11 @@ struct SBBFConfig {
             case IntraBlockStrategy::DOUBLE_HASH: oss << "DOUBLE_HASH"; break;
             case IntraBlockStrategy::PATTERN_LOOKUP: oss << "PATTERN_LOOKUP"; break;
             case IntraBlockStrategy::MULTIPLEXED: oss << "MULTIPLEXED"; break;
+        }
+        oss << ", seed=";
+        switch (seed_strategy) {
+            case SeedStrategy::XOR: oss << "XOR"; break;
+            case SeedStrategy::MULTIPLY_SHIFT: oss << "MULTIPLY_SHIFT"; break;
         }
         oss << ", memory=" << computed_memory_bytes() << "B)";
         return oss.str();
@@ -540,14 +554,25 @@ private:
     }
 
     /// Split SFC code into block index and intra-block seed
-    /// Per proposal: LOW bits → block index (sequential access for prefetching)
-    ///               HIGH bits → seed (regional signature for intra-block hashing)
     void compute_location(uint64_t sfc_code, uint64_t &block_idx,
                           uint64_t &seed) const {
         // LOW bits → block index (enables hardware prefetching during SFC traversal)
         block_idx = sfc_code & block_mask_;
-        // HIGH bits → seed (regional signature for k-bit mask derivation)
-        seed = sfc_code >> config.log_num_blocks;
+
+        // Derive seed using configured strategy
+        switch (config.seed_strategy) {
+            case SeedStrategy::XOR:
+                // Combine high and low bits via XOR
+                seed = (sfc_code >> config.log_num_blocks) ^ block_idx;
+                break;
+            case SeedStrategy::MULTIPLY_SHIFT:
+                // Mix all bits via multiply-shift hash
+                seed = (sfc_code * 0x9E3779B97F4A7C15ULL) >> 16;
+                break;
+            default:
+                seed = (sfc_code >> config.log_num_blocks) ^ block_idx;
+                break;
+        }
     }
 
     /// Construct k-bit mask using configured strategy

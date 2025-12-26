@@ -248,7 +248,7 @@ void print_usage(const char* prog) {
     std::cout << "  --min-iters N     Minimum iterations per epoch (default: 1000)\n";
     std::cout << "  --warmup N        Warmup iterations (default: 100)\n";
     std::cout << "  --epoch-time MS   Max time per epoch in ms (default: 100)\n";
-    std::cout << "  --scenario S      Run only: 2d, 3d, strategy, sweep, all (default: all)\n";
+    std::cout << "  --scenario S      Run only: 2d, 3d, strategy, scan, sweep, all (default: all)\n";
     std::cout << "\nParameter sweep options:\n";
     std::cout << "  --suite S         Preset suite: quick, paper, full\n";
     std::cout << "  --elements L      Comma-separated element counts (default: 100000)\n";
@@ -698,7 +698,8 @@ void benchmark_sbbf_2d(ankerl::nanobench::Bench& bench,
                        const std::vector<Point2D>& insert_data,
                        const std::vector<Point2D>& query_data,
                        unsigned log_blocks, unsigned hash_k,
-                       sbbf::IntraBlockStrategy strategy = sbbf::IntraBlockStrategy::DOUBLE_HASH) {
+                       sbbf::IntraBlockStrategy strategy = sbbf::IntraBlockStrategy::DOUBLE_HASH,
+                       sbbf::SeedStrategy seed_strategy = sbbf::SeedStrategy::XOR) {
     // Create filter
     SBBFConfig conf;
     conf.sfc_type = sfc_type;
@@ -707,6 +708,7 @@ void benchmark_sbbf_2d(ankerl::nanobench::Bench& bench,
     conf.hash_k = hash_k;
     conf.bits_per_block = 64;
     conf.intra_strategy = strategy;
+    conf.seed_strategy = seed_strategy;
     if (strategy == sbbf::IntraBlockStrategy::PATTERN_LOOKUP) {
         conf.pattern_table_size = 1024;
     }
@@ -1290,6 +1292,16 @@ void run_2d_benchmark(size_t n, uint32_t max_coord, unsigned log_blocks) {
                           insert_data, query_data, log_blocks, 4,
                           sbbf::IntraBlockStrategy::PATTERN_LOOKUP);
 
+    // SBBF with MULTIPLY_SHIFT seed strategy for comparison
+    benchmark_sbbf_2d<16>(bench, "SBBF-Morton2D-MS", SFCType::MORTON_2D,
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::DOUBLE_HASH,
+                          sbbf::SeedStrategy::MULTIPLY_SHIFT);
+    benchmark_sbbf_2d<16>(bench, "SBBF-Hilbert2D-MS", SFCType::HILBERT_2D,
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::DOUBLE_HASH,
+                          sbbf::SeedStrategy::MULTIPLY_SHIFT);
+
     // Baseline filters (same memory budget as SBBF)
     size_t sbbf_memory = (1ULL << log_blocks) * 8;
     double target_fpr = 0.001;  // 0.1% target to match SBBF's ~0.07%
@@ -1462,6 +1474,356 @@ void run_3d_clustered_benchmark(size_t n, uint32_t max_coord, size_t clusters,
     BENCH_ALL_REGISTER_3D(bench, insert_data, query_data, sbbf_memory, target_fpr);
 
     print_summary_table();
+}
+
+// ============================================================================
+// Scan Benchmarks (Volume, Raster, Batch)
+// ============================================================================
+
+// Volume scan benchmark: query all points in a 3D cubic region
+// Compares SFC-ordered scan vs random scan to show cache locality benefit
+void run_volume_scan_benchmark(size_t region_size, unsigned log_blocks) {
+    std::cout << "\n========================================\n";
+    std::cout << "3D Volume Scan Benchmark (" << region_size << "^3 = "
+              << (region_size * region_size * region_size) << " queries)\n";
+    std::cout << "========================================\n";
+
+    // Generate all points in the cubic region
+    std::vector<Point3D> points;
+    points.reserve(region_size * region_size * region_size);
+    for (uint32_t z = 0; z < region_size; ++z) {
+        for (uint32_t y = 0; y < region_size; ++y) {
+            for (uint32_t x = 0; x < region_size; ++x) {
+                points.push_back({x, y, z});
+            }
+        }
+    }
+
+    // Create SFC-sorted version (Morton order) - use 12 bits (multiple of 4 for Hilbert)
+    auto morton_sorted = points;
+    std::sort(morton_sorted.begin(), morton_sorted.end(),
+              [](const Point3D& a, const Point3D& b) {
+                  return sfc::Morton3D<12>::encode(a.x, a.y, a.z) <
+                         sfc::Morton3D<12>::encode(b.x, b.y, b.z);
+              });
+
+    // Create Hilbert-sorted version
+    auto hilbert_sorted = points;
+    std::sort(hilbert_sorted.begin(), hilbert_sorted.end(),
+              [](const Point3D& a, const Point3D& b) {
+                  return sfc::Hilbert3D<12>::encode(a.x, a.y, a.z) <
+                         sfc::Hilbert3D<12>::encode(b.x, b.y, b.z);
+              });
+
+    // Create random order
+    auto random_order = points;
+    std::mt19937_64 rng(42);
+    std::shuffle(random_order.begin(), random_order.end(), rng);
+
+    // SBBF Morton (use 12 bits for Hilbert compatibility)
+    SBBFConfig sbbf_conf;
+    sbbf_conf.log_num_blocks = log_blocks;
+    sbbf_conf.hash_k = 4;
+    sbbf_conf.sfc_type = sbbf::SFCType::MORTON_3D;
+    sbbf_conf.intra_strategy = sbbf::IntraBlockStrategy::PATTERN_LOOKUP;
+    sbbf_conf.pattern_table_size = 1024;
+    SpatialBlockedBloomFilter64<12> sbbf_morton(sbbf_conf);
+
+    // SBBF Hilbert
+    sbbf_conf.sfc_type = sbbf::SFCType::HILBERT_3D;
+    SpatialBlockedBloomFilter64<12> sbbf_hilbert(sbbf_conf);
+
+    // Insert data using put3D
+    for (const auto& p : points) {
+        sbbf_morton.put3D(p.x, p.y, p.z);
+        sbbf_hilbert.put3D(p.x, p.y, p.z);
+    }
+
+    ankerl::nanobench::Bench bench;
+    bench.performanceCounters(true)
+         .epochs(g_config.epochs)
+         .minEpochIterations(5)  // Fewer iterations since each run queries many points
+         .warmup(2)
+         .relative(true);
+
+    std::cout << "\n--- Volume Scan Comparison ---\n\n";
+
+    // SBBF Morton - SFC ordered scan
+    bench.run("SBBF-Morton SFC-scan", [&]() {
+        size_t count = 0;
+        for (const auto& p : morton_sorted) {
+            if (sbbf_morton.get_bool_3D(p.x, p.y, p.z)) count++;
+        }
+        ankerl::nanobench::doNotOptimizeAway(count);
+    });
+
+    // SBBF Morton - random scan
+    bench.run("SBBF-Morton random-scan", [&]() {
+        size_t count = 0;
+        for (const auto& p : random_order) {
+            if (sbbf_morton.get_bool_3D(p.x, p.y, p.z)) count++;
+        }
+        ankerl::nanobench::doNotOptimizeAway(count);
+    });
+
+    // SBBF Hilbert - SFC ordered scan
+    bench.run("SBBF-Hilbert SFC-scan", [&]() {
+        size_t count = 0;
+        for (const auto& p : hilbert_sorted) {
+            if (sbbf_hilbert.get_bool_3D(p.x, p.y, p.z)) count++;
+        }
+        ankerl::nanobench::doNotOptimizeAway(count);
+    });
+
+    // SBBF Hilbert - random scan
+    bench.run("SBBF-Hilbert random-scan", [&]() {
+        size_t count = 0;
+        for (const auto& p : random_order) {
+            if (sbbf_hilbert.get_bool_3D(p.x, p.y, p.z)) count++;
+        }
+        ankerl::nanobench::doNotOptimizeAway(count);
+    });
+
+    std::cout << "\nKey insight: SFC-ordered scans benefit from cache locality.\n";
+    std::cout << "Adjacent SFC keys map to nearby memory addresses.\n";
+}
+
+// Raster scan benchmark: query all points in a 2D rectangular region
+void run_raster_scan_benchmark(size_t width, size_t height, unsigned log_blocks) {
+    std::cout << "\n========================================\n";
+    std::cout << "2D Raster Scan Benchmark (" << width << "x" << height << " = "
+              << (width * height) << " queries)\n";
+    std::cout << "========================================\n";
+
+    // Generate all points in the rectangular region
+    std::vector<Point2D> points;
+    points.reserve(width * height);
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            points.push_back({x, y});
+        }
+    }
+
+    // Row-major order (already in this order)
+    auto row_major = points;
+
+    // SFC-sorted version (Hilbert order)
+    auto hilbert_sorted = points;
+    std::sort(hilbert_sorted.begin(), hilbert_sorted.end(),
+              [](const Point2D& a, const Point2D& b) {
+                  return sfc::Hilbert2D<16>::encode(a.x, a.y) <
+                         sfc::Hilbert2D<16>::encode(b.x, b.y);
+              });
+
+    // Morton-sorted version
+    auto morton_sorted = points;
+    std::sort(morton_sorted.begin(), morton_sorted.end(),
+              [](const Point2D& a, const Point2D& b) {
+                  return sfc::Morton2D<16>::encode(a.x, a.y) <
+                         sfc::Morton2D<16>::encode(b.x, b.y);
+              });
+
+    // Random order
+    auto random_order = points;
+    std::mt19937_64 rng(42);
+    std::shuffle(random_order.begin(), random_order.end(), rng);
+
+    // SBBF Hilbert
+    SBBFConfig sbbf_conf;
+    sbbf_conf.log_num_blocks = log_blocks;
+    sbbf_conf.hash_k = 4;
+    sbbf_conf.sfc_type = sbbf::SFCType::HILBERT_2D;
+    sbbf_conf.intra_strategy = sbbf::IntraBlockStrategy::PATTERN_LOOKUP;
+    sbbf_conf.pattern_table_size = 1024;
+    SpatialBlockedBloomFilter64<16> sbbf_hilbert(sbbf_conf);
+
+    // SBBF Morton
+    sbbf_conf.sfc_type = sbbf::SFCType::MORTON_2D;
+    SpatialBlockedBloomFilter64<16> sbbf_morton(sbbf_conf);
+
+    // Insert data
+    for (const auto& p : points) {
+        sbbf_hilbert.put2D(p.x, p.y);
+        sbbf_morton.put2D(p.x, p.y);
+    }
+
+    ankerl::nanobench::Bench bench;
+    bench.performanceCounters(true)
+         .epochs(g_config.epochs)
+         .minEpochIterations(5)
+         .warmup(2)
+         .relative(true);
+
+    std::cout << "\n--- Raster Scan Comparison ---\n\n";
+
+    // SBBF Hilbert - SFC ordered
+    bench.run("SBBF-Hilbert SFC-scan", [&]() {
+        size_t count = 0;
+        for (const auto& p : hilbert_sorted) {
+            if (sbbf_hilbert.get_bool_2D(p.x, p.y)) count++;
+        }
+        ankerl::nanobench::doNotOptimizeAway(count);
+    });
+
+    // SBBF Hilbert - row-major
+    bench.run("SBBF-Hilbert row-major", [&]() {
+        size_t count = 0;
+        for (const auto& p : row_major) {
+            if (sbbf_hilbert.get_bool_2D(p.x, p.y)) count++;
+        }
+        ankerl::nanobench::doNotOptimizeAway(count);
+    });
+
+    // SBBF Hilbert - random
+    bench.run("SBBF-Hilbert random", [&]() {
+        size_t count = 0;
+        for (const auto& p : random_order) {
+            if (sbbf_hilbert.get_bool_2D(p.x, p.y)) count++;
+        }
+        ankerl::nanobench::doNotOptimizeAway(count);
+    });
+
+    // SBBF Morton - SFC ordered
+    bench.run("SBBF-Morton SFC-scan", [&]() {
+        size_t count = 0;
+        for (const auto& p : morton_sorted) {
+            if (sbbf_morton.get_bool_2D(p.x, p.y)) count++;
+        }
+        ankerl::nanobench::doNotOptimizeAway(count);
+    });
+
+    // SBBF Morton - row-major
+    bench.run("SBBF-Morton row-major", [&]() {
+        size_t count = 0;
+        for (const auto& p : row_major) {
+            if (sbbf_morton.get_bool_2D(p.x, p.y)) count++;
+        }
+        ankerl::nanobench::doNotOptimizeAway(count);
+    });
+
+    // SBBF Morton - random
+    bench.run("SBBF-Morton random", [&]() {
+        size_t count = 0;
+        for (const auto& p : random_order) {
+            if (sbbf_morton.get_bool_2D(p.x, p.y)) count++;
+        }
+        ankerl::nanobench::doNotOptimizeAway(count);
+    });
+
+    std::cout << "\nKey insight: SFC-ordered scans should be faster than row-major or random.\n";
+}
+
+// Batch query benchmark: query many random points, comparing sorted vs unsorted
+void run_batch_query_benchmark(size_t n_queries, size_t n_elements,
+                               uint32_t max_coord, unsigned log_blocks) {
+    std::cout << "\n========================================\n";
+    std::cout << "Batch Query Benchmark (" << n_queries << " queries, "
+              << n_elements << " elements)\n";
+    std::cout << "========================================\n";
+
+    std::mt19937_64 rng(42);
+
+    // Generate random elements to insert
+    std::vector<Point2D> elements;
+    elements.reserve(n_elements);
+    std::uniform_int_distribution<uint32_t> dist(0, max_coord);
+    for (size_t i = 0; i < n_elements; ++i) {
+        elements.push_back({dist(rng), dist(rng)});
+    }
+
+    // Generate random query points (mix of hits and misses)
+    std::vector<Point2D> queries;
+    queries.reserve(n_queries);
+    for (size_t i = 0; i < n_queries; ++i) {
+        queries.push_back({dist(rng), dist(rng)});
+    }
+
+    // SFC-sorted queries (by Hilbert key)
+    auto hilbert_sorted_queries = queries;
+    std::sort(hilbert_sorted_queries.begin(), hilbert_sorted_queries.end(),
+              [](const Point2D& a, const Point2D& b) {
+                  return sfc::Hilbert2D<16>::encode(a.x, a.y) <
+                         sfc::Hilbert2D<16>::encode(b.x, b.y);
+              });
+
+    // Morton-sorted queries
+    auto morton_sorted_queries = queries;
+    std::sort(morton_sorted_queries.begin(), morton_sorted_queries.end(),
+              [](const Point2D& a, const Point2D& b) {
+                  return sfc::Morton2D<16>::encode(a.x, a.y) <
+                         sfc::Morton2D<16>::encode(b.x, b.y);
+              });
+
+    // Random order queries (shuffle again to ensure randomness)
+    auto random_queries = queries;
+    std::shuffle(random_queries.begin(), random_queries.end(), rng);
+
+    // SBBF Hilbert
+    SBBFConfig sbbf_conf;
+    sbbf_conf.log_num_blocks = log_blocks;
+    sbbf_conf.hash_k = 4;
+    sbbf_conf.sfc_type = sbbf::SFCType::HILBERT_2D;
+    sbbf_conf.intra_strategy = sbbf::IntraBlockStrategy::PATTERN_LOOKUP;
+    sbbf_conf.pattern_table_size = 1024;
+    SpatialBlockedBloomFilter64<16> sbbf_hilbert(sbbf_conf);
+
+    // SBBF Morton
+    sbbf_conf.sfc_type = sbbf::SFCType::MORTON_2D;
+    SpatialBlockedBloomFilter64<16> sbbf_morton(sbbf_conf);
+
+    // Insert elements
+    for (const auto& p : elements) {
+        sbbf_hilbert.put2D(p.x, p.y);
+        sbbf_morton.put2D(p.x, p.y);
+    }
+
+    ankerl::nanobench::Bench bench;
+    bench.performanceCounters(true)
+         .epochs(g_config.epochs)
+         .minEpochIterations(5)
+         .warmup(2)
+         .relative(true);
+
+    std::cout << "\n--- Batch Query Comparison ---\n\n";
+
+    // SBBF Hilbert - SFC sorted queries
+    bench.run("SBBF-Hilbert sorted", [&]() {
+        size_t count = 0;
+        for (const auto& p : hilbert_sorted_queries) {
+            if (sbbf_hilbert.get_bool_2D(p.x, p.y)) count++;
+        }
+        ankerl::nanobench::doNotOptimizeAway(count);
+    });
+
+    // SBBF Hilbert - random queries
+    bench.run("SBBF-Hilbert random", [&]() {
+        size_t count = 0;
+        for (const auto& p : random_queries) {
+            if (sbbf_hilbert.get_bool_2D(p.x, p.y)) count++;
+        }
+        ankerl::nanobench::doNotOptimizeAway(count);
+    });
+
+    // SBBF Morton - SFC sorted queries
+    bench.run("SBBF-Morton sorted", [&]() {
+        size_t count = 0;
+        for (const auto& p : morton_sorted_queries) {
+            if (sbbf_morton.get_bool_2D(p.x, p.y)) count++;
+        }
+        ankerl::nanobench::doNotOptimizeAway(count);
+    });
+
+    // SBBF Morton - random queries
+    bench.run("SBBF-Morton random", [&]() {
+        size_t count = 0;
+        for (const auto& p : random_queries) {
+            if (sbbf_morton.get_bool_2D(p.x, p.y)) count++;
+        }
+        ankerl::nanobench::doNotOptimizeAway(count);
+    });
+
+    std::cout << "\nKey insight: Sorting queries by SFC key before execution\n";
+    std::cout << "can improve cache hit rate for batch operations.\n";
 }
 
 // ============================================================================
@@ -2184,6 +2546,7 @@ int main(int argc, char* argv[]) {
     bool run_2d = (g_config.scenario == "all" || g_config.scenario == "2d");
     bool run_3d = (g_config.scenario == "all" || g_config.scenario == "3d");
     bool run_strategy = (g_config.scenario == "strategy");
+    bool run_scan = (g_config.scenario == "scan");
     bool run_sweep = (g_config.scenario == "sweep" || !g_config.suite.empty());
 
     if (run_sweep) {
@@ -2236,6 +2599,13 @@ int main(int argc, char* argv[]) {
         if (run_strategy) {
             // Intra-block strategy comparison
             run_strategy_comparison(n, 1023, log_blocks);
+        }
+
+        if (run_scan) {
+            // Scan benchmarks (volume, raster, batch query)
+            run_volume_scan_benchmark(64, log_blocks);      // 64^3 = 262K queries
+            run_raster_scan_benchmark(512, 512, log_blocks); // 512x512 = 262K queries
+            run_batch_query_benchmark(100000, n, 65535, log_blocks);  // 100K queries
         }
     }
 

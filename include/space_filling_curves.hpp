@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <type_traits>
+#include <utility>
 
 // Detect BMI2 support for PDEP/PEXT instructions
 #if defined(__BMI2__) && defined(__x86_64__)

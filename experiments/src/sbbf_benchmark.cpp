@@ -697,7 +697,8 @@ void benchmark_sbbf_2d(ankerl::nanobench::Bench& bench,
                        SFCType sfc_type,
                        const std::vector<Point2D>& insert_data,
                        const std::vector<Point2D>& query_data,
-                       unsigned log_blocks, unsigned hash_k) {
+                       unsigned log_blocks, unsigned hash_k,
+                       sbbf::IntraBlockStrategy strategy = sbbf::IntraBlockStrategy::DOUBLE_HASH) {
     // Create filter
     SBBFConfig conf;
     conf.sfc_type = sfc_type;
@@ -705,6 +706,10 @@ void benchmark_sbbf_2d(ankerl::nanobench::Bench& bench,
     conf.log_num_blocks = log_blocks;
     conf.hash_k = hash_k;
     conf.bits_per_block = 64;
+    conf.intra_strategy = strategy;
+    if (strategy == sbbf::IntraBlockStrategy::PATTERN_LOOKUP) {
+        conf.pattern_table_size = 1024;
+    }
 
     SpatialBlockedBloomFilter64<SFCBits> filter(conf);
     BenchResult result;
@@ -767,13 +772,18 @@ void benchmark_sbbf_3d(ankerl::nanobench::Bench& bench,
                        SFCType sfc_type,
                        const std::vector<Point3D>& insert_data,
                        const std::vector<Point3D>& query_data,
-                       unsigned log_blocks, unsigned hash_k) {
+                       unsigned log_blocks, unsigned hash_k,
+                       sbbf::IntraBlockStrategy strategy = sbbf::IntraBlockStrategy::DOUBLE_HASH) {
     SBBFConfig conf;
     conf.sfc_type = sfc_type;
     conf.sfc_bits = SFCBits;
     conf.log_num_blocks = log_blocks;
     conf.hash_k = hash_k;
     conf.bits_per_block = 64;
+    conf.intra_strategy = strategy;
+    if (strategy == sbbf::IntraBlockStrategy::PATTERN_LOOKUP) {
+        conf.pattern_table_size = 1024;
+    }
 
     SpatialBlockedBloomFilter64<SFCBits> filter(conf);
     BenchResult result;
@@ -1264,13 +1274,21 @@ void run_2d_benchmark(size_t n, uint32_t max_coord, unsigned log_blocks) {
 
     std::cout << "\nRunning benchmarks with hardware performance counters...\n\n";
 
-    // SBBF Morton 2D
+    // SBBF Morton 2D - both strategies
     benchmark_sbbf_2d<16>(bench, "SBBF-Morton2D", SFCType::MORTON_2D,
-                          insert_data, query_data, log_blocks, 4);
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::DOUBLE_HASH);
+    benchmark_sbbf_2d<16>(bench, "SBBF-Morton2D+Pat", SFCType::MORTON_2D,
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::PATTERN_LOOKUP);
 
-    // SBBF Hilbert 2D (now with LUT!)
+    // SBBF Hilbert 2D - both strategies
     benchmark_sbbf_2d<16>(bench, "SBBF-Hilbert2D", SFCType::HILBERT_2D,
-                          insert_data, query_data, log_blocks, 4);
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::DOUBLE_HASH);
+    benchmark_sbbf_2d<16>(bench, "SBBF-Hilbert2D+Pat", SFCType::HILBERT_2D,
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::PATTERN_LOOKUP);
 
     // Baseline filters (same memory budget as SBBF)
     size_t sbbf_memory = (1ULL << log_blocks) * 8;
@@ -1300,11 +1318,21 @@ void run_2d_clustered_benchmark(size_t n, uint32_t max_coord, size_t clusters,
 
     std::cout << "\nRunning benchmarks with hardware performance counters...\n\n";
 
+    // SBBF Morton 2D - both strategies
     benchmark_sbbf_2d<16>(bench, "SBBF-Morton2D", SFCType::MORTON_2D,
-                          insert_data, query_data, log_blocks, 4);
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::DOUBLE_HASH);
+    benchmark_sbbf_2d<16>(bench, "SBBF-Morton2D+Pat", SFCType::MORTON_2D,
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::PATTERN_LOOKUP);
 
+    // SBBF Hilbert 2D - both strategies
     benchmark_sbbf_2d<16>(bench, "SBBF-Hilbert2D", SFCType::HILBERT_2D,
-                          insert_data, query_data, log_blocks, 4);
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::DOUBLE_HASH);
+    benchmark_sbbf_2d<16>(bench, "SBBF-Hilbert2D+Pat", SFCType::HILBERT_2D,
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::PATTERN_LOOKUP);
 
     // Baseline filters (same memory budget as SBBF)
     size_t sbbf_memory = (1ULL << log_blocks) * 8;
@@ -1363,11 +1391,21 @@ void run_3d_benchmark(size_t n, uint32_t max_coord, unsigned log_blocks) {
 
     std::cout << "\n--- SBBF Operations ---\n\n";
 
+    // SBBF Morton 3D - both strategies
     benchmark_sbbf_3d<10>(bench, "SBBF-Morton3D", SFCType::MORTON_3D,
-                          insert_data, query_data, log_blocks, 4);
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::DOUBLE_HASH);
+    benchmark_sbbf_3d<10>(bench, "SBBF-Morton3D+Pat", SFCType::MORTON_3D,
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::PATTERN_LOOKUP);
 
+    // SBBF Hilbert 3D - both strategies
     benchmark_sbbf_3d<10>(bench, "SBBF-Hilbert3D", SFCType::HILBERT_3D,
-                          insert_data, query_data, log_blocks, 4);
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::DOUBLE_HASH);
+    benchmark_sbbf_3d<10>(bench, "SBBF-Hilbert3D+Pat", SFCType::HILBERT_3D,
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::PATTERN_LOOKUP);
 
     std::cout << "\n--- Baseline Bloom Filters (same memory budget) ---\n\n";
 
@@ -1376,6 +1414,50 @@ void run_3d_benchmark(size_t n, uint32_t max_coord, unsigned log_blocks) {
     // Use same FPR target - actual FPR depends on load factor
     double target_fpr = 0.001;  // 0.1% target to match SBBF's ~0.07%
 
+    BENCH_ALL_BLOCKED_3D(bench, insert_data, query_data, sbbf_memory, target_fpr);
+    BENCH_ALL_REGISTER_3D(bench, insert_data, query_data, sbbf_memory, target_fpr);
+
+    print_summary_table();
+}
+
+void run_3d_clustered_benchmark(size_t n, uint32_t max_coord, size_t clusters,
+                                 unsigned log_blocks) {
+    std::cout << "\n========================================\n";
+    std::cout << "3D Clustered Benchmark (" << n << " elements, " << clusters << " clusters)\n";
+    std::cout << "========================================\n";
+
+    auto insert_data = generate_clustered_3d(n, max_coord, clusters, 42);
+    auto query_data = generate_uniform_3d(n, max_coord, 123);
+
+    ankerl::nanobench::Bench bench;
+    bench.performanceCounters(true)
+         .epochs(g_config.epochs)
+         .minEpochIterations(g_config.min_iters)
+         .warmup(g_config.warmup)
+         .maxEpochTime(std::chrono::milliseconds(g_config.epoch_time_ms))
+         .relative(true);
+
+    std::cout << "\nRunning benchmarks with hardware performance counters...\n\n";
+
+    // SBBF Morton 3D - both strategies
+    benchmark_sbbf_3d<10>(bench, "SBBF-Morton3D", SFCType::MORTON_3D,
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::DOUBLE_HASH);
+    benchmark_sbbf_3d<10>(bench, "SBBF-Morton3D+Pat", SFCType::MORTON_3D,
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::PATTERN_LOOKUP);
+
+    // SBBF Hilbert 3D - both strategies
+    benchmark_sbbf_3d<10>(bench, "SBBF-Hilbert3D", SFCType::HILBERT_3D,
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::DOUBLE_HASH);
+    benchmark_sbbf_3d<10>(bench, "SBBF-Hilbert3D+Pat", SFCType::HILBERT_3D,
+                          insert_data, query_data, log_blocks, 4,
+                          sbbf::IntraBlockStrategy::PATTERN_LOOKUP);
+
+    // Baseline filters (same memory budget as SBBF)
+    size_t sbbf_memory = (1ULL << log_blocks) * 8;
+    double target_fpr = 0.001;
     BENCH_ALL_BLOCKED_3D(bench, insert_data, query_data, sbbf_memory, target_fpr);
     BENCH_ALL_REGISTER_3D(bench, insert_data, query_data, sbbf_memory, target_fpr);
 
@@ -2118,20 +2200,42 @@ int main(int argc, char* argv[]) {
             }
         }
     } else {
+        // Use config values (with sensible defaults)
+        size_t n = g_config.element_counts.empty() ? 100000 : g_config.element_counts[0];
+        unsigned log_blocks = g_config.log_block_sizes.empty() ? 17 : g_config.log_block_sizes[0];
+        size_t clusters = g_config.num_clusters;
+
+        // Check which distributions to run
+        bool run_uniform = std::find(g_config.distributions.begin(),
+                                     g_config.distributions.end(), "uniform") != g_config.distributions.end();
+        bool run_clustered = std::find(g_config.distributions.begin(),
+                                       g_config.distributions.end(), "clustered") != g_config.distributions.end();
+
         if (run_2d) {
             // 2D Benchmarks
-            run_2d_benchmark(100000, 65535, 17);
-            run_2d_clustered_benchmark(100000, 65535, 100, 17);
+            uint32_t max_coord_2d = 65535;  // 16-bit coords
+            if (run_uniform) {
+                run_2d_benchmark(n, max_coord_2d, log_blocks);
+            }
+            if (run_clustered) {
+                run_2d_clustered_benchmark(n, max_coord_2d, clusters, log_blocks);
+            }
         }
 
         if (run_3d) {
             // 3D Benchmarks
-            run_3d_benchmark(100000, 1023, 17);
+            uint32_t max_coord_3d = 1023;  // 10-bit coords
+            if (run_uniform) {
+                run_3d_benchmark(n, max_coord_3d, log_blocks);
+            }
+            if (run_clustered) {
+                run_3d_clustered_benchmark(n, max_coord_3d, clusters, log_blocks);
+            }
         }
 
         if (run_strategy) {
             // Intra-block strategy comparison
-            run_strategy_comparison(100000, 1023, 17);
+            run_strategy_comparison(n, 1023, log_blocks);
         }
     }
 

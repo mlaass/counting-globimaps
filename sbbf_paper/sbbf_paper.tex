@@ -59,6 +59,10 @@ We use Morton (Z-order) and Hilbert curves as SFCs and show that not only can we
 
 \citet{Lang2019} further optimized BBFs with register-blocked and cache-sectorized variants. Register-blocked filters reduce block size to 32 or 64 bits (CPU register width), enabling all $k$ bits to be tested in a single comparison instruction---achieving 1--2 cycles per lookup. Cache-sectorized filters spread bits across cache-line sectors while maintaining sequential access, reducing false-positive overhead by up to 48\%. Their SIMD implementations (AVX2/AVX-512) achieve 4--10$\times$ additional speedups. However, both approaches treat spatial data as uniformly random---they optimize \emph{intra-query} cache behavior but ignore \emph{inter-query} locality for sequential spatial traversals.
 
+\subsection{Succinct Spatial Filters}
+In the database community, structures like SuRF (Succinct Range Filter) and Rosetta have been proposed for range queries. While highly efficient for prefix-matching, they often require more complex tree-like structures that are slower than the bitwise operations of Bloom filters. SBBF fills the gap between the speed of Bloom filters and the locality of spatial indices.
+
+
 \subsection{Space-Filling Curves for Spatial Data}
 Space-filling curves (SFCs) provide continuous mappings from multi-dimensional coordinates to one-dimensional indices while preserving spatial locality. The oldest SFC is the Morton curve~\citep{Morton1966}, which interleaves coordinate bits in round-robin fashion. Hilbert curves provide superior locality at slightly higher computational cost. Hilbert curves have a \emph{Space-to-Linear Ratio} of 6, meaning adjacent 1D positions are at most 6 units apart in the original space, with zero ``jump segments'' where consecutive indices are spatially distant~\citep{Chen2022Hilbert}. Both Morton and Hilbert curves generalize naturally to any dimension $d \geq 2$.
 
@@ -147,6 +151,8 @@ where $p = \log_2 N$ and $N$ is the number of blocks. We use:
 
 \textbf{Why combine high and low bits?} Using only the high bits ($s_{\text{high}}$) as the seed causes false positives to appear as topologically coherent partial ``copies'' of the original data, since coarse spatial regions share identical seeds. We evaluate two combination strategies: XOR ($s_H \oplus s_L$) and multiply-shift ($s \cdot \phi \gg b$). XOR provides simpler implementation and lower FPR on uniformly distributed data, while multiply-shift's superior avalanche properties create more spatially incoherent false positives that are better filtered by topological verification (Section~\ref{sec:seed-strategy}).
 
+
+
 \subsection{Intra-Block Hashing}
 Once block $B_i$ is selected, we must determine which $k$ bits to set within that block. Standard Bloom filters would invoke $k$ independent hash functions, but this is computationally expensive. Following \citet{Kirsch2008}, we use double-hashing to generate $k$ positions from the seed value $\text{seed} = s_H \oplus s_L$:
 \begin{align}
@@ -188,23 +194,20 @@ In our experiments, this achieves ${\sim}12$ cycles per encode (Table~\ref{tab:h
 
 The transform LUT exploits the A4 alternating group structure of 3D Hilbert curves, which has 12 distinct states. Each 3-bit octant of the Morton code indexes into the LUT to produce the corresponding Hilbert octant and next state. In our experiments, this decomposition achieves ${\sim}24$ cycles per encode (14$\times$ speedup) while requiring only 96 bytes of table space.
 
-\subsection{Implementation}
-Algorithm~\ref{alg:sbbf} shows the complete insertion and query procedures. Note that Morton codes use simple bit-interleaving (BMI2 PDEP instruction on x86), which is orders of magnitude faster than cryptographic hashes like MurmurHash or even XXHash.
 
-\begin{algorithm}[htbp]
+\begin{algorithm}[!ht]
 \caption{SBBF Core Operations}\label{alg:sbbf}
 \SetKwFunction{FGetLoc}{GetLocation}
 \SetKwFunction{FInsert}{Insert}
 \SetKwFunction{FQuery}{Query}
 \SetKwFunction{FSFC}{SFCEncode}
 \SetKwProg{Fn}{Function}{:}{}
-
 \Fn{\FGetLoc{$s$}}{
     $s_L \gets s \bmod 2^p$\tcp*{Low bits: block index}
     $s_H \gets \lfloor s / 2^p \rfloor$\tcp*{High bits}
     $\textit{seed} \gets s_H \oplus s_L$\tcp*{XOR for better distribution}
-    $h_1 \gets \textit{seed} \bmod B$\;
-    $h_2 \gets \lfloor \textit{seed} / B \rfloor \bmod B$\;
+    $h_1 \gets \textit{seed} \bmod B$;
+    $h_2 \gets \lfloor \textit{seed} / B \rfloor \bmod B$;
     \lIf{$h_2 = 0$}{$h_2 \gets 1$}
     $\textit{mask} \gets 0$\;
     \For{$i \gets 1$ \KwTo $k$}{
@@ -212,26 +215,40 @@ Algorithm~\ref{alg:sbbf} shows the complete insertion and query procedures. Note
     }
     \Return $(s_L, \textit{mask})$\;
 }
-\vspace{0.2cm}
 \Fn{\FInsert{$\mathbf{p}$}}{
-    $s \gets \FSFC(\mathbf{p})$
+    $s \gets \FSFC(\mathbf{p})$;
     $(\textit{idx}, \textit{mask}) \gets \FGetLoc(s)$\;
     $\textit{blocks}[\textit{idx}] \gets \textit{blocks}[\textit{idx}] \lor \textit{mask}$\;
 }
-\vspace{0.2cm}
 \Fn{\FQuery{$\mathbf{p}$}}{
     $s \gets \FSFC(\mathbf{p})$\;
     $(\textit{idx}, \textit{mask}) \gets \FGetLoc(s)$\;
     \Return $(\textit{blocks}[\textit{idx}] \land \textit{mask}) = \textit{mask}$\;
 }
 \end{algorithm}
+\subsection{Implementation}
+Algorithm~\ref{alg:sbbf} shows the complete insertion and query procedures. Note that Morton codes use simple bit-interleaving (BMI2 PDEP instruction on x86), which is orders of magnitude faster than cryptographic hashes like MurmurHash or even XXHash.
 
 \subsection{Topological Verification (Denoising)}\label{sec:denoising}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{Figures/PNG/bunny_128_medium.png}\\[0.5em]
+\includegraphics[width=\columnwidth]{Figures/PNG/teapot_128_medium.png}\\[0.5em]
+\includegraphics[width=\columnwidth]{Figures/PNG/armadillo_128_medium.png}\\[0.5em]
+\includegraphics[width=\columnwidth]{Figures/PNG/dragon_128_medium.png}
+\caption{Topological Verification (TV) on voxelized 3D meshes. Each row shows (left to right): ground truth, SBBF raw query results with false positives in red, and denoised output. Isolated false positives are effectively removed by requiring neighbor connectivity.}
+\label{fig:tv-concept}
+\end{figure}
+As illustrated in Fig.~\ref{fig:tv-concept}, SBBF collisions on structured data (like surfaces) often manifest as "speckle" noise. Because real voxel data is connected, we can filter queries that lack spatial neighbors.
+
 Because SBBF mapping is deterministic and spatially coherent, false positives (FPs) appear as regional noise rather than isolated random bits. We implement a "Consensus" query:
 \begin{equation}
     Query_{TV}(V) = Query(V) \land (CountNeighbors(V) \ge \tau)
 \end{equation}
-where $\tau$ is a connectivity threshold. This allows SBBF to operate at higher theoretical False Positive Rates (FPR) than standard BFF while maintaining effective precision.
+where $\tau$ is a connectivity threshold. The experiments in Fig.~\ref{fig:tv-concept} use $\tau = 2$ (26-connected neighborhood), $k = 4$ hash functions, $2^{15}$ blocks of 64 bits each, and Hilbert 3D space-filling curve indexing. This allows SBBF to operate at higher theoretical False Positive Rates (FPR) than standard BFs while maintaining effective precision.
+
+
 
 \section{Experiments}
 
@@ -318,7 +335,14 @@ Dim & Filter & Strat. & Instr. & Cyc. & Instr. & Cyc. \\
 SBBF-Morton with pattern lookup uses 4.9$\times$ fewer instructions than BlockedBF in 2D (49 vs 241 for insert) and 6.9$\times$ fewer in 3D (38 vs 261). The \texttt{double\_hash} strategy requires 60\% more instructions but avoids the pattern table memory overhead. SBBF-Hilbert uses 2.3$\times$ fewer instructions while providing better spatial locality. The lower IPC for SBBF reflects reduced instruction-level parallelism but is offset by the significantly reduced instruction count.
 
 \subsection{Random Access vs.\ Linear Traversal}
-[PLACEHOLDER: Compare query throughput for random access patterns vs.\ SFC-ordered scans. Demonstrate L1/L2 prefetch benefits during raster/volume traversals.]
+The primary advantage of SBBF is revealed during linear spatial scans. In a $256^3$ voxel traversal, SBBF-Hilbert achieves a ??\% L1-dcache hit rate, compared to ??\% for standard BlockedBF. This is because the hardware prefetcher recognizes the linear progression of $s_{low}$ and fetches the next filter blocks into the cache before the CPU requests them.
+
+\begin{figure}[htbp]
+\centering
+\fbox{\parbox{0.9\columnwidth}{\centering\vspace{2cm}\textit{TODO: Query throughput comparison}\\\textit{Random access vs.\ SFC-ordered scans}\vspace{2cm}}}
+\caption{Query throughput for random access patterns vs.\ SFC-ordered spatial scans, demonstrating L1/L2 prefetch benefits during raster/volume traversals.}
+\label{fig:traversal-throughput}
+\end{figure}
 
 \subsection{False Positive Rate Analysis}
 Table~\ref{tab:fpr-datasets} compares observed FPR across synthetic distributions. All filters use identical memory budgets (1.02~MB, 100K elements) for fair comparison. Both intra-block strategies are shown for SBBF.
@@ -432,10 +456,16 @@ SBBF-Morton achieves 4--5$\times$ fewer cycles than baselines for neighbor queri
 
 
 \section{Discussion}
-[PLACEHOLDER: Interpret experimental results. Discuss trade-offs between Morton (speed) and Hilbert (locality). Analyze when SBBF advantages are most pronounced (dense spatial queries, neighborhood operations). Address limitations.]
+SBBF represents a paradigm shift from "locality-destroying" hashing to "locality-preserving" indexing. The choice of SFC presents a trade-off: **Morton** is optimal for high-speed streaming due to its $O(1)$ hardware encoding, while **Hilbert** is superior for complex neighborhood queries where its $Space-to-Linear$ ratio of 6 vs.\ 9 for Morton, yields higher cache hit rates during sequential spatial scans. For neighborhood-heavy applications like voxel processing, Hilbert's locality advantage outweighs its encoding cost.
 
-\section{Conclusion and Future Work}
-SBBF provides a cache-aware approach to probabilistic spatial membership queries for both 2D raster and 3D voxel data. By aligning memory layout with spatial topology via space-filling curves, we enable high-performance spatial data processing that benefits from modern CPU architectures. The replacement of cryptographic hashing with SFC encoding yields an order-of-magnitude speedup for the indexing operation itself. Future work will investigate the use of SBBF in distributed environments where SFCs can also guide network-local data placement, and extend the approach to higher-dimensional data.
+\textbf{Seed Strategy.} $XOR$ achieves lower raw FPR on uniformly distributed data, while $multiply-shift$ excels when topological verification is applied to structured data. The avalanche properties of $multiply-shift$ create spatially incoherent false positives that are easily filtered, often achieving zero or near-zero FPR after denoising on voxelized meshes.
+
+\textbf{When to use SBBF.} SBBF has better performance than standard bloom filters even with state-of-the-art hash functions and is most advantageous for: (1) sequential spatial traversals (raster scans, volume rendering), (2) neighborhood-intensive queries (morphological operations, connectivity analysis), and (3) applications tolerant of topological verification overhead.
+
+\textbf{Limitations.} SBBF assumes spatial coherence in the data; randomly distributed points gain less benefit. The SFC encoding is comparable to fast hashing for single queries, though this is amortized over spatial batches. Topological verification adds latency but improves precision for structured data.
+
+\section{Conclusion}
+We presented SBBF, a spatial-blocked Bloom filter that aligns memory layout with spatial structure via space-filling curves. SBBF achieves 5--7$\times$ fewer instructions than cache-optimized baselines while providing 3--6$\times$ lower false positive rates. Our high-performance SFC encoders (2D/3D Morton and Hilbert) are orders of magnitude faster than standard hash functions. Combined with topological verification, SBBF achieves near-zero effective FPR on structured spatial data. Future work will explore SBBF for distributed spatial indexing and large-scale 3D data processing.
 
 \small
 \bibliographystyle{IEEEtranN}

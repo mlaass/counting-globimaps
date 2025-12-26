@@ -17,6 +17,7 @@ Prerequisites:
     - Build the counting_globimap Python module (cd build && make counting_globimap)
     - Run voxelize_meshes.py first to generate HDF5 datasets
 """
+import argparse
 import json
 import math
 import sys
@@ -52,59 +53,59 @@ FIGURES_DIR = PROJECT_ROOT / "sbbf_results" / "figures"
 
 EXPERIMENTS = [
     # Bunny at 64³ - compare filter sizes
-    {
-        "name": "bunny_64_small",
-        "mesh": "bunny",
-        "resolution": 64,
-        "log_num_blocks": 12,  # 4K blocks = 32 KB
-        "hash_k": 4,
-        "sfc_type": "HILBERT_3D",
-        "min_neighbors": 2,
-    },
-    {
-        "name": "bunny_64_medium",
-        "mesh": "bunny",
-        "resolution": 64,
-        "log_num_blocks": 14,  # 16K blocks = 128 KB
-        "hash_k": 4,
-        "sfc_type": "HILBERT_3D",
-        "min_neighbors": 2,
-    },
-    {
-        "name": "bunny_64_large",
-        "mesh": "bunny",
-        "resolution": 64,
-        "log_num_blocks": 16,  # 64K blocks = 512 KB
-        "hash_k": 4,
-        "sfc_type": "HILBERT_3D",
-        "min_neighbors": 2,
-    },
-    # Teapot at 64³
-    {
-        "name": "teapot_64_medium",
-        "mesh": "teapot",
-        "resolution": 64,
-        "log_num_blocks": 14,
-        "hash_k": 4,
-        "sfc_type": "HILBERT_3D",
-        "min_neighbors": 2,
-    },
-    # Compare Hilbert vs Morton
-    {
-        "name": "bunny_64_morton",
-        "mesh": "bunny",
-        "resolution": 64,
-        "log_num_blocks": 14,
-        "hash_k": 4,
-        "sfc_type": "MORTON_3D",
-        "min_neighbors": 2,
-    },
+    # {
+    #     "name": "bunny_64_small",
+    #     "mesh": "bunny",
+    #     "resolution": 64,
+    #     "log_num_blocks": 12,  # 4K blocks = 32 KB
+    #     "hash_k": 4,
+    #     "sfc_type": "HILBERT_3D",
+    #     "min_neighbors": 2,
+    # },
+    # {
+    #     "name": "bunny_64_medium",
+    #     "mesh": "bunny",
+    #     "resolution": 64,
+    #     "log_num_blocks": 14,  # 16K blocks = 128 KB
+    #     "hash_k": 4,
+    #     "sfc_type": "HILBERT_3D",
+    #     "min_neighbors": 2,
+    # },
+    # {
+    #     "name": "bunny_64_large",
+    #     "mesh": "bunny",
+    #     "resolution": 64,
+    #     "log_num_blocks": 16,  # 64K blocks = 512 KB
+    #     "hash_k": 4,
+    #     "sfc_type": "HILBERT_3D",
+    #     "min_neighbors": 2,
+    # },
+    # # Teapot at 64³
+    # {
+    #     "name": "teapot_64_medium",
+    #     "mesh": "teapot",
+    #     "resolution": 64,
+    #     "log_num_blocks": 14,
+    #     "hash_k": 4,
+    #     "sfc_type": "HILBERT_3D",
+    #     "min_neighbors": 2,
+    # },
+    # # Compare Hilbert vs Morton
+    # {
+    #     "name": "bunny_64_morton",
+    #     "mesh": "bunny",
+    #     "resolution": 64,
+    #     "log_num_blocks": 14,
+    #     "hash_k": 4,
+    #     "sfc_type": "MORTON_3D",
+    #     "min_neighbors": 2,
+    # },
     # Higher resolution experiments (slower)
     {
         "name": "bunny_128_medium",
         "mesh": "bunny",
         "resolution": 128,
-        "log_num_blocks": 16,
+        "log_num_blocks": 15,
         "hash_k": 4,
         "sfc_type": "HILBERT_3D",
         "min_neighbors": 2,
@@ -113,7 +114,25 @@ EXPERIMENTS = [
         "name": "teapot_128_medium",
         "mesh": "teapot",
         "resolution": 128,
-        "log_num_blocks": 16,
+        "log_num_blocks": 15,
+        "hash_k": 4,
+        "sfc_type": "HILBERT_3D",
+        "min_neighbors": 2,
+    },
+    {
+        "name": "armadillo_128_medium",
+        "mesh": "armadillo",
+        "resolution": 128,
+        "log_num_blocks": 15,
+        "hash_k": 4,
+        "sfc_type": "HILBERT_3D",
+        "min_neighbors": 2,
+    },
+    {
+        "name": "dragon_128_medium",
+        "mesh": "dragon",
+        "resolution": 128,
+        "log_num_blocks": 15,
         "hash_k": 4,
         "sfc_type": "HILBERT_3D",
         "min_neighbors": 2,
@@ -133,6 +152,32 @@ def fix_orientation(coords: np.ndarray) -> np.ndarray:
     return coords[:, [0, 2, 1]]
 
 
+def rotate_for_mesh(coords: np.ndarray, mesh_name: str) -> np.ndarray:
+    """Apply mesh-specific rotations to face front."""
+    if len(coords) == 0:
+        return coords
+    if mesh_name == "armadillo":
+        # Rotate 90 degrees around Y-axis (vertical) to face front
+        # Then flip 180 degrees around X-axis to fix upside-down orientation
+        # After fix_orientation, Y is vertical
+
+        # 90 deg around Y: [[0, 0, 1], [0, 1, 0], [-1, 0, 0]]
+        # 180 deg around X: [[1, 0, 0], [0, -1, 0], [0, 0, -1]]
+        # Combined: R_x @ R_y
+        rot_y = np.array([[0, 0, 1], [0, 1, 0], [-1, 0, 0]], dtype=float)
+        rot_x_180 = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]], dtype=float)
+        rot_matrix = rot_x_180 @ rot_y
+        return coords @ rot_matrix.T
+    return coords
+
+
+def transform_coords(coords: np.ndarray, mesh_name: str) -> np.ndarray:
+    """Apply all coordinate transformations (orientation fix + mesh-specific rotation)."""
+    coords = fix_orientation(coords)
+    coords = rotate_for_mesh(coords, mesh_name)
+    return coords
+
+
 def count_neighbors_3d(bf, x: int, y: int, z: int, full_26: bool = True, resolution: int = 256) -> int:
     """Count occupied neighbors by querying individually (for standard BFs)."""
     count = 0
@@ -150,10 +195,10 @@ def count_neighbors_3d(bf, x: int, y: int, z: int, full_26: bool = True, resolut
                 if nx >= resolution or ny >= resolution or nz >= resolution:
                     continue
                 # Use appropriate query method
-                if hasattr(bf, 'query'):
+                if hasattr(bf, "query"):
                     if bf.query([nx, ny, nz]):
                         count += 1
-                elif hasattr(bf, 'get'):
+                elif hasattr(bf, "get"):
                     if bf.get([nx, ny, nz]):
                         count += 1
     return count
@@ -413,16 +458,22 @@ def run_single_experiment(exp: dict) -> dict:
     # Run SBBF with XOR strategy
     print("  Running SBBF (XOR)...")
     sbbf_xor = run_sbbf(
-        voxel_coords, true_set, resolution, min_neighbors,
-        sfc_type, log_num_blocks, hash_k, cg.SeedStrategy.XOR, "XOR"
+        voxel_coords, true_set, resolution, min_neighbors, sfc_type, log_num_blocks, hash_k, cg.SeedStrategy.XOR, "XOR"
     )
     print(f"  SBBF XOR FPR: {sbbf_xor['raw_fpr']:.4%} -> {sbbf_xor['denoised_fpr']:.4%}")
 
     # Run SBBF with MULTIPLY_SHIFT strategy
     print("  Running SBBF (MULTIPLY_SHIFT)...")
     sbbf_ms = run_sbbf(
-        voxel_coords, true_set, resolution, min_neighbors,
-        sfc_type, log_num_blocks, hash_k, cg.SeedStrategy.MULTIPLY_SHIFT, "MS"
+        voxel_coords,
+        true_set,
+        resolution,
+        min_neighbors,
+        sfc_type,
+        log_num_blocks,
+        hash_k,
+        cg.SeedStrategy.MULTIPLY_SHIFT,
+        "MS",
     )
     print(f"  SBBF MultShift FPR: {sbbf_ms['raw_fpr']:.4%} -> {sbbf_ms['denoised_fpr']:.4%}")
 
@@ -497,31 +548,49 @@ def run_single_experiment(exp: dict) -> dict:
     }
 
 
-def render_panel_raw(plotter, queried, fps, title, fpr, point_size):
+def render_panel_raw(plotter, queried, fps, title, fpr, point_size, mesh_name: str, font_size: int = 20):
     """Render a raw query panel (TP=blue, FP=red)."""
-    plotter.add_title(f"{title}\n(FPR={fpr:.2%})", font_size=8)
+    actor = plotter.add_text(
+        f"{title}\n(FPR={fpr:.2%})",
+        position="upper_edge",
+        font_size=font_size,
+        color="black",
+    )
+    actor.prop.background_color = "white"
+    actor.prop.background_opacity = 0.7
     if len(queried) > 0:
         fp_set = set(map(tuple, fps)) if len(fps) > 0 else set()
         tps = np.array([p for p in queried if tuple(p) not in fp_set])
         if len(tps) > 0:
             plotter.add_mesh(
-                pv.PolyData(fix_orientation(tps).astype(float)),
-                color="blue", point_size=point_size, render_points_as_spheres=True
+                pv.PolyData(transform_coords(tps, mesh_name).astype(float)),
+                color="blue",
+                point_size=point_size,
+                render_points_as_spheres=True,
             )
         if len(fps) > 0:
             plotter.add_mesh(
-                pv.PolyData(fix_orientation(fps).astype(float)),
-                color="red", point_size=point_size + 1, render_points_as_spheres=True
+                pv.PolyData(transform_coords(fps, mesh_name).astype(float)),
+                color="red",
+                point_size=point_size + 1,
+                render_points_as_spheres=True,
             )
     plotter.add_axes()
     plotter.camera_position = "iso"
 
 
-def render_panel_denoised(plotter, denoised, title, fpr, point_size):
+def render_panel_denoised(plotter, denoised, title, fpr, point_size, mesh_name: str, font_size: int = 20):
     """Render a denoised panel (cyan)."""
-    plotter.add_title(f"{title}\n(FPR={fpr:.2%})", font_size=8)
+    actor = plotter.add_text(
+        f"{title}\n(FPR={fpr:.2%})",
+        position="upper_edge",
+        font_size=font_size,
+        color="black",
+    )
+    actor.prop.background_color = "white"
+    actor.prop.background_opacity = 0.7
     if len(denoised) > 0:
-        cloud = pv.PolyData(fix_orientation(denoised).astype(float))
+        cloud = pv.PolyData(transform_coords(denoised, mesh_name).astype(float))
         plotter.add_mesh(cloud, color="cyan", point_size=point_size, render_points_as_spheres=True)
     plotter.add_axes()
     plotter.camera_position = "iso"
@@ -532,7 +601,7 @@ def render_comparison(
     output_path: Path,
 ):
     """
-    Render side-by-side comparison with PyVista.
+    Render side-by-side comparison with PyVista (9-panel full layout).
 
     Creates a 1x9 subplot:
     - Ground truth (green)
@@ -548,8 +617,10 @@ def render_comparison(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     ground_truth = result["_ground_truth"]
+    mesh_name = result["config"]["mesh"]
     resolution = result["config"]["resolution"]
     stats = result["stats"]
+    font_size = 20
 
     # Use off-screen rendering
     pv.OFF_SCREEN = True
@@ -560,52 +631,221 @@ def render_comparison(
 
     # Panel 0: Ground truth (green)
     plotter.subplot(0, 0)
-    plotter.add_title(f"Ground Truth\n({len(ground_truth):,} voxels)", font_size=8)
+    actor = plotter.add_text(
+        f"Ground Truth\n({len(ground_truth):,} voxels)",
+        position="upper_edge",
+        font_size=font_size,
+        color="black",
+    )
+    actor.prop.background_color = "white"
+    actor.prop.background_opacity = 0.7
     if len(ground_truth) > 0:
-        cloud = pv.PolyData(fix_orientation(ground_truth).astype(float))
+        cloud = pv.PolyData(transform_coords(ground_truth, mesh_name).astype(float))
         plotter.add_mesh(cloud, color="green", point_size=point_size, render_points_as_spheres=True)
     plotter.add_axes()
     plotter.camera_position = "iso"
 
     # Panel 1: SBBF XOR Raw
     plotter.subplot(0, 1)
-    render_panel_raw(plotter, result["_sbbf_xor_queried"], result["_sbbf_xor_fps"],
-                     "SBBF XOR Raw", stats["sbbf_xor_raw_fpr"], point_size)
+    render_panel_raw(
+        plotter,
+        result["_sbbf_xor_queried"],
+        result["_sbbf_xor_fps"],
+        "SBBF XOR Raw",
+        stats["sbbf_xor_raw_fpr"],
+        point_size,
+        mesh_name,
+        font_size,
+    )
 
     # Panel 2: SBBF XOR Denoised
     plotter.subplot(0, 2)
-    render_panel_denoised(plotter, result["_sbbf_xor_denoised"],
-                          "SBBF XOR Denoised", stats["sbbf_xor_denoised_fpr"], point_size)
+    render_panel_denoised(
+        plotter,
+        result["_sbbf_xor_denoised"],
+        "SBBF XOR Denoised",
+        stats["sbbf_xor_denoised_fpr"],
+        point_size,
+        mesh_name,
+        font_size,
+    )
 
     # Panel 3: SBBF MultShift Raw
     plotter.subplot(0, 3)
-    render_panel_raw(plotter, result["_sbbf_ms_queried"], result["_sbbf_ms_fps"],
-                     "SBBF MS Raw", stats["sbbf_ms_raw_fpr"], point_size)
+    render_panel_raw(
+        plotter,
+        result["_sbbf_ms_queried"],
+        result["_sbbf_ms_fps"],
+        "SBBF MS Raw",
+        stats["sbbf_ms_raw_fpr"],
+        point_size,
+        mesh_name,
+        font_size,
+    )
 
     # Panel 4: SBBF MultShift Denoised
     plotter.subplot(0, 4)
-    render_panel_denoised(plotter, result["_sbbf_ms_denoised"],
-                          "SBBF MS Denoised", stats["sbbf_ms_denoised_fpr"], point_size)
+    render_panel_denoised(
+        plotter,
+        result["_sbbf_ms_denoised"],
+        "SBBF MS Denoised",
+        stats["sbbf_ms_denoised_fpr"],
+        point_size,
+        mesh_name,
+        font_size,
+    )
 
     # Panel 5: BlockedBF Raw
     plotter.subplot(0, 5)
-    render_panel_raw(plotter, result["_blocked_queried"], result["_blocked_fps"],
-                     "BlockedBF Raw", stats["blocked_raw_fpr"], point_size)
+    render_panel_raw(
+        plotter,
+        result["_blocked_queried"],
+        result["_blocked_fps"],
+        "BlockedBF Raw",
+        stats["blocked_raw_fpr"],
+        point_size,
+        mesh_name,
+        font_size,
+    )
 
     # Panel 6: BlockedBF Denoised
     plotter.subplot(0, 6)
-    render_panel_denoised(plotter, result["_blocked_denoised"],
-                          "BlockedBF Denoised", stats["blocked_denoised_fpr"], point_size)
+    render_panel_denoised(
+        plotter,
+        result["_blocked_denoised"],
+        "BlockedBF Denoised",
+        stats["blocked_denoised_fpr"],
+        point_size,
+        mesh_name,
+        font_size,
+    )
 
     # Panel 7: GloBiMap Raw
     plotter.subplot(0, 7)
-    render_panel_raw(plotter, result["_globimap_queried"], result["_globimap_fps"],
-                     "GloBiMap Raw", stats["globimap_raw_fpr"], point_size)
+    render_panel_raw(
+        plotter,
+        result["_globimap_queried"],
+        result["_globimap_fps"],
+        "GloBiMap Raw",
+        stats["globimap_raw_fpr"],
+        point_size,
+        mesh_name,
+        font_size,
+    )
 
     # Panel 8: GloBiMap Denoised
     plotter.subplot(0, 8)
-    render_panel_denoised(plotter, result["_globimap_denoised"],
-                          "GloBiMap Denoised", stats["globimap_denoised_fpr"], point_size)
+    render_panel_denoised(
+        plotter,
+        result["_globimap_denoised"],
+        "GloBiMap Denoised",
+        stats["globimap_denoised_fpr"],
+        point_size,
+        mesh_name,
+        font_size,
+    )
+
+    # Save screenshot
+    plotter.screenshot(str(output_path))
+    plotter.close()
+
+    print(f"  Saved: {output_path.name}")
+
+
+def render_comparison_compact(
+    result: dict,
+    output_path: Path,
+):
+    """
+    Render compact 5-panel comparison with PyVista (GT + XOR + MS only).
+
+    Creates a 1x5 subplot:
+    - Ground truth (green)
+    - SBBF XOR Raw (TP=blue, FP=red)
+    - SBBF XOR Denoised (cyan)
+    - SBBF MultShift Raw (TP=blue, FP=red)
+    - SBBF MultShift Denoised (cyan)
+    """
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    ground_truth = result["_ground_truth"]
+    mesh_name = result["config"]["mesh"]
+    resolution = result["config"]["resolution"]
+    stats = result["stats"]
+    font_size = 20
+
+    # Use off-screen rendering
+    pv.OFF_SCREEN = True
+
+    plotter = pv.Plotter(shape=(1, 5), window_size=(3000, 600), off_screen=True)
+
+    point_size = max(2, 8 - resolution // 64)
+
+    # Panel 0: Ground truth (green)
+    plotter.subplot(0, 0)
+    actor = plotter.add_text(
+        f"Ground Truth\n({len(ground_truth):,} voxels)",
+        position="upper_edge",
+        font_size=font_size,
+        color="black",
+    )
+    actor.prop.background_color = "white"
+    actor.prop.background_opacity = 0.7
+    if len(ground_truth) > 0:
+        cloud = pv.PolyData(transform_coords(ground_truth, mesh_name).astype(float))
+        plotter.add_mesh(cloud, color="green", point_size=point_size, render_points_as_spheres=True)
+    plotter.add_axes()
+    plotter.camera_position = "iso"
+
+    # Panel 1: SBBF XOR Raw
+    plotter.subplot(0, 1)
+    render_panel_raw(
+        plotter,
+        result["_sbbf_xor_queried"],
+        result["_sbbf_xor_fps"],
+        "SBBF XOR Raw",
+        stats["sbbf_xor_raw_fpr"],
+        point_size,
+        mesh_name,
+        font_size,
+    )
+
+    # Panel 2: SBBF XOR Denoised
+    plotter.subplot(0, 2)
+    render_panel_denoised(
+        plotter,
+        result["_sbbf_xor_denoised"],
+        "SBBF XOR Denoised",
+        stats["sbbf_xor_denoised_fpr"],
+        point_size,
+        mesh_name,
+        font_size,
+    )
+
+    # Panel 3: SBBF MultShift Raw
+    plotter.subplot(0, 3)
+    render_panel_raw(
+        plotter,
+        result["_sbbf_ms_queried"],
+        result["_sbbf_ms_fps"],
+        "SBBF MS Raw",
+        stats["sbbf_ms_raw_fpr"],
+        point_size,
+        mesh_name,
+        font_size,
+    )
+
+    # Panel 4: SBBF MultShift Denoised
+    plotter.subplot(0, 4)
+    render_panel_denoised(
+        plotter,
+        result["_sbbf_ms_denoised"],
+        "SBBF MS Denoised",
+        stats["sbbf_ms_denoised_fpr"],
+        point_size,
+        mesh_name,
+        font_size,
+    )
 
     # Save screenshot
     plotter.screenshot(str(output_path))
@@ -643,9 +883,21 @@ def save_results(results: list[dict], output_path: Path):
 
 def main():
     """Main entry point."""
+    parser = argparse.ArgumentParser(description="Bloom Filter comparison experiments on voxelized 3D meshes")
+    parser.add_argument(
+        "--compact",
+        action="store_true",
+        help="Render only 5 panels (Ground Truth + XOR + MS) instead of all 9",
+    )
+    args = parser.parse_args()
+
     print("=" * 60)
     print("Bloom Filter Comparison: SBBF vs BlockedBF vs GloBiMap")
     print(f"Running {len(EXPERIMENTS)} experiments")
+    if args.compact:
+        print("Mode: COMPACT (5 panels: GT + XOR + MS)")
+    else:
+        print("Mode: FULL (9 panels)")
     print("=" * 60)
 
     # Ensure directories exist
@@ -665,7 +917,10 @@ def main():
 
             # Render comparison image
             img_path = FIGURES_DIR / f"{exp['name']}.png"
-            render_comparison(result, img_path)
+            if args.compact:
+                render_comparison_compact(result, img_path)
+            else:
+                render_comparison(result, img_path)
 
         except FileNotFoundError as e:
             print(f"  SKIPPED: {e}")

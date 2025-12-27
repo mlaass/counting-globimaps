@@ -1,0 +1,2665 @@
+{
+  "config": {
+    "coord_bits": 16,
+    "k_values": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "num_elements": 100000,
+    "num_queries": 100000,
+    "target_fill_rate": 0.5
+  },
+  "experiment": "k_sensitivity",
+  "results": [
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 2,
+        "log_num_blocks": 13,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 1.0,
+        "fpr": 0.10453,
+        "memory_bytes": 65536
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 2,
+        "log_num_blocks": 13,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 1.0,
+        "fpr": 0.10343,
+        "memory_bytes": 65536
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 2,
+        "log_num_blocks": 13,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 1.0,
+        "fpr": 0.113,
+        "memory_bytes": 73728
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 2,
+        "log_num_blocks": 13,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 1.0,
+        "fpr": 0.11216,
+        "memory_bytes": 73728
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 2,
+        "log_num_blocks": 13,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 1.0,
+        "fpr": 0.10473,
+        "memory_bytes": 65536
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 2,
+        "log_num_blocks": 13,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 1.0,
+        "fpr": 0.10359,
+        "memory_bytes": 65536
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 2,
+        "log_num_blocks": 13,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 1.0,
+        "fpr": 0.11113,
+        "memory_bytes": 73728
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 2,
+        "log_num_blocks": 13,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 1.0,
+        "fpr": 0.11244,
+        "memory_bytes": 73728
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 2,
+        "log_num_blocks": 13,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 1.0,
+        "fpr": 0.1036,
+        "memory_bytes": 65536
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 2,
+        "log_num_blocks": 13,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 1.0,
+        "fpr": 0.10289,
+        "memory_bytes": 65536
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 2,
+        "log_num_blocks": 13,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 1.0,
+        "fpr": 0.1108,
+        "memory_bytes": 73728
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 2,
+        "log_num_blocks": 13,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 1.0,
+        "fpr": 0.11311,
+        "memory_bytes": 73728
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 2,
+        "log_num_blocks": 13,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 1.0,
+        "fpr": 0.10452,
+        "memory_bytes": 65536
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 2,
+        "log_num_blocks": 13,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 1.0,
+        "fpr": 0.10356,
+        "memory_bytes": 65536
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 2,
+        "log_num_blocks": 13,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 1.0,
+        "fpr": 0.11111,
+        "memory_bytes": 73728
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 2,
+        "log_num_blocks": 13,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 1.0,
+        "fpr": 0.11335,
+        "memory_bytes": 73728
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 3,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99774169921875,
+        "fpr": 0.02071,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 3,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99774169921875,
+        "fpr": 0.0213,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 3,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99774169921875,
+        "fpr": 0.02412,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 3,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99774169921875,
+        "fpr": 0.02482,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 3,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99835205078125,
+        "fpr": 0.02089,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 3,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99835205078125,
+        "fpr": 0.02242,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 3,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99835205078125,
+        "fpr": 0.02495,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 3,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99835205078125,
+        "fpr": 0.02464,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 3,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99786376953125,
+        "fpr": 0.02134,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 3,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99786376953125,
+        "fpr": 0.02169,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 3,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99786376953125,
+        "fpr": 0.02507,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 3,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99786376953125,
+        "fpr": 0.02416,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 3,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99761962890625,
+        "fpr": 0.02172,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 3,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99761962890625,
+        "fpr": 0.02205,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 3,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99761962890625,
+        "fpr": 0.02496,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 3,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99761962890625,
+        "fpr": 0.02449,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 4,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99774169921875,
+        "fpr": 0.01915,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 4,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99774169921875,
+        "fpr": 0.01938,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 4,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99774169921875,
+        "fpr": 0.0207,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 4,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99774169921875,
+        "fpr": 0.02139,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 4,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99835205078125,
+        "fpr": 0.019,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 4,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99835205078125,
+        "fpr": 0.01987,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 4,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99835205078125,
+        "fpr": 0.02106,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 4,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99835205078125,
+        "fpr": 0.02137,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 4,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99786376953125,
+        "fpr": 0.01923,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 4,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99786376953125,
+        "fpr": 0.01932,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 4,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99786376953125,
+        "fpr": 0.02092,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 4,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99786376953125,
+        "fpr": 0.02084,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 4,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99761962890625,
+        "fpr": 0.01944,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 4,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99761962890625,
+        "fpr": 0.01983,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 4,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99761962890625,
+        "fpr": 0.0204,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 4,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99761962890625,
+        "fpr": 0.02024,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 5,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99774169921875,
+        "fpr": 0.02045,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 5,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99774169921875,
+        "fpr": 0.0217,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 5,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99774169921875,
+        "fpr": 0.01997,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 5,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99774169921875,
+        "fpr": 0.02032,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 5,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99835205078125,
+        "fpr": 0.02109,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 5,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99835205078125,
+        "fpr": 0.02118,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 5,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99835205078125,
+        "fpr": 0.02043,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 5,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99835205078125,
+        "fpr": 0.0205,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 5,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99786376953125,
+        "fpr": 0.02186,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 5,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99786376953125,
+        "fpr": 0.02183,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 5,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99786376953125,
+        "fpr": 0.02067,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 5,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99786376953125,
+        "fpr": 0.01973,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 5,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99761962890625,
+        "fpr": 0.02123,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 5,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99761962890625,
+        "fpr": 0.02134,
+        "memory_bytes": 131072
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 5,
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99761962890625,
+        "fpr": 0.01917,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 5,
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99761962890625,
+        "fpr": 0.01959,
+        "memory_bytes": 139264
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 6,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.00535,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 6,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.00535,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 6,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.00425,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 6,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.0041,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 6,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.00549,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 6,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.0053,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 6,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.00458,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 6,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.00462,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 6,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.00561,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 6,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.00537,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 6,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.00435,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 6,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.00447,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 6,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.00529,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 6,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.00567,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 6,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.00416,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 6,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.00433,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 7,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.00649,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 7,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.0067,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 7,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.00404,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 7,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.00396,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 7,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.00695,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 7,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.00681,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 7,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.00459,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 7,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.0047,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 7,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.00721,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 7,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.00678,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 7,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.00441,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 7,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.00457,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 7,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.00674,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 7,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.00702,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 7,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.00391,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 7,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.00433,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 8,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.00875,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 8,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.00891,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 8,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.00433,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 8,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.00407,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 8,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.00905,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 8,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.00895,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 8,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.00478,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 8,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.00495,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 8,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.0091,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 8,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.00859,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 8,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.00475,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 8,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.00455,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 8,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.00891,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 8,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.00865,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 8,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.00412,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 8,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.00444,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 9,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.00997,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 9,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.01017,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 9,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.00461,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 9,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.0043,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 9,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.01013,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 9,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.01044,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 9,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.00496,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 9,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.00529,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 9,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.01026,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 9,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.01039,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 9,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.00492,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 9,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.0049,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 9,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.01013,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 9,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.00991,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 9,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.00424,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 9,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.00472,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 10,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.01143,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 10,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.01177,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 10,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.00502,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 10,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952484130859375,
+        "fpr": 0.00456,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 10,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.01189,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 10,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.01204,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 10,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.00531,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 10,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.95196533203125,
+        "fpr": 0.00563,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 10,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.01164,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 10,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.01199,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 10,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.00507,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 10,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.952850341796875,
+        "fpr": 0.00509,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 10,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.01137,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 10,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.01175,
+        "memory_bytes": 262144
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 10,
+        "log_num_blocks": 15,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.00463,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 10,
+        "log_num_blocks": 15,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.953277587890625,
+        "fpr": 0.00516,
+        "memory_bytes": 270336
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 11,
+        "log_num_blocks": 16,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7826690673828125,
+        "fpr": 0.00405,
+        "memory_bytes": 524288
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 11,
+        "log_num_blocks": 16,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7826690673828125,
+        "fpr": 0.00416,
+        "memory_bytes": 524288
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 11,
+        "log_num_blocks": 16,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7826690673828125,
+        "fpr": 0.00138,
+        "memory_bytes": 532480
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 11,
+        "log_num_blocks": 16,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7826690673828125,
+        "fpr": 0.00136,
+        "memory_bytes": 532480
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 11,
+        "log_num_blocks": 16,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7810516357421875,
+        "fpr": 0.00407,
+        "memory_bytes": 524288
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 11,
+        "log_num_blocks": 16,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7810516357421875,
+        "fpr": 0.00418,
+        "memory_bytes": 524288
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 11,
+        "log_num_blocks": 16,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7810516357421875,
+        "fpr": 0.00193,
+        "memory_bytes": 532480
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 11,
+        "log_num_blocks": 16,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7810516357421875,
+        "fpr": 0.00193,
+        "memory_bytes": 532480
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 11,
+        "log_num_blocks": 16,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7805328369140625,
+        "fpr": 0.00455,
+        "memory_bytes": 524288
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 11,
+        "log_num_blocks": 16,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7805328369140625,
+        "fpr": 0.00433,
+        "memory_bytes": 524288
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 11,
+        "log_num_blocks": 16,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7805328369140625,
+        "fpr": 0.00174,
+        "memory_bytes": 532480
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 11,
+        "log_num_blocks": 16,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7805328369140625,
+        "fpr": 0.00171,
+        "memory_bytes": 532480
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 11,
+        "log_num_blocks": 16,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7809600830078125,
+        "fpr": 0.0042,
+        "memory_bytes": 524288
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 11,
+        "log_num_blocks": 16,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7809600830078125,
+        "fpr": 0.00441,
+        "memory_bytes": 524288
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 11,
+        "log_num_blocks": 16,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7809600830078125,
+        "fpr": 0.00162,
+        "memory_bytes": 532480
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 11,
+        "log_num_blocks": 16,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7809600830078125,
+        "fpr": 0.00162,
+        "memory_bytes": 532480
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 12,
+        "log_num_blocks": 16,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7826690673828125,
+        "fpr": 0.00455,
+        "memory_bytes": 524288
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 12,
+        "log_num_blocks": 16,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7826690673828125,
+        "fpr": 0.00472,
+        "memory_bytes": 524288
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 12,
+        "log_num_blocks": 16,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7826690673828125,
+        "fpr": 0.00144,
+        "memory_bytes": 532480
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 12,
+        "log_num_blocks": 16,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7826690673828125,
+        "fpr": 0.00141,
+        "memory_bytes": 532480
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 12,
+        "log_num_blocks": 16,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7810516357421875,
+        "fpr": 0.00464,
+        "memory_bytes": 524288
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "k": 12,
+        "log_num_blocks": 16,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7810516357421875,
+        "fpr": 0.00468,
+        "memory_bytes": 524288
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 12,
+        "log_num_blocks": 16,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7810516357421875,
+        "fpr": 0.002,
+        "memory_bytes": 532480
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "k": 12,
+        "log_num_blocks": 16,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7810516357421875,
+        "fpr": 0.00194,
+        "memory_bytes": 532480
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 12,
+        "log_num_blocks": 16,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7805328369140625,
+        "fpr": 0.00537,
+        "memory_bytes": 524288
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 12,
+        "log_num_blocks": 16,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7805328369140625,
+        "fpr": 0.00467,
+        "memory_bytes": 524288
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 12,
+        "log_num_blocks": 16,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7805328369140625,
+        "fpr": 0.00178,
+        "memory_bytes": 532480
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 12,
+        "log_num_blocks": 16,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7805328369140625,
+        "fpr": 0.0018,
+        "memory_bytes": 532480
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 12,
+        "log_num_blocks": 16,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7809600830078125,
+        "fpr": 0.00467,
+        "memory_bytes": 524288
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "k": 12,
+        "log_num_blocks": 16,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7809600830078125,
+        "fpr": 0.00483,
+        "memory_bytes": 524288
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 12,
+        "log_num_blocks": 16,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7809600830078125,
+        "fpr": 0.00167,
+        "memory_bytes": 532480
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "k": 12,
+        "log_num_blocks": 16,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.7809600830078125,
+        "fpr": 0.00164,
+        "memory_bytes": 532480
+      }
+    }
+  ],
+  "timestamp": "2025-12-27T00:35:06Z"
+}

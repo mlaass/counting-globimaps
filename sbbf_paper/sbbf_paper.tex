@@ -10,6 +10,7 @@
 \usepackage[ruled,vlined]{algorithm2e}
 \usepackage{graphicx}
 \graphicspath{{Figures/PDF/}{Figures/PNG/}}
+\usepackage{subcaption}
 
 \usepackage{booktabs}
 \usepackage[table]{xcolor}
@@ -71,6 +72,9 @@ Space-filling curves (SFCs) provide continuous mappings from multi-dimensional c
 In spatial databases, Hilbert indexing achieves 90--95\% speedups for nearest-neighbor queries and 32--58\% for range queries compared to standard approaches~\citep{Ujang2014}. For array layouts, generalized Morton orderings can yield up to 10$\times$ speedups by aligning memory access patterns with cache hierarchies~\citep{Swatman2024}. SFCs are also used for octree indexing and point cloud compression~\citep{Chen2022}.
 
 SBBF is the first to integrate SFCs directly into the indexing logic of a probabilistic membership structure to the best of our knowledge, using the curve not only to preserve locality but also to derive both block indices and intra-block bit patterns from a single SFC computation.
+
+\subsection{Spatial Data Representations}
+Exact spatial representations present a memory-accuracy trade-off that depends on data sparsity. \textbf{Dense voxel grids} allocate one bit per cell in an $N^d$ array, providing $O(1)$ lookup but $O(N^d)$ memory regardless of occupancy---a limitation noted by \citet{Niessner2013} in real-time reconstruction. \textbf{Sparse voxel octrees} (SVOs)~\citep{Laine2010} address this by hierarchically subdividing space, achieving approximately 5 bytes per occupied voxel; subsequent work on SVDAGs~\citep{Kampe2013} further compresses via directed acyclic graphs. For unstructured point sets, \textbf{coordinate lists} (COO format) store explicit $(x,y,z)$ tuples, requiring 64--96 bits per point with $O(\log n)$ binary search~\citep{Saad1994}. A recent review~\citep{Nguyen2021} comprehensively compares these approaches. SBBF offers a probabilistic alternative: constant memory regardless of density, $O(1)$ queries, with bounded false positive rate---trading exactness for space efficiency on sparse spatial data.
 
 \textbf{Efficient Hilbert Encoding.} While Hilbert curves provide superior locality, the standard bit-by-bit encoding algorithm requires $O(n)$ iterations with branch-heavy rotation operations---for 16-bit coordinates, this means 16 loop iterations with conditional state transitions, yielding approximately 75~ns per encode. Recent work has addressed this via lookup table (LUT) approaches: processing multiple bits per iteration reduces the iteration count while precomputing state transitions eliminates branch mispredictions. The \texttt{fast-hilbert} library~\citep{FastHilbert} demonstrates 4-bit chunked encoding achieving 3~ns latency. For 3D, Morton-Hilbert decomposition transforms Morton codes (computed in $O(1)$ via PDEP) through a compact 96-byte LUT~\citep{ThreadLocalMutex3D}.
 
@@ -315,12 +319,6 @@ SBBF-Morton with pattern lookup uses 4.9$\times$ fewer instructions than Blocked
 \subsection{Random Access vs.\ Linear Traversal}
 The primary advantage of SBBF is revealed during linear spatial scans. Figure~\ref{fig:l1dcache} shows L1-dcache miss rates during volume traversals across grid sizes from $64^3$ to $256^3$ voxels. SBBF with sequential SFC iteration maintains near-zero miss rates (0.05--0.15\%) regardless of grid size, as the sequential block access pattern enables effective hardware prefetching. In contrast, hash-based filters exhibit substantially higher miss rates that increase with data size: at $256^3$, Standard Bloom Filter reaches 7.9\%, BlockedBF 3.7\%, and RegisterBF 2.0\%. This 40--160$\times$ difference in cache efficiency demonstrates that SBBF's SFC-based block indexing transforms random memory access patterns into sequential scans, fundamentally changing the cache behavior from capacity-limited to prefetcher-optimized.
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\columnwidth]{Figures/PDF/l1dcache_miss_rate.pdf}
-\caption{L1-dcache miss rate vs.\ grid size. SBBF with SFC-sequential traversal (solid) achieves dramatically lower miss rates than hash-based filters with row-major traversal (dashed).}
-\label{fig:l1dcache}
-\end{figure}
 
 \begin{figure}[htbp!]
 \centering
@@ -347,12 +345,12 @@ The seed derivation strategy determines how the SFC code is transformed into the
 
 We conduct a comprehensive evaluation across six dataset types: uniform synthetic (2D/3D), clustered synthetic (2D/3D with 50 Gaussian clusters, $\sigma=500$), real-world geographic (GDELT 1.9M events), and voxelized 3D meshes. Figure~\ref{fig:seed-strategy} summarizes the results.
 
-\begin{figure*}[htbp]
+\begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{Figures/PDF/seed_strategy_overview.pdf}
+\includegraphics[width=\columnwidth]{Figures/PDF/seed_strategy_overview.pdf}
 \caption{Seed strategy comparison across data distributions ($k=8$). Each subplot shows FPR (\%) for XOR (green) vs.\ multiply-shift (red hatched) across SFC and intra-block strategy combinations. Top row: 2D data (uniform, clustered, GDELT). Bottom row: 3D data (uniform, clustered, voxel). Note: GDELT uses different y-axis scale due to dramatically lower FPR values.}
 \label{fig:seed-strategy}
-\end{figure*}
+\end{figure}
 
 \textbf{Key Findings.} The optimal seed strategy depends strongly on data distribution:
 
@@ -377,12 +375,23 @@ With \texttt{double\_hash}, multiply-shift consistently achieves 1.5--2$\times$ 
 \subsection{Hash Function Count Sensitivity}\label{sec:k-sensitivity}
 The number of hash functions $k$ directly affects both FPR and computational cost. Standard Bloom filter theory establishes the optimal $k = \ln(2) \cdot (m/n)$ for minimum FPR at 50\% fill rate~\citep{Kirsch2008}. Prior work on cache-efficient filters recommends $k \in \{6, 8\}$ as the practical sweet spot, noting that $k > 11$ is never performance-optimal~\citep{Lang2019}, while SIMD-optimized variants prefer $k$ as a power of two for cache-line alignment~\citep{Putze2009}. We evaluate $k \in \{2, \ldots, 12\}$ while maintaining constant 50\% fill rate by adjusting filter size ($m = 2nk$).
 
-\begin{figure}[htbp]
+\begin{figure*}[htbp]
 \centering
-\includegraphics[width=\columnwidth]{Figures/PDF/k_sensitivity_combined.pdf}
+\begin{subfigure}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{Figures/PDF/l1dcache_miss_rate.pdf}
+\caption{L1-dcache miss rate vs.\ grid size. SBBF with SFC-sequential traversal (solid) achieves dramatically lower miss rates than hash-based filters with row-major traversal (dashed).}
+\label{fig:l1dcache}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{Figures/PDF/k_sensitivity_combined.pdf}
 \caption{FPR vs.\ $k$ (hash functions) at constant 50\% fill rate. Hilbert SFC with \texttt{pattern\_lookup} and XOR seed. Voxel meshes at $128^3$ resolution.}
 \label{fig:k-sensitivity}
-\end{figure}
+\end{subfigure}
+\caption{Cache behavior and parameter sensitivity analysis.}
+\label{fig:cache-sensitivity}
+\end{figure*}
 
 \textbf{Key Findings.} FPR decreases rapidly from $k=2$ ($\sim$10\%) to $k=6$ ($\sim$0.5\%) across all data types, consistent with the theoretical optimum $k \approx 0.693 \cdot c$ where $c$ is bits per element. Beyond $k=6$, synthetic data shows diminishing returns---matching prior findings~\citep{Lang2019}---while voxelized meshes continue improving through $k=11$. We attribute this divergence to the structured spatial locality in voxel data: SFC-indexed points cluster in memory, reducing the effective collision rate and shifting the optimum toward higher $k$. Based on these results, we use $k=8$ as the default throughout this paper unless otherwise specified, balancing FPR reduction, cache efficiency (power-of-two alignment), and computational cost.
 
@@ -393,6 +402,17 @@ Table~\ref{tab:neighbor-performance} compares neighborhood query performance for
 
 SBBF-Morton achieves 4--5$\times$ fewer cycles than baselines for neighbor queries. The high IPC (7.5) indicates excellent instruction-level parallelism from cache hits. Morton outperforms Hilbert here because its simpler encoding allows faster neighbor coordinate computation.
 
+\subsection{Compression Efficiency vs.\ Data Density}
+We evaluate SBBF's memory efficiency across varying data densities, comparing against exact representations: \textbf{dense voxel grids} (1 bit/cell, $O(1)$ query) and \textbf{coordinate lists} (64 bits/point, $O(\log n)$ binary search). Figure~\ref{fig:density-compression} shows results on a $256^3$ grid (${\sim}16.7$M cells) with uniform random fill from 0.001\% to 100\%.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{Figures/PDF/density_compression_combined.pdf}
+\caption{SBBF compression efficiency vs.\ data density on $256^3$ grid. (a) Memory ratio vs.\ fill rate. (b) Bits per element. (c) Query time ratio. Gray line indicates parity.}
+\label{fig:density-compression}
+\end{figure}
+
+\textbf{Key Findings.} SBBF maintains approximately constant bits-per-element ($\sim$10 bpe) regardless of density, making it ideal for sparse data. At low densities ($<$10\%), SBBF uses 10--100$\times$ less memory than dense grids, which allocate the full $256^3$ bitset regardless of occupancy. Compared to coordinate lists, SBBF wins below $\sim$0.01\% fill rate and provides $O(1)$ queries vs.\ $O(\log n)$. At high densities ($>$50\%), dense grids become more efficient since their 1-bit-per-cell overhead is minimal. The optimal choice depends on expected sparsity: SBBF for sparse spatial data (typical in voxel processing), dense grids for near-full occupancy.
 
 \section{Discussion}
 SBBF represents a paradigm shift from "locality-destroying" hashing to "locality-preserving" indexing. The choice of SFC presents a trade-off: **Morton** is optimal for high-speed streaming due to its $O(1)$ hardware encoding, while **Hilbert** is superior for complex neighborhood queries where its $Space-to-Linear$ ratio of 6 vs.\ 9 for Morton, yields higher cache hit rates during sequential spatial scans. For neighborhood-heavy applications like voxel processing, Hilbert's locality advantage outweighs its encoding cost.

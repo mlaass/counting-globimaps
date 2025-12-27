@@ -265,4 +265,10 @@ target_link_libraries(l1dcache_benchmark
 PUBLIC OpenMP::OpenMP_CXX
 )
 
+# SBBF Density vs Compression benchmark
+add_executable(sbbf_density_compression experiments/src/sbbf_density_compression.cpp)
+target_link_libraries(sbbf_density_compression
+PUBLIC OpenMP::OpenMP_CXX
+)
+
 endif()

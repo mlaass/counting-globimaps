@@ -53,6 +53,21 @@ INTRA_MARKERS = {
     'pattern_lookup': '^',
 }
 
+# Mesh-specific colors for voxel data
+MESH_COLORS = {
+    'bunny': '#2ca02c',     # Green
+    'teapot': '#d62728',    # Red
+    'armadillo': '#9467bd', # Purple
+    'dragon': '#8c564b',    # Brown
+}
+
+MESH_MARKERS = {
+    'bunny': '^',
+    'teapot': 'v',
+    'armadillo': 'D',
+    'dragon': 'p',
+}
+
 
 def load_synthetic_results(input_dir: str) -> dict:
     """Load synthetic benchmark results."""
@@ -365,7 +380,7 @@ def compute_voxel_mean_std(results: list, intra_strategy: str, seed_strategy: st
 
 
 def plot_combined(synthetic: dict, voxel: dict, output_dir: str):
-    """Create combined figure with 2D, 3D synthetic and averaged voxel data.
+    """Create combined figure with 2D, 3D synthetic and individual voxel mesh data.
 
     Single unified plot showing FPR vs k for best configuration:
     - Hilbert + pattern_lookup + XOR for all data types
@@ -379,32 +394,39 @@ def plot_combined(synthetic: dict, voxel: dict, output_dir: str):
     intra = 'pattern_lookup'
     seed = 'XOR'
 
-    # Colors for each data type
-    colors = {
+    # Colors for synthetic data
+    syn_colors = {
         '2D': '#1f77b4',  # Blue
         '3D': '#ff7f0e',  # Orange
-        'Voxel': '#2ca02c',  # Green
     }
 
     # 2D Synthetic
     k_2d, fpr_2d = extract_series(syn_data, 'HILBERT_2D', 2, intra, seed)
     if len(k_2d) > 0:
-        ax.plot(k_2d, fpr_2d * 100, marker='o', color=colors['2D'],
+        ax.plot(k_2d, fpr_2d * 100, marker='o', color=syn_colors['2D'],
                linestyle='-', label='2D Synthetic', markersize=8, linewidth=2)
 
     # 3D Synthetic
     k_3d, fpr_3d = extract_series(syn_data, 'HILBERT_3D', 3, intra, seed)
     if len(k_3d) > 0:
-        ax.plot(k_3d, fpr_3d * 100, marker='s', color=colors['3D'],
+        ax.plot(k_3d, fpr_3d * 100, marker='s', color=syn_colors['3D'],
                linestyle='-', label='3D Synthetic', markersize=8, linewidth=2)
 
-    # Voxel (averaged across 4 meshes with error bars)
-    k_vox, mean_fpr, std_fpr = compute_voxel_mean_std(vox_data, intra, seed)
-    if len(k_vox) > 0:
-        ax.errorbar(k_vox, mean_fpr * 100, yerr=std_fpr * 100,
-                   marker='^', color=colors['Voxel'], linestyle='-',
-                   label='Voxels (mean of 4 meshes)', markersize=8, linewidth=2,
-                   capsize=4, capthick=1.5)
+    # Individual voxel meshes (dashed lines to distinguish from synthetic)
+    meshes = ['bunny', 'teapot', 'armadillo', 'dragon']
+    all_voxel_fprs = []
+    for mesh in meshes:
+        k_vals, fpr_vals = extract_voxel_series(vox_data, mesh, intra, seed)
+        if len(k_vals) > 0:
+            label = mesh.capitalize()
+            ax.plot(k_vals, fpr_vals * 100,
+                   marker=MESH_MARKERS[mesh],
+                   color=MESH_COLORS[mesh],
+                   linestyle='--',
+                   label=label,
+                   markersize=7,
+                   linewidth=1.5)
+            all_voxel_fprs.extend(zip(k_vals, fpr_vals))
 
     # Find optimal k (minimum FPR across all)
     all_fprs = []
@@ -412,8 +434,7 @@ def plot_combined(synthetic: dict, voxel: dict, output_dir: str):
         all_fprs.extend(zip(k_2d, fpr_2d))
     if len(fpr_3d) > 0:
         all_fprs.extend(zip(k_3d, fpr_3d))
-    if len(mean_fpr) > 0:
-        all_fprs.extend(zip(k_vox, mean_fpr))
+    all_fprs.extend(all_voxel_fprs)
 
     if all_fprs:
         # Find k with minimum average FPR
@@ -434,7 +455,7 @@ def plot_combined(synthetic: dict, voxel: dict, output_dir: str):
     ax.set_xlabel('k (hash functions)', fontsize=14)
     ax.set_ylabel('False Positive Rate (%)', fontsize=14)
     ax.set_title('SBBF FPR vs k (Hilbert + pattern_lookup + XOR)', fontsize=16)
-    ax.legend(loc='upper right', fontsize=11)
+    ax.legend(loc='upper right', fontsize=10, ncol=2)
     ax.grid(True, alpha=0.3)
     ax.set_xticks(range(2, 13))
     ax.set_yscale('log')

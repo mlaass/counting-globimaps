@@ -391,16 +391,16 @@ With \texttt{double\_hash}, multiply-shift achieves lower raw FPR and near-zero 
 \textbf{Recommendation.} For real-world geographic data (GDELT-like distributions), XOR is strongly preferred. For voxelized meshes with topological verification and \texttt{double\_hash}, multiply-shift excels. For uniform or clustered synthetic data, either strategy performs comparably. When using \texttt{pattern\_lookup} on voxels, prefer XOR.
 
 \subsection{Hash Function Count Sensitivity}\label{sec:k-sensitivity}
-The number of hash functions $k$ directly affects both FPR and computational cost. We evaluate $k \in \{2, \ldots, 12\}$ while maintaining constant 50\% fill rate by adjusting filter size ($m = nk / 0.5$).
+The number of hash functions $k$ directly affects both FPR and computational cost. Standard Bloom filter theory establishes the optimal $k = \ln(2) \cdot (m/n)$ for minimum FPR at 50\% fill rate~\citep{Kirsch2008}. Prior work on cache-efficient filters recommends $k \in \{6, 8\}$ as the practical sweet spot, noting that $k > 11$ is never performance-optimal~\citep{Lang2019}, while SIMD-optimized variants prefer $k$ as a power of two for cache-line alignment~\citep{Putze2009}. We evaluate $k \in \{2, \ldots, 12\}$ while maintaining constant 50\% fill rate by adjusting filter size ($m = 2nk$).
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\columnwidth]{Figures/PDF/k_sensitivity_combined.pdf}
-\caption{FPR vs.\ $k$ (hash functions) at constant 50\% fill rate. Hilbert SFC with \texttt{pattern\_lookup} and XOR seed. Voxel results show mean $\pm$ std across four meshes (bunny, teapot, armadillo, dragon at $128^3$).}
+\caption{FPR vs.\ $k$ (hash functions) at constant 50\% fill rate. Hilbert SFC with \texttt{pattern\_lookup} and XOR seed. Voxel meshes at $128^3$ resolution.}
 \label{fig:k-sensitivity}
 \end{figure}
 
-\textbf{Key Findings.} FPR decreases rapidly from $k=2$ ($\sim$10\%) to $k=6$ ($\sim$0.5\%) across all data types. Beyond $k=6$, synthetic data shows diminishing returns while voxelized meshes continue improving through $k=11$. The consistency across 2D synthetic, 3D synthetic, and structured voxel data demonstrates that $k=6$ provides a practical optimum, balancing FPR reduction against the linear increase in hash computations per query.
+\textbf{Key Findings.} FPR decreases rapidly from $k=2$ ($\sim$10\%) to $k=6$ ($\sim$0.5\%) across all data types, consistent with the theoretical optimum $k \approx 0.693 \cdot c$ where $c$ is bits per element. Beyond $k=6$, synthetic data shows diminishing returns---matching prior findings~\citep{Lang2019}---while voxelized meshes continue improving through $k=11$. We attribute this divergence to the structured spatial locality in voxel data: SFC-indexed points cluster in memory, reducing the effective collision rate and shifting the optimum toward higher $k$. Based on these results, we use $k=8$ as the default throughout this paper unless otherwise specified, balancing FPR reduction, cache efficiency (power-of-two alignment), and computational cost.
 
 \subsection{Neighborhood Query Performance}
 Table~\ref{tab:neighbor-performance} compares neighborhood query performance for 3D data (6 neighbors per point). SBBF exploits SFC locality: spatially adjacent cells map to nearby memory addresses, enabling cache-line reuse across neighbor queries.

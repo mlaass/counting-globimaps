@@ -1,9 +1,9 @@
 {
   "experiment": "seed_strategy_voxel",
-  "timestamp": "2025-12-27T00:55:00.649970",
+  "timestamp": "2025-12-27T19:22:47.164337",
   "config": {
     "bits_per_element": 10.0,
-    "hash_k": 4,
+    "hash_k": 8,
     "meshes": [
       {
         "name": "bunny",
@@ -34,12 +34,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.026531018862617287,
-        "false_positives": 54329,
+        "fpr": 0.06624428520222644,
+        "false_positives": 135652,
         "actual_fill_rate": 0.9976806640625,
         "memory_bytes": 65536,
-        "insert_ns": 696.5569456253289,
-        "query_ns": 155.67571020126343
+        "insert_ns": 648.67022956395,
+        "query_ns": 152.2232928276062
       }
     },
     {
@@ -52,12 +52,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.01617332941359167,
-        "false_positives": 33119,
+        "fpr": 0.03227975625978511,
+        "false_positives": 66101,
         "actual_fill_rate": 0.9976806640625,
         "memory_bytes": 65536,
-        "insert_ns": 696.9468197092999,
-        "query_ns": 155.31761980056763
+        "insert_ns": 660.8982954775497,
+        "query_ns": 152.67251777648926
       }
     },
     {
@@ -70,12 +70,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.014396260488320375,
-        "false_positives": 29480,
+        "fpr": 0.019306029923516203,
+        "false_positives": 39534,
         "actual_fill_rate": 0.9976806640625,
         "memory_bytes": 73728,
-        "insert_ns": 682.8613709057047,
-        "query_ns": 152.42152976989746
+        "insert_ns": 649.4264140248594,
+        "query_ns": 146.11387968063354
       }
     },
     {
@@ -88,12 +88,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.029297464441529596,
-        "false_positives": 59994,
+        "fpr": 0.03435861924821048,
+        "false_positives": 70358,
         "actual_fill_rate": 0.9976806640625,
         "memory_bytes": 73728,
-        "insert_ns": 687.6233045872302,
-        "query_ns": 154.71836137771606
+        "insert_ns": 642.1755334224058,
+        "query_ns": 147.01482439041138
       }
     },
     {
@@ -106,12 +106,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.02643188586128998,
-        "false_positives": 54126,
+        "fpr": 0.06711401857840346,
+        "false_positives": 137433,
         "actual_fill_rate": 0.998046875,
         "memory_bytes": 65536,
-        "insert_ns": 698.5496983683549,
-        "query_ns": 158.75993537902832
+        "insert_ns": 653.8818575650836,
+        "query_ns": 159.29721403121948
       }
     },
     {
@@ -124,12 +124,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.015775820728466408,
-        "false_positives": 32305,
+        "fpr": 0.03158387189086189,
+        "false_positives": 64676,
         "actual_fill_rate": 0.998046875,
         "memory_bytes": 65536,
-        "insert_ns": 685.7962063241426,
-        "query_ns": 162.6549310684204
+        "insert_ns": 653.9402000080975,
+        "query_ns": 156.37295055389404
       }
     },
     {
@@ -142,12 +142,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.014161368992564536,
-        "false_positives": 28999,
+        "fpr": 0.01928551964737952,
+        "false_positives": 39492,
         "actual_fill_rate": 0.998046875,
         "memory_bytes": 73728,
-        "insert_ns": 687.2771772136524,
-        "query_ns": 160.3322582244873
+        "insert_ns": 660.5441110976153,
+        "query_ns": 154.53103971481323
       }
     },
     {
@@ -160,12 +160,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.027181975960003008,
-        "false_positives": 55662,
+        "fpr": 0.031787509632504686,
+        "false_positives": 65093,
         "actual_fill_rate": 0.998046875,
         "memory_bytes": 73728,
-        "insert_ns": 698.3629701607352,
-        "query_ns": 163.816264629364
+        "insert_ns": 649.8353577067898,
+        "query_ns": 155.45292043685913
       }
     },
     {
@@ -178,12 +178,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.008829999686074506,
-        "false_positives": 18283,
+        "fpr": 0.022765876781829026,
+        "false_positives": 47138,
         "actual_fill_rate": 0.930908203125,
         "memory_bytes": 65536,
-        "insert_ns": 685.5984885513403,
-        "query_ns": 153.4805669784546
+        "insert_ns": 654.8334022634132,
+        "query_ns": 145.93572282791138
       }
     },
     {
@@ -196,12 +196,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.0045026575000422595,
-        "false_positives": 9323,
+        "fpr": 0.009383474479064792,
+        "false_positives": 19429,
         "actual_fill_rate": 0.930908203125,
         "memory_bytes": 65536,
-        "insert_ns": 684.4901680640673,
-        "query_ns": 152.1195421218872
+        "insert_ns": 653.8553220288003,
+        "query_ns": 144.42336893081665
       }
     },
     {
@@ -214,12 +214,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.0031257319897322216,
-        "false_positives": 6472,
+        "fpr": 0.0030083721514279987,
+        "false_positives": 6229,
         "actual_fill_rate": 0.930908203125,
         "memory_bytes": 73728,
-        "insert_ns": 709.6760912884912,
-        "query_ns": 152.83690881729126
+        "insert_ns": 677.1943452269053,
+        "query_ns": 141.6406488418579
       }
     },
     {
@@ -236,8 +236,8 @@
         "false_positives": 23299,
         "actual_fill_rate": 0.930908203125,
         "memory_bytes": 73728,
-        "insert_ns": 693.7530548558108,
-        "query_ns": 151.18176460266113
+        "insert_ns": 661.5394593375192,
+        "query_ns": 140.40573835372925
       }
     },
     {
@@ -250,12 +250,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.008322889273648852,
-        "false_positives": 17233,
+        "fpr": 0.022444223891661896,
+        "false_positives": 46472,
         "actual_fill_rate": 0.9708251953125,
         "memory_bytes": 65536,
-        "insert_ns": 702.5326540587284,
-        "query_ns": 154.58929204940796
+        "insert_ns": 681.0995601007633,
+        "query_ns": 150.8241844177246
       }
     },
     {
@@ -268,12 +268,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.003826027321177172,
-        "false_positives": 7922,
+        "fpr": 0.008064504444460543,
+        "false_positives": 16698,
         "actual_fill_rate": 0.9708251953125,
         "memory_bytes": 65536,
-        "insert_ns": 710.1707711396023,
-        "query_ns": 152.74650192260742
+        "insert_ns": 663.393390231981,
+        "query_ns": 148.89630603790283
       }
     },
     {
@@ -286,12 +286,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.00241191371395592,
-        "false_positives": 4994,
+        "fpr": 0.001788892350118688,
+        "false_positives": 3704,
         "actual_fill_rate": 0.9708251953125,
         "memory_bytes": 73728,
-        "insert_ns": 683.8609617626048,
-        "query_ns": 154.5621943473816
+        "insert_ns": 660.9253299244276,
+        "query_ns": 148.05835676193237
       }
     },
     {
@@ -304,12 +304,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.010361473131599982,
-        "false_positives": 21454,
+        "fpr": 0.009825867943618982,
+        "false_positives": 20345,
         "actual_fill_rate": 0.9708251953125,
         "memory_bytes": 73728,
-        "insert_ns": 692.0497800503816,
-        "query_ns": 157.4150733947754
+        "insert_ns": 664.6881227206076,
+        "query_ns": 149.9026803970337
       }
     },
     {
@@ -322,12 +322,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.014566333213665428,
-        "false_positives": 30025,
+        "fpr": 0.038110185032455876,
+        "false_positives": 78555,
         "actual_fill_rate": 0.9884033203125,
         "memory_bytes": 65536,
-        "insert_ns": 685.1502006018054,
-        "query_ns": 152.20078229904175
+        "insert_ns": 659.6208347264014,
+        "query_ns": 147.16004467010498
       }
     },
     {
@@ -340,12 +340,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.007667155041091371,
-        "false_positives": 15804,
+        "fpr": 0.014961722441613381,
+        "false_positives": 30840,
         "actual_fill_rate": 0.9884033203125,
         "memory_bytes": 65536,
-        "insert_ns": 694.9095620193915,
-        "query_ns": 152.73258066177368
+        "insert_ns": 671.9224061072106,
+        "query_ns": 159.3511724472046
       }
     },
     {
@@ -358,12 +358,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.006089964390712477,
-        "false_positives": 12553,
+        "fpr": 0.006529501372946644,
+        "false_positives": 13459,
         "actual_fill_rate": 0.9884033203125,
         "memory_bytes": 73728,
-        "insert_ns": 686.7384653961885,
-        "query_ns": 150.50845432281494
+        "insert_ns": 661.2631227014376,
+        "query_ns": 145.0592360496521
       }
     },
     {
@@ -376,12 +376,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.017674626199509037,
-        "false_positives": 36432,
+        "fpr": 0.01790458263392294,
+        "false_positives": 36906,
         "actual_fill_rate": 0.9884033203125,
         "memory_bytes": 73728,
-        "insert_ns": 693.9639473977488,
-        "query_ns": 151.82433128356934
+        "insert_ns": 668.4120695419592,
+        "query_ns": 142.98195123672485
       }
     },
     {
@@ -394,12 +394,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.014480463405877959,
-        "false_positives": 29848,
+        "fpr": 0.03782104149888903,
+        "false_positives": 77959,
         "actual_fill_rate": 0.985595703125,
         "memory_bytes": 65536,
-        "insert_ns": 702.9173353393514,
-        "query_ns": 155.28189945220947
+        "insert_ns": 668.2647386604257,
+        "query_ns": 156.0187406539917
       }
     },
     {
@@ -412,12 +412,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.007302814783190864,
-        "false_positives": 15053,
+        "fpr": 0.014798715348864287,
+        "false_positives": 30504,
         "actual_fill_rate": 0.985595703125,
         "memory_bytes": 65536,
-        "insert_ns": 699.1921040900479,
-        "query_ns": 156.8261022567749
+        "insert_ns": 664.8363144990527,
+        "query_ns": 150.725191116333
       }
     },
     {
@@ -430,12 +430,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.005887660945247082,
-        "false_positives": 12136,
+        "fpr": 0.0060511531781531685,
+        "false_positives": 12473,
         "actual_fill_rate": 0.985595703125,
         "memory_bytes": 73728,
-        "insert_ns": 698.407026635462,
-        "query_ns": 155.8342719078064
+        "insert_ns": 661.4549203165051,
+        "query_ns": 151.3639554977417
       }
     },
     {
@@ -448,12 +448,12 @@
         "log_num_blocks": 13
       },
       "metrics": {
-        "fpr": 0.016810106439750443,
-        "false_positives": 34650,
+        "fpr": 0.01688821400502605,
+        "false_positives": 34811,
         "actual_fill_rate": 0.985595703125,
         "memory_bytes": 73728,
-        "insert_ns": 685.3106541847766,
-        "query_ns": 159.61113214492798
+        "insert_ns": 665.9990805750585,
+        "query_ns": 153.5456247329712
       }
     },
     {
@@ -466,12 +466,12 @@
         "log_num_blocks": 12
       },
       "metrics": {
-        "fpr": 0.015768710805186274,
-        "false_positives": 32741,
+        "fpr": 0.0346077472382722,
+        "false_positives": 71857,
         "actual_fill_rate": 0.993408203125,
         "memory_bytes": 32768,
-        "insert_ns": 764.4298199279712,
-        "query_ns": 151.653742313385
+        "insert_ns": 646.59212484994,
+        "query_ns": 145.85485363006592
       }
     },
     {
@@ -484,12 +484,12 @@
         "log_num_blocks": 12
       },
       "metrics": {
-        "fpr": 0.011427872391969088,
-        "false_positives": 23728,
+        "fpr": 0.023065730975901196,
+        "false_positives": 47892,
         "actual_fill_rate": 0.993408203125,
         "memory_bytes": 32768,
-        "insert_ns": 682.5474669867947,
-        "query_ns": 152.74128532409668
+        "insert_ns": 659.8454741896759,
+        "query_ns": 145.2671194076538
       }
     },
     {
@@ -502,12 +502,12 @@
         "log_num_blocks": 12
       },
       "metrics": {
-        "fpr": 0.009610721239958831,
-        "false_positives": 19955,
+        "fpr": 0.01235980652373157,
+        "false_positives": 25663,
         "actual_fill_rate": 0.993408203125,
         "memory_bytes": 40960,
-        "insert_ns": 693.6649699879952,
-        "query_ns": 146.8110589981079
+        "insert_ns": 651.4012484993998,
+        "query_ns": 140.76462364196777
       }
     },
     {
@@ -520,12 +520,12 @@
         "log_num_blocks": 12
       },
       "metrics": {
-        "fpr": 0.029120653923972475,
-        "false_positives": 60464,
+        "fpr": 0.031045687890202265,
+        "false_positives": 64461,
         "actual_fill_rate": 0.993408203125,
         "memory_bytes": 40960,
-        "insert_ns": 698.2963745498199,
-        "query_ns": 149.00954675674438
+        "insert_ns": 647.117118847539,
+        "query_ns": 140.46154928207397
       }
     },
     {
@@ -538,12 +538,12 @@
         "log_num_blocks": 12
       },
       "metrics": {
-        "fpr": 0.017451008439422114,
-        "false_positives": 36234,
+        "fpr": 0.039146531350793976,
+        "false_positives": 81281,
         "actual_fill_rate": 0.988525390625,
         "memory_bytes": 32768,
-        "insert_ns": 685.2558463385354,
-        "query_ns": 154.178156375885
+        "insert_ns": 665.1347418967587,
+        "query_ns": 151.40812730789185
       }
     },
     {
@@ -556,12 +556,12 @@
         "log_num_blocks": 12
       },
       "metrics": {
-        "fpr": 0.01361057290108928,
-        "false_positives": 28260,
+        "fpr": 0.028832163719876493,
+        "false_positives": 59865,
         "actual_fill_rate": 0.988525390625,
         "memory_bytes": 32768,
-        "insert_ns": 681.6989195678271,
-        "query_ns": 152.773512840271
+        "insert_ns": 666.8060984393758,
+        "query_ns": 150.6631464958191
       }
     },
     {
@@ -574,12 +574,12 @@
         "log_num_blocks": 12
       },
       "metrics": {
-        "fpr": 0.011900822943592218,
-        "false_positives": 24710,
+        "fpr": 0.018030878565852105,
+        "false_positives": 37438,
         "actual_fill_rate": 0.988525390625,
         "memory_bytes": 40960,
-        "insert_ns": 694.1659543817527,
-        "query_ns": 154.45615911483765
+        "insert_ns": 663.8071068427371,
+        "query_ns": 148.4361081123352
       }
     },
     {
@@ -592,12 +592,12 @@
         "log_num_blocks": 12
       },
       "metrics": {
-        "fpr": 0.029980345099784377,
-        "false_positives": 62249,
+        "fpr": 0.035453471442600325,
+        "false_positives": 73613,
         "actual_fill_rate": 0.988525390625,
         "memory_bytes": 40960,
-        "insert_ns": 684.6577190876351,
-        "query_ns": 156.76550388336182
+        "insert_ns": 663.6972388955583,
+        "query_ns": 152.42483043670654
       }
     }
   ]

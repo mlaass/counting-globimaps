@@ -2,7 +2,7 @@
   "metadata": {
     "benchmark_version": "1.0",
     "suite": null,
-    "timestamp": "2025-12-25T21:25:23Z"
+    "timestamp": "2025-12-27T18:53:13Z"
   },
   "parameters": {
     "coord_bits": [
@@ -20,7 +20,7 @@
       100000
     ],
     "hash_k": [
-      4
+      8
     ],
     "log_blocks": [
       17
@@ -41,7 +41,7 @@
         "dimensions": 2,
         "distribution": "uniform",
         "filter_type": "sbbf",
-        "hash_k": 4,
+        "hash_k": 8,
         "log_blocks": 17,
         "name": "SBBF-Morton2D",
         "num_elements": 100000,
@@ -49,17 +49,17 @@
         "strategy": "pattern_lookup"
       },
       "metrics": {
-        "fpr": 0.0008,
+        "fpr": 0.00076,
         "insert_cyc": 16,
-        "insert_ins": 49,
-        "insert_ns": 4.619715197962111,
+        "insert_ins": 51,
+        "insert_ns": 4.5984225563708065,
         "memory_bytes": 1056768,
         "neighbor_cyc": 12,
-        "neighbor_ins": 60,
-        "neighbor_ns": 27.378131573914708,
-        "query_cyc": 15,
-        "query_ins": 52,
-        "query_ns": 4.316760233872752
+        "neighbor_ins": 64,
+        "neighbor_ns": 28.387119037102476,
+        "query_cyc": 16,
+        "query_ins": 54,
+        "query_ns": 4.4896141667240315
       }
     },
     {
@@ -69,7 +69,7 @@
         "dimensions": 2,
         "distribution": "uniform",
         "filter_type": "sbbf",
-        "hash_k": 4,
+        "hash_k": 8,
         "log_blocks": 17,
         "name": "SBBF-Hilbert2D",
         "num_elements": 100000,
@@ -77,17 +77,17 @@
         "strategy": "pattern_lookup"
       },
       "metrics": {
-        "fpr": 0.00093,
+        "fpr": 0.00088,
         "insert_cyc": 28,
-        "insert_ins": 104,
-        "insert_ns": 8.008746190775845,
+        "insert_ins": 106,
+        "insert_ns": 7.951195005626708,
         "memory_bytes": 1056768,
-        "neighbor_cyc": 19,
-        "neighbor_ins": 60,
-        "neighbor_ns": 42.87987105724895,
-        "query_cyc": 27,
-        "query_ins": 107,
-        "query_ns": 7.751902889382801
+        "neighbor_cyc": 20,
+        "neighbor_ins": 63,
+        "neighbor_ns": 45.36391341720715,
+        "query_cyc": 28,
+        "query_ins": 109,
+        "query_ns": 7.8997770383837
       }
     },
     {
@@ -97,7 +97,7 @@
         "dimensions": 2,
         "distribution": "uniform",
         "filter_type": "blocked_bf",
-        "hash_k": 4,
+        "hash_k": 8,
         "log_blocks": 17,
         "name": "BlockedBF-Wy+Pat",
         "num_elements": 100000,
@@ -108,14 +108,14 @@
         "fpr": 0.00315,
         "insert_cyc": 46,
         "insert_ins": 241,
-        "insert_ns": 12.954056439493334,
+        "insert_ns": 12.871348350053632,
         "memory_bytes": 1081344,
-        "neighbor_cyc": 41,
+        "neighbor_cyc": 44,
         "neighbor_ins": 243,
-        "neighbor_ns": 91.22770875923887,
+        "neighbor_ns": 97.8713078165068,
         "query_cyc": 45,
         "query_ins": 255,
-        "query_ns": 12.496033984550387
+        "query_ns": 12.748681876263849
       }
     },
     {
@@ -125,7 +125,7 @@
         "dimensions": 2,
         "distribution": "uniform",
         "filter_type": "register_bf",
-        "hash_k": 4,
+        "hash_k": 8,
         "log_blocks": 17,
         "name": "RegisterBF-Wy+Pat",
         "num_elements": 100000,
@@ -134,16 +134,16 @@
       },
       "metrics": {
         "fpr": 0.00084,
-        "insert_cyc": 42,
+        "insert_cyc": 44,
         "insert_ins": 236,
-        "insert_ns": 11.768387451843699,
+        "insert_ns": 12.352816494315627,
         "memory_bytes": 1056768,
-        "neighbor_cyc": 34,
+        "neighbor_cyc": 38,
         "neighbor_ins": 243,
-        "neighbor_ns": 77.59760150267303,
-        "query_cyc": 41,
+        "neighbor_ns": 84.69475048606611,
+        "query_cyc": 43,
         "query_ins": 239,
-        "query_ns": 11.633125547577569
+        "query_ns": 11.980467559758342
       }
     },
     {
@@ -153,7 +153,7 @@
         "dimensions": 2,
         "distribution": "clustered",
         "filter_type": "sbbf",
-        "hash_k": 4,
+        "hash_k": 8,
         "log_blocks": 17,
         "name": "SBBF-Morton2D",
         "num_elements": 100000,
@@ -161,17 +161,17 @@
         "strategy": "pattern_lookup"
       },
       "metrics": {
-        "fpr": 0.00087,
+        "fpr": 0.00076,
         "insert_cyc": 15,
-        "insert_ins": 49,
-        "insert_ns": 4.193346988938959,
+        "insert_ins": 51,
+        "insert_ns": 4.4017125512378765,
         "memory_bytes": 1056768,
         "neighbor_cyc": 12,
-        "neighbor_ins": 59,
-        "neighbor_ns": 27.799157235733208,
-        "query_cyc": 14,
-        "query_ins": 52,
-        "query_ns": 4.150373998401541
+        "neighbor_ins": 63,
+        "neighbor_ns": 28.52275947028026,
+        "query_cyc": 15,
+        "query_ins": 54,
+        "query_ns": 4.336435401000375
       }
     },
     {
@@ -181,7 +181,7 @@
         "dimensions": 2,
         "distribution": "clustered",
         "filter_type": "sbbf",
-        "hash_k": 4,
+        "hash_k": 8,
         "log_blocks": 17,
         "name": "SBBF-Hilbert2D",
         "num_elements": 100000,
@@ -189,17 +189,17 @@
         "strategy": "pattern_lookup"
       },
       "metrics": {
-        "fpr": 0.00086,
+        "fpr": 0.00083,
         "insert_cyc": 29,
-        "insert_ins": 104,
-        "insert_ns": 8.244159131754325,
+        "insert_ins": 106,
+        "insert_ns": 8.151386440134637,
         "memory_bytes": 1056768,
-        "neighbor_cyc": 19,
-        "neighbor_ins": 61,
-        "neighbor_ns": 42.609428930028244,
-        "query_cyc": 28,
-        "query_ins": 107,
-        "query_ns": 7.894294572144696
+        "neighbor_cyc": 20,
+        "neighbor_ins": 64,
+        "neighbor_ns": 45.7177640740004,
+        "query_cyc": 29,
+        "query_ins": 109,
+        "query_ns": 8.082997455229426
       }
     },
     {
@@ -209,7 +209,7 @@
         "dimensions": 2,
         "distribution": "clustered",
         "filter_type": "blocked_bf",
-        "hash_k": 4,
+        "hash_k": 8,
         "log_blocks": 17,
         "name": "BlockedBF-Wy+Pat",
         "num_elements": 100000,
@@ -218,16 +218,16 @@
       },
       "metrics": {
         "fpr": 0.00287,
-        "insert_cyc": 46,
+        "insert_cyc": 47,
         "insert_ins": 241,
-        "insert_ns": 12.880875592673712,
+        "insert_ns": 13.123932838450783,
         "memory_bytes": 1081344,
-        "neighbor_cyc": 41,
+        "neighbor_cyc": 42,
         "neighbor_ins": 243,
-        "neighbor_ns": 91.76633785450062,
-        "query_cyc": 45,
+        "neighbor_ns": 94.8322586266992,
+        "query_cyc": 46,
         "query_ins": 255,
-        "query_ns": 12.690337813294587
+        "query_ns": 12.928556990171058
       }
     },
     {
@@ -237,7 +237,7 @@
         "dimensions": 2,
         "distribution": "clustered",
         "filter_type": "register_bf",
-        "hash_k": 4,
+        "hash_k": 8,
         "log_blocks": 17,
         "name": "RegisterBF-Wy+Pat",
         "num_elements": 100000,
@@ -246,16 +246,16 @@
       },
       "metrics": {
         "fpr": 0.00085,
-        "insert_cyc": 42,
+        "insert_cyc": 43,
         "insert_ins": 236,
-        "insert_ns": 11.88818326386796,
+        "insert_ns": 12.202689762305026,
         "memory_bytes": 1056768,
-        "neighbor_cyc": 36,
+        "neighbor_cyc": 38,
         "neighbor_ins": 243,
-        "neighbor_ns": 80.27465452261306,
-        "query_cyc": 42,
+        "neighbor_ns": 84.88584977559488,
+        "query_cyc": 43,
         "query_ins": 239,
-        "query_ns": 11.777029291120225
+        "query_ns": 12.120937585504516
       }
     },
     {
@@ -265,7 +265,7 @@
         "dimensions": 3,
         "distribution": "uniform",
         "filter_type": "sbbf",
-        "hash_k": 4,
+        "hash_k": 8,
         "log_blocks": 17,
         "name": "SBBF-Morton3D",
         "num_elements": 100000,
@@ -273,17 +273,17 @@
         "strategy": "pattern_lookup"
       },
       "metrics": {
-        "fpr": 0.00079,
+        "fpr": 0.00072,
         "insert_cyc": 15,
-        "insert_ins": 38,
-        "insert_ns": 4.16668792245887,
+        "insert_ins": 40,
+        "insert_ns": 4.301022592512608,
         "memory_bytes": 1056768,
-        "neighbor_cyc": 9,
+        "neighbor_cyc": 10,
         "neighbor_ins": 56,
-        "neighbor_ns": 70.58022442864697,
-        "query_cyc": 16,
-        "query_ins": 53,
-        "query_ns": 4.5080909811021845
+        "neighbor_ns": 77.80714014432208,
+        "query_cyc": 17,
+        "query_ins": 54,
+        "query_ns": 4.850146253307002
       }
     },
     {
@@ -293,7 +293,7 @@
         "dimensions": 3,
         "distribution": "uniform",
         "filter_type": "sbbf",
-        "hash_k": 4,
+        "hash_k": 8,
         "log_blocks": 17,
         "name": "SBBF-Hilbert3D",
         "num_elements": 100000,
@@ -301,17 +301,17 @@
         "strategy": "pattern_lookup"
       },
       "metrics": {
-        "fpr": 0.00077,
-        "insert_cyc": 61,
-        "insert_ins": 193,
-        "insert_ns": 17.10376366859635,
+        "fpr": 0.00075,
+        "insert_cyc": 63,
+        "insert_ins": 195,
+        "insert_ns": 17.68392298882595,
         "memory_bytes": 1056768,
         "neighbor_cyc": 23,
-        "neighbor_ins": 104,
-        "neighbor_ns": 166.76967592592592,
-        "query_cyc": 64,
-        "query_ins": 208,
-        "query_ns": 17.94006555330108
+        "neighbor_ins": 107,
+        "neighbor_ns": 169.72242620061684,
+        "query_cyc": 66,
+        "query_ins": 209,
+        "query_ns": 18.58357511853372
       }
     },
     {
@@ -321,7 +321,7 @@
         "dimensions": 3,
         "distribution": "uniform",
         "filter_type": "blocked_bf",
-        "hash_k": 4,
+        "hash_k": 8,
         "log_blocks": 17,
         "name": "BlockedBF-Wy+Pat",
         "num_elements": 100000,
@@ -330,16 +330,16 @@
       },
       "metrics": {
         "fpr": 0.00287,
-        "insert_cyc": 51,
+        "insert_cyc": 50,
         "insert_ins": 261,
-        "insert_ns": 14.172936385945043,
+        "insert_ns": 14.071718014781485,
         "memory_bytes": 1081344,
-        "neighbor_cyc": 43,
+        "neighbor_cyc": 44,
         "neighbor_ins": 258,
-        "neighbor_ns": 316.67696108709083,
-        "query_cyc": 49,
+        "neighbor_ns": 323.33497840838993,
+        "query_cyc": 50,
         "query_ins": 273,
-        "query_ns": 13.819332147477363
+        "query_ns": 13.87898757105235
       }
     },
     {
@@ -349,7 +349,7 @@
         "dimensions": 3,
         "distribution": "uniform",
         "filter_type": "register_bf",
-        "hash_k": 4,
+        "hash_k": 8,
         "log_blocks": 17,
         "name": "RegisterBF-Wy+Pat",
         "num_elements": 100000,
@@ -358,16 +358,16 @@
       },
       "metrics": {
         "fpr": 0.00068,
-        "insert_cyc": 48,
+        "insert_cyc": 47,
         "insert_ins": 250,
-        "insert_ns": 13.341717962694604,
+        "insert_ns": 13.267734988598937,
         "memory_bytes": 1056768,
         "neighbor_cyc": 39,
         "neighbor_ins": 254,
-        "neighbor_ns": 282.2272251308901,
+        "neighbor_ns": 290.2103602419143,
         "query_cyc": 46,
         "query_ins": 253,
-        "query_ns": 13.006615228940047
+        "query_ns": 12.766572559269168
       }
     },
     {
@@ -377,7 +377,7 @@
         "dimensions": 3,
         "distribution": "clustered",
         "filter_type": "sbbf",
-        "hash_k": 4,
+        "hash_k": 8,
         "log_blocks": 17,
         "name": "SBBF-Morton3D",
         "num_elements": 100000,
@@ -385,17 +385,17 @@
         "strategy": "pattern_lookup"
       },
       "metrics": {
-        "fpr": 0.00056,
+        "fpr": 0.00053,
         "insert_cyc": 15,
-        "insert_ins": 38,
-        "insert_ns": 4.228498808949229,
+        "insert_ins": 40,
+        "insert_ns": 4.304416241647886,
         "memory_bytes": 1056768,
-        "neighbor_cyc": 9,
+        "neighbor_cyc": 10,
         "neighbor_ins": 55,
-        "neighbor_ns": 66.36766753941285,
+        "neighbor_ns": 72.52914798206278,
         "query_cyc": 16,
-        "query_ins": 53,
-        "query_ns": 4.496878239744999
+        "query_ins": 54,
+        "query_ns": 4.615730301011933
       }
     },
     {
@@ -405,7 +405,7 @@
         "dimensions": 3,
         "distribution": "clustered",
         "filter_type": "sbbf",
-        "hash_k": 4,
+        "hash_k": 8,
         "log_blocks": 17,
         "name": "SBBF-Hilbert3D",
         "num_elements": 100000,
@@ -413,17 +413,17 @@
         "strategy": "pattern_lookup"
       },
       "metrics": {
-        "fpr": 0.00074,
-        "insert_cyc": 60,
-        "insert_ins": 193,
-        "insert_ns": 16.80010417839847,
+        "fpr": 0.00067,
+        "insert_cyc": 62,
+        "insert_ins": 195,
+        "insert_ns": 17.260497116962497,
         "memory_bytes": 1056768,
-        "neighbor_cyc": 23,
-        "neighbor_ins": 107,
-        "neighbor_ns": 171.7525117213664,
-        "query_cyc": 64,
-        "query_ins": 208,
-        "query_ns": 17.80673100717644
+        "neighbor_cyc": 24,
+        "neighbor_ins": 110,
+        "neighbor_ns": 179.8476623784123,
+        "query_cyc": 66,
+        "query_ins": 209,
+        "query_ns": 18.581378098140714
       }
     },
     {
@@ -433,7 +433,7 @@
         "dimensions": 3,
         "distribution": "clustered",
         "filter_type": "blocked_bf",
-        "hash_k": 4,
+        "hash_k": 8,
         "log_blocks": 17,
         "name": "BlockedBF-Wy+Pat",
         "num_elements": 100000,
@@ -442,16 +442,16 @@
       },
       "metrics": {
         "fpr": 0.00293,
-        "insert_cyc": 50,
+        "insert_cyc": 52,
         "insert_ins": 261,
-        "insert_ns": 14.040420738291719,
+        "insert_ns": 14.53201633211902,
         "memory_bytes": 1081344,
-        "neighbor_cyc": 43,
+        "neighbor_cyc": 45,
         "neighbor_ins": 258,
-        "neighbor_ns": 311.42112125162976,
-        "query_cyc": 49,
+        "neighbor_ns": 325.94072004965864,
+        "query_cyc": 50,
         "query_ins": 273,
-        "query_ns": 13.662067137316182
+        "query_ns": 13.940110843498305
       }
     },
     {
@@ -461,7 +461,7 @@
         "dimensions": 3,
         "distribution": "clustered",
         "filter_type": "register_bf",
-        "hash_k": 4,
+        "hash_k": 8,
         "log_blocks": 17,
         "name": "RegisterBF-Wy+Pat",
         "num_elements": 100000,
@@ -470,16 +470,16 @@
       },
       "metrics": {
         "fpr": 0.00063,
-        "insert_cyc": 47,
+        "insert_cyc": 49,
         "insert_ins": 250,
-        "insert_ns": 13.040535848966252,
+        "insert_ns": 13.671862821512084,
         "memory_bytes": 1056768,
-        "neighbor_cyc": 38,
+        "neighbor_cyc": 39,
         "neighbor_ins": 254,
-        "neighbor_ns": 278.59229898074744,
-        "query_cyc": 46,
+        "neighbor_ns": 286.63924963924967,
+        "query_cyc": 47,
         "query_ins": 253,
-        "query_ns": 12.830476402493321
+        "query_ns": 13.19824675407413
       }
     }
   ]

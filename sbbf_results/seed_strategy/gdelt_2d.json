@@ -2,7 +2,7 @@
   "config": {
     "bits_per_element": 10.0,
     "coord_bits": 16,
-    "hash_k": 4,
+    "hash_k": 8,
     "num_elements": 1933846,
     "num_queries": 100000
   },
@@ -19,10 +19,10 @@
       },
       "metrics": {
         "actual_fill_rate": 0.08545112609863281,
-        "fpr": 2e-05,
-        "insert_ns": 5.035736558133378,
+        "fpr": 5e-05,
+        "insert_ns": 4.430078196505823,
         "memory_bytes": 4194304,
-        "query_ns": 45.83515
+        "query_ns": 14.58273
       }
     },
     {
@@ -35,10 +35,10 @@
       },
       "metrics": {
         "actual_fill_rate": 0.08545112609863281,
-        "fpr": 0.00022,
-        "insert_ns": 3.7666494643316994,
+        "fpr": 0.00083,
+        "insert_ns": 3.9816241831045494,
         "memory_bytes": 4194304,
-        "query_ns": 14.53175
+        "query_ns": 12.8389
       }
     },
     {
@@ -52,9 +52,9 @@
       "metrics": {
         "actual_fill_rate": 0.08545112609863281,
         "fpr": 8e-05,
-        "insert_ns": 2.2034660464173466,
+        "insert_ns": 2.932872110809237,
         "memory_bytes": 4202496,
-        "query_ns": 3.5908
+        "query_ns": 9.76358
       }
     },
     {
@@ -68,9 +68,9 @@
       "metrics": {
         "actual_fill_rate": 0.08545112609863281,
         "fpr": 0.00057,
-        "insert_ns": 2.243287211080924,
+        "insert_ns": 2.334340997163166,
         "memory_bytes": 4202496,
-        "query_ns": 6.99972
+        "query_ns": 5.84575
       }
     },
     {
@@ -83,10 +83,10 @@
       },
       "metrics": {
         "actual_fill_rate": 0.085693359375,
-        "fpr": 4e-05,
-        "insert_ns": 7.463384364628828,
+        "fpr": 6e-05,
+        "insert_ns": 7.303659133147107,
         "memory_bytes": 4194304,
-        "query_ns": 40.67132
+        "query_ns": 21.679
       }
     },
     {
@@ -99,10 +99,10 @@
       },
       "metrics": {
         "actual_fill_rate": 0.085693359375,
-        "fpr": 0.00019,
-        "insert_ns": 6.794826992428559,
+        "fpr": 0.00078,
+        "insert_ns": 7.329677233864538,
         "memory_bytes": 4194304,
-        "query_ns": 31.62015
+        "query_ns": 18.77772
       }
     },
     {
@@ -116,9 +116,9 @@
       "metrics": {
         "actual_fill_rate": 0.085693359375,
         "fpr": 7e-05,
-        "insert_ns": 5.669411111329444,
+        "insert_ns": 5.074346147521571,
         "memory_bytes": 4202496,
-        "query_ns": 40.86173
+        "query_ns": 8.77642
       }
     },
     {
@@ -132,11 +132,11 @@
       "metrics": {
         "actual_fill_rate": 0.085693359375,
         "fpr": 0.00049,
-        "insert_ns": 7.628233065094118,
+        "insert_ns": 5.547796463627404,
         "memory_bytes": 4202496,
-        "query_ns": 38.89803
+        "query_ns": 13.18551
       }
     }
   ],
-  "timestamp": "2025-12-27T00:36:28Z"
+  "timestamp": "2025-12-27T18:22:29Z"
 }

@@ -12,6 +12,7 @@
  */
 
 #include "spatial_blocked_bloom_filter.hpp"
+#include "sbbf_benchmark_config.hpp"
 #include "json.hpp"
 
 #include <highfive/H5File.hpp>
@@ -39,7 +40,7 @@ const size_t SYNTHETIC_QUERIES = 100000;
 const double BITS_PER_ELEMENT = 10.0;  // Standard BF sizing
 const unsigned COORD_BITS = 16;  // Must be multiple of 4 for Hilbert
 const uint32_t MAX_COORD = (1 << COORD_BITS) - 1;
-const unsigned HASH_K = 4;  // Optimal for ~10 bits/element
+const unsigned HASH_K = SBBF_BENCHMARK_HASH_K;  // From sbbf_benchmark_config.hpp
 const std::string OUTPUT_DIR = "./sbbf_results/seed_strategy/";
 const std::string GDELT_PATH = "./datasets/hdf5/gdelt_events.h5";
 

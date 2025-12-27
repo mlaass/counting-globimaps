@@ -3,7 +3,7 @@
 SBBF Seed Strategy Benchmark for Voxelized Meshes
 
 Compares XOR vs MULTIPLY_SHIFT seed strategies on voxelized 3D meshes.
-Uses fixed k=4 (optimal for ~10 bits/element).
+Uses fixed k=8 (matches SBBF_BENCHMARK_HASH_K in sbbf_benchmark_config.hpp).
 
 Configurations:
 - Meshes: bunny_128, teapot_128, armadillo_128, dragon_128
@@ -45,7 +45,7 @@ except ImportError as e:
 HDF5_DIR = PROJECT_ROOT / "datasets" / "hdf5"
 OUTPUT_DIR = PROJECT_ROOT / "sbbf_results" / "seed_strategy"
 BITS_PER_ELEMENT = 10.0  # Standard BF sizing
-HASH_K = 4  # Optimal for ~10 bits/element
+HASH_K = 8  # Matches SBBF_BENCHMARK_HASH_K in sbbf_benchmark_config.hpp
 
 # Meshes to test
 MESHES = [

@@ -26,6 +26,7 @@
 #include "external/nanobench.h"
 
 #include "spatial_blocked_bloom_filter.hpp"
+#include "sbbf_benchmark_config.hpp"
 #include "blocked_bloom_filter.hpp"
 #include "register_blocked_bf.hpp"
 
@@ -118,7 +119,7 @@ struct BenchmarkConfig {
     // Parameter sweep lists
     std::vector<size_t> element_counts = {100000};
     std::vector<unsigned> log_block_sizes = {17};
-    std::vector<unsigned> hash_k_values = {4};
+    std::vector<unsigned> hash_k_values = {SBBF_BENCHMARK_HASH_K};
     std::vector<unsigned> coord_bits_values = {16};
     std::vector<std::string> sfc_types = {"morton", "hilbert"};
     std::vector<std::string> strategies = {"double_hash", "pattern_lookup"};
@@ -143,7 +144,7 @@ struct BenchmarkConfig {
         if (suite == "quick") {
             element_counts = {50000};
             log_block_sizes = {17};
-            hash_k_values = {4};
+            hash_k_values = {SBBF_BENCHMARK_HASH_K};
             coord_bits_values = {16};
             sfc_types = {"hilbert"};
             strategies = {"pattern_lookup"};
@@ -636,7 +637,7 @@ struct BenchResult {
     unsigned dimensions = 2;
     unsigned coord_bits = 16;
     unsigned log_blocks = 17;
-    unsigned hash_k = 4;
+    unsigned hash_k = SBBF_BENCHMARK_HASH_K;
     std::string strategy;         // "double_hash", "pattern_lookup"
     std::string distribution;     // "uniform", "clustered", or filename
     std::string dataset;          // null or filename
@@ -1523,7 +1524,7 @@ void run_volume_scan_benchmark(size_t region_size, unsigned log_blocks) {
     // SBBF Morton (use 12 bits for Hilbert compatibility)
     SBBFConfig sbbf_conf;
     sbbf_conf.log_num_blocks = log_blocks;
-    sbbf_conf.hash_k = 4;
+    sbbf_conf.hash_k = SBBF_BENCHMARK_HASH_K;
     sbbf_conf.sfc_type = sbbf::SFCType::MORTON_3D;
     sbbf_conf.intra_strategy = sbbf::IntraBlockStrategy::PATTERN_LOOKUP;
     sbbf_conf.pattern_table_size = 1024;
@@ -1631,7 +1632,7 @@ void run_raster_scan_benchmark(size_t width, size_t height, unsigned log_blocks)
     // SBBF Hilbert
     SBBFConfig sbbf_conf;
     sbbf_conf.log_num_blocks = log_blocks;
-    sbbf_conf.hash_k = 4;
+    sbbf_conf.hash_k = SBBF_BENCHMARK_HASH_K;
     sbbf_conf.sfc_type = sbbf::SFCType::HILBERT_2D;
     sbbf_conf.intra_strategy = sbbf::IntraBlockStrategy::PATTERN_LOOKUP;
     sbbf_conf.pattern_table_size = 1024;
@@ -1761,7 +1762,7 @@ void run_batch_query_benchmark(size_t n_queries, size_t n_elements,
     // SBBF Hilbert
     SBBFConfig sbbf_conf;
     sbbf_conf.log_num_blocks = log_blocks;
-    sbbf_conf.hash_k = 4;
+    sbbf_conf.hash_k = SBBF_BENCHMARK_HASH_K;
     sbbf_conf.sfc_type = sbbf::SFCType::HILBERT_2D;
     sbbf_conf.intra_strategy = sbbf::IntraBlockStrategy::PATTERN_LOOKUP;
     sbbf_conf.pattern_table_size = 1024;
@@ -1985,22 +1986,22 @@ void run_strategy_comparison(size_t n, uint32_t max_coord, unsigned log_blocks) 
         benchmark_strategy<10>(bench, "DOUBLE_HASH", conf, insert_data, query_data);
     }
 
-    std::cout << "\n--- PATTERN_LOOKUP (k=4, varying table_size) ---\n\n";
+    std::cout << "\n--- PATTERN_LOOKUP (k=" << SBBF_BENCHMARK_HASH_K << ", varying table_size) ---\n\n";
 
     for (size_t table_size : {256, 512, 1024, 2048}) {
         SBBFConfig conf = base_conf;
         conf.intra_strategy = sbbf::IntraBlockStrategy::PATTERN_LOOKUP;
-        conf.hash_k = 4;
+        conf.hash_k = SBBF_BENCHMARK_HASH_K;
         conf.pattern_table_size = table_size;
         benchmark_strategy<10>(bench, "PATTERN_LOOKUP", conf, insert_data, query_data);
     }
 
-    std::cout << "\n--- MULTIPLEXED (k=4, varying multiplex_count) ---\n\n";
+    std::cout << "\n--- MULTIPLEXED (k=" << SBBF_BENCHMARK_HASH_K << ", varying multiplex_count) ---\n\n";
 
     for (unsigned mux : {1, 2, 4}) {
         SBBFConfig conf = base_conf;
         conf.intra_strategy = sbbf::IntraBlockStrategy::MULTIPLEXED;
-        conf.hash_k = 4;
+        conf.hash_k = SBBF_BENCHMARK_HASH_K;
         conf.multiplex_count = mux;
         benchmark_strategy<10>(bench, "MULTIPLEXED", conf, insert_data, query_data);
     }

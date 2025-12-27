@@ -1,0 +1,334 @@
+{
+  "config": {
+    "coord_bits": 16,
+    "dimensions": 3,
+    "fill_rates": [
+      1e-05,
+      0.0001,
+      0.001,
+      0.005,
+      0.01,
+      0.05,
+      0.1,
+      0.2,
+      0.3,
+      0.5,
+      0.7,
+      0.9,
+      1.0
+    ],
+    "grid_dim": 256,
+    "grid_log_size": 8,
+    "hash_k": 8,
+    "num_queries": 100000,
+    "sbbf_config": {
+      "intra_strategy": "pattern_lookup",
+      "seed_strategy": "XOR",
+      "sfc_type": "HILBERT_3D",
+      "target_bits_per_element": 10.0
+    }
+  },
+  "experiment": "density_compression",
+  "results": [
+    {
+      "config": {
+        "dimensions": 3,
+        "fill_rate": 1e-05,
+        "num_elements": 167
+      },
+      "metrics": {
+        "dense_bits_per_element": 100462.37125748504,
+        "dense_memory_bytes": 2097152,
+        "dense_query_ns": 2.4176200000000003,
+        "fpr": 0.00012000120001200012,
+        "memory_ratio_vs_dense": 0.0078125,
+        "memory_ratio_vs_sparse": 8.0,
+        "query_ratio_vs_dense": 6.513715968597214,
+        "query_ratio_vs_sparse": 0.5360512451658956,
+        "sbbf_bits_per_element": 784.8622754491018,
+        "sbbf_memory_bytes": 16384,
+        "sbbf_query_ns": 15.74769,
+        "sparse_bits_per_element": 98.10778443113773,
+        "sparse_memory_bytes": 2048,
+        "sparse_query_ns": 29.37721
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "fill_rate": 0.0001,
+        "num_elements": 1677
+      },
+      "metrics": {
+        "dense_bits_per_element": 10004.302921884317,
+        "dense_memory_bytes": 2097152,
+        "dense_query_ns": 2.2948600000000003,
+        "fpr": 0.0016601826200882098,
+        "memory_ratio_vs_dense": 0.0078125,
+        "memory_ratio_vs_sparse": 1.0,
+        "query_ratio_vs_dense": 6.66579224876463,
+        "query_ratio_vs_sparse": 0.3371855553686841,
+        "sbbf_bits_per_element": 78.15861657722122,
+        "sbbf_memory_bytes": 16384,
+        "sbbf_query_ns": 15.297060000000002,
+        "sparse_bits_per_element": 78.15861657722122,
+        "sparse_memory_bytes": 16384,
+        "sparse_query_ns": 45.366890000000005
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "fill_rate": 0.001,
+        "num_elements": 16777
+      },
+      "metrics": {
+        "dense_bits_per_element": 1000.012874769029,
+        "dense_memory_bytes": 2097152,
+        "dense_query_ns": 2.9711200000000004,
+        "fpr": 0.00815799483493824,
+        "memory_ratio_vs_dense": 0.01953125,
+        "memory_ratio_vs_sparse": 0.15625,
+        "query_ratio_vs_dense": 5.311515522765825,
+        "query_ratio_vs_sparse": 0.25353485046871616,
+        "sbbf_bits_per_element": 19.5315014603326,
+        "sbbf_memory_bytes": 40960,
+        "sbbf_query_ns": 15.781150000000002,
+        "sparse_bits_per_element": 125.00160934612863,
+        "sparse_memory_bytes": 262144,
+        "sparse_query_ns": 62.2445
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "fill_rate": 0.005,
+        "num_elements": 83886
+      },
+      "metrics": {
+        "dense_bits_per_element": 200.00019073504518,
+        "dense_memory_bytes": 2097152,
+        "dense_query_ns": 4.0307,
+        "fpr": 0.011675927693652596,
+        "memory_ratio_vs_dense": 0.06640625,
+        "memory_ratio_vs_sparse": 0.1328125,
+        "query_ratio_vs_dense": 3.9585158905401046,
+        "query_ratio_vs_sparse": 0.2090181410033626,
+        "sbbf_bits_per_element": 13.281262665999094,
+        "sbbf_memory_bytes": 139264,
+        "sbbf_query_ns": 15.95559,
+        "sparse_bits_per_element": 100.00009536752259,
+        "sparse_memory_bytes": 1048576,
+        "sparse_query_ns": 76.33591000000001
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "fill_rate": 0.01,
+        "num_elements": 167772
+      },
+      "metrics": {
+        "dense_bits_per_element": 100.00009536752259,
+        "dense_memory_bytes": 2097152,
+        "dense_query_ns": 7.894940000000001,
+        "fpr": 0.011100337353291719,
+        "memory_ratio_vs_dense": 0.12890625,
+        "memory_ratio_vs_sparse": 0.12890625,
+        "query_ratio_vs_dense": 2.0947898274084413,
+        "query_ratio_vs_sparse": 0.19220925749937037,
+        "sbbf_bits_per_element": 12.890637293469709,
+        "sbbf_memory_bytes": 270336,
+        "sbbf_query_ns": 16.538240000000002,
+        "sparse_bits_per_element": 100.00009536752259,
+        "sparse_memory_bytes": 2097152,
+        "sparse_query_ns": 86.04289000000001
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "fill_rate": 0.05,
+        "num_elements": 838860
+      },
+      "metrics": {
+        "dense_bits_per_element": 20.000019073504518,
+        "dense_memory_bytes": 2097152,
+        "dense_query_ns": 7.622190000000001,
+        "fpr": 0.024067629091444373,
+        "memory_ratio_vs_dense": 0.50390625,
+        "memory_ratio_vs_sparse": 0.1259765625,
+        "query_ratio_vs_dense": 3.5633079206894607,
+        "query_ratio_vs_sparse": 0.20735119975331812,
+        "sbbf_bits_per_element": 10.078134611258136,
+        "sbbf_memory_bytes": 1056768,
+        "sbbf_query_ns": 27.160210000000003,
+        "sparse_bits_per_element": 80.00007629401807,
+        "sparse_memory_bytes": 8388608,
+        "sparse_query_ns": 130.98651
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "fill_rate": 0.1,
+        "num_elements": 1677721
+      },
+      "metrics": {
+        "dense_bits_per_element": 10.000003576279966,
+        "dense_memory_bytes": 2097152,
+        "dense_query_ns": 7.6530000000000005,
+        "fpr": 0.021860712858981758,
+        "memory_ratio_vs_dense": 1.00390625,
+        "memory_ratio_vs_sparse": 0.12548828125,
+        "query_ratio_vs_dense": 5.178924604730172,
+        "query_ratio_vs_sparse": 0.2574023375409677,
+        "sbbf_bits_per_element": 10.03906609024981,
+        "sbbf_memory_bytes": 2105344,
+        "sbbf_query_ns": 39.634310000000006,
+        "sparse_bits_per_element": 80.00002861023972,
+        "sparse_memory_bytes": 16777216,
+        "sparse_query_ns": 153.97805000000002
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "fill_rate": 0.2,
+        "num_elements": 3355443
+      },
+      "metrics": {
+        "dense_bits_per_element": 5.000000298023242,
+        "dense_memory_bytes": 2097152,
+        "dense_query_ns": 8.613660000000001,
+        "fpr": 0.019503612473327592,
+        "memory_ratio_vs_dense": 2.00390625,
+        "memory_ratio_vs_sparse": 0.125244140625,
+        "query_ratio_vs_dense": 7.648242442817571,
+        "query_ratio_vs_sparse": 0.29721080201228284,
+        "sbbf_bits_per_element": 10.019531847210636,
+        "sbbf_memory_bytes": 4202496,
+        "sbbf_query_ns": 65.87936,
+        "sparse_bits_per_element": 80.00000476837187,
+        "sparse_memory_bytes": 33554432,
+        "sparse_query_ns": 221.6587
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "fill_rate": 0.3,
+        "num_elements": 5033164
+      },
+      "metrics": {
+        "dense_bits_per_element": 3.333333863152482,
+        "dense_memory_bytes": 2097152,
+        "dense_query_ns": 8.45664,
+        "fpr": 0.005254987966219969,
+        "memory_ratio_vs_dense": 4.00390625,
+        "memory_ratio_vs_sparse": 0.1251220703125,
+        "query_ratio_vs_dense": 6.467393669353314,
+        "query_ratio_vs_sparse": 0.20375535537325554,
+        "sbbf_bits_per_element": 13.346356288012869,
+        "sbbf_memory_bytes": 8396800,
+        "sbbf_query_ns": 54.692420000000006,
+        "sparse_bits_per_element": 106.66668362087943,
+        "sparse_memory_bytes": 67108864,
+        "sparse_query_ns": 268.422
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "fill_rate": 0.5,
+        "num_elements": 8388608
+      },
+      "metrics": {
+        "dense_bits_per_element": 2.0,
+        "dense_memory_bytes": 2097152,
+        "dense_query_ns": 8.01952,
+        "fpr": 0.0008971113016088196,
+        "memory_ratio_vs_dense": 8.00390625,
+        "memory_ratio_vs_sparse": 0.2501220703125,
+        "query_ratio_vs_dense": 7.502122321535453,
+        "query_ratio_vs_sparse": 0.12945216380783928,
+        "sbbf_bits_per_element": 16.0078125,
+        "sbbf_memory_bytes": 16785408,
+        "sbbf_query_ns": 60.16342,
+        "sparse_bits_per_element": 64.0,
+        "sparse_memory_bytes": 67108864,
+        "sparse_query_ns": 464.75407
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "fill_rate": 0.7,
+        "num_elements": 11744051
+      },
+      "metrics": {
+        "dense_bits_per_element": 1.4285714528998554,
+        "dense_memory_bytes": 2097152,
+        "dense_query_ns": 10.438920000000001,
+        "fpr": 0.0038571188998826095,
+        "memory_ratio_vs_dense": 8.00390625,
+        "memory_ratio_vs_sparse": 0.12506103515625,
+        "query_ratio_vs_dense": 5.979187502155395,
+        "query_ratio_vs_sparse": 0.14152276051129647,
+        "sbbf_bits_per_element": 11.434151980436733,
+        "sbbf_memory_bytes": 16785408,
+        "sbbf_query_ns": 62.41626000000001,
+        "sparse_bits_per_element": 91.42857298559075,
+        "sparse_memory_bytes": 134217728,
+        "sparse_query_ns": 441.03337000000005
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "fill_rate": 0.9,
+        "num_elements": 15099494
+      },
+      "metrics": {
+        "dense_bits_per_element": 1.1111111405455043,
+        "dense_memory_bytes": 2097152,
+        "dense_query_ns": 7.607660000000001,
+        "fpr": 0.0,
+        "memory_ratio_vs_dense": 16.00390625,
+        "memory_ratio_vs_sparse": 0.25006103515625,
+        "query_ratio_vs_dense": 8.996391794585982,
+        "query_ratio_vs_sparse": 0.1863541419995816,
+        "sbbf_bits_per_element": 17.782118526620827,
+        "sbbf_memory_bytes": 33562624,
+        "sbbf_query_ns": 68.44149,
+        "sparse_bits_per_element": 71.11111299491228,
+        "sparse_memory_bytes": 134217728,
+        "sparse_query_ns": 367.26573
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "fill_rate": 1.0,
+        "num_elements": 16777216
+      },
+      "metrics": {
+        "dense_bits_per_element": 1.0,
+        "dense_memory_bytes": 2097152,
+        "dense_query_ns": 7.4101300000000005,
+        "fpr": 0.0,
+        "memory_ratio_vs_dense": 16.00390625,
+        "memory_ratio_vs_sparse": 0.25006103515625,
+        "query_ratio_vs_dense": 8.501748282418797,
+        "query_ratio_vs_sparse": 0.10642072863474863,
+        "sbbf_bits_per_element": 16.00390625,
+        "sbbf_memory_bytes": 33562624,
+        "sbbf_query_ns": 62.99906000000001,
+        "sparse_bits_per_element": 64.0,
+        "sparse_memory_bytes": 134217728,
+        "sparse_query_ns": 591.9811000000001
+      }
+    }
+  ],
+  "timestamp": "2025-12-27T20:59:01Z"
+}

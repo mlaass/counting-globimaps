@@ -322,12 +322,12 @@ The primary advantage of SBBF is revealed during linear spatial scans. Figure~\r
 \label{fig:l1dcache}
 \end{figure}
 
-\begin{figure}[htbp]
+\begin{figure}[htbp!]
 \centering
-\includegraphics[width=\columnwidth]{Figures/PDF/throughput_3d.pdf}\\[0.3em]
+
 \includegraphics[width=\columnwidth]{Figures/PDF/latency_combined_3d.pdf}\\[0.3em]
 \includegraphics[width=\columnwidth]{Figures/PDF/query_neighbor_combined_3d.pdf}
-\caption{3D scalability benchmarks (128K--2B elements). Top: insert and query throughput. Middle: insert and query latency. Bottom: query and neighbor latency. Solid lines: double-hash strategy; dashed lines: pattern-lookup strategy.}
+\caption{3D scalability benchmarks (128K--2B elements).  Top: insert and query latency. Bottom: query and neighbor latency. Solid lines: double-hash strategy; dashed lines: pattern-lookup strategy.}
 \label{fig:scalability}
 \end{figure}
 
@@ -341,38 +341,36 @@ SBBF achieves 3--6$\times$ lower FPR than BlockedBF across all configurations. T
 \subsection{Seed Strategy Comparison}\label{sec:seed-strategy}
 The seed derivation strategy determines how the SFC code is transformed into the intra-block hash seed. We evaluate two strategies:
 
-\textbf{XOR Strategy.} The seed is computed as $\text{seed} = s_H \oplus s_L$, combining the high-order bits (regional signature) with low-order bits (local position) via bitwise XOR. This approach requires no additional constants and provides direct bit mixing through the XOR operation's property that each output bit depends on exactly two input bits.
+\textbf{XOR Strategy.} The seed is computed as $\text{seed} = s_H \oplus s_L$, combining the high-order bits (regional signature) with low-order bits (local position) via bitwise XOR. This approach requires no additional constants and provides direct bit mixing.
 
-\textbf{Multiply-Shift Strategy.} The seed is computed as $\text{seed} = (s \cdot \phi) \gg b$, where $\phi = 2654435769$ (the golden ratio prime) and $b$ is the shift amount. Multiplicative hashing provides superior avalanche properties: small changes in $s$ affect all bits of the product, creating more uniform seed distribution. However, it requires a multiplication instruction and magic constant.
+\textbf{Multiply-Shift Strategy.} The seed is computed as $\text{seed} = (s \cdot \phi) \gg b$, where $\phi = 2654435769$ (the golden ratio prime). Multiplicative hashing provides superior avalanche properties but requires a multiplication instruction.
 
-Table~\ref{tab:seed-strategy} compares both strategies on synthetic 2D data (100K uniformly distributed elements, 1.02~MB memory budget, \texttt{double\_hash} intra-block strategy).
+We conduct a comprehensive evaluation across six dataset types: uniform synthetic (2D/3D), clustered synthetic (2D/3D with 50 Gaussian clusters, $\sigma=500$), real-world geographic (GDELT 1.9M events), and voxelized 3D meshes. Figure~\ref{fig:seed-strategy} summarizes the results.
+
+\begin{figure*}[htbp]
+\centering
+\includegraphics[width=\textwidth]{Figures/PDF/seed_strategy_overview.pdf}
+\caption{Seed strategy comparison across data distributions. Each subplot shows FPR (\%) for XOR (green) vs.\ multiply-shift (red hatched) across SFC and intra-block strategy combinations. Top row: 2D data (uniform, clustered, GDELT). Bottom row: 3D data (uniform, clustered, voxel). Note: GDELT uses different y-axis scale due to dramatically lower FPR values.}
+\label{fig:seed-strategy}
+\end{figure*}
+
+\textbf{Key Findings.} The optimal seed strategy depends strongly on data distribution:
+
+\begin{itemize}
+    \item \textbf{Uniform synthetic data:} XOR achieves marginally lower FPR ($\sim$1.9\% vs.\ $\sim$2.0\%) across all SFC and intra-block combinations. The differences are small ($<$5\% relative).
+
+    \item \textbf{Clustered synthetic data:} Results are mixed. Multiply-shift often outperforms XOR, particularly with Hilbert SFC and \texttt{pattern\_lookup} (2.09\% vs.\ 2.21\% in 2D). The clustering appears to favor multiply-shift's avalanche properties.
+
+    \item \textbf{GDELT geographic data:} XOR dramatically outperforms multiply-shift by 5--11$\times$ (0.002--0.008\% vs.\ 0.019--0.057\%). Real-world geographic data exhibits strong spatial structure that XOR's direct bit-mixing handles better than multiply-shift's uniform scrambling.
+
+    \item \textbf{Voxelized meshes:} The intra-block strategy determines the winner. With \texttt{double\_hash}, multiply-shift achieves 1.5--2$\times$ lower FPR. With \texttt{pattern\_lookup}, XOR achieves 2--3$\times$ lower FPR. This interaction suggests the bit patterns from each strategy align differently with the two hashing methods.
+\end{itemize}
+
+Table~\ref{tab:seed-voxel} shows detailed voxel results with topological verification.
 
 \begin{table}[htbp]
 \centering
-\caption{Seed Strategy Comparison (2D Synthetic, 100K elements)}
-\label{tab:seed-strategy}
-\begin{tabular}{@{}llrrrrr@{}}
-\toprule
-SFC & Seed & FPR & Ins. & Cyc. & IPC \\
-\midrule
-Morton & XOR & 0.06\% & 81/84 & 19/17 & 4.2/4.7 \\
-Morton & MS & 0.09\% & 81/84 & 19/18 & 4.2/4.6 \\
-Hilbert & XOR & 0.06\% & 136/139 & 32/32 & 4.2/4.3 \\
-Hilbert & MS & 0.09\% & 136/139 & 32/31 & 4.2/4.4 \\
-\bottomrule
-\end{tabular}
-
-\vspace{0.2cm}
-\parbox{\linewidth}{\footnotesize Values shown as insert/query. MS\ = multiply-shift.}
-\end{table}
-
-On synthetic data, XOR achieves 33\% lower FPR (0.06\% vs 0.09\%) with identical instruction counts and cycle latency. The XOR operation's direct combination of regional and local bits provides better entropy distribution for the double-hashing function's modular arithmetic when data is uniformly distributed.
-
-\textbf{Voxelized Mesh Results.} However, the picture changes dramatically for structured spatial data when topological verification (Section~\ref{sec:denoising}) is applied. Table~\ref{tab:seed-voxel} shows results on voxelized 3D meshes (Stanford Bunny and Utah Teapot) using SBBF-Hilbert with 128~KB memory and $k=4$.
-
-\begin{table}[htbp]
-\centering
-\caption{Seed Strategy on Voxelized Meshes (3D, Hilbert)}
+\caption{Seed Strategy on Voxelized Meshes (Hilbert 3D, \texttt{double\_hash})}
 \label{tab:seed-voxel}
 \begin{tabular}{@{}llrrrr@{}}
 \toprule
@@ -380,17 +378,29 @@ On synthetic data, XOR achieves 33\% lower FPR (0.06\% vs 0.09\%) with identical
 \cmidrule(lr){3-4} \cmidrule(lr){5-6}
 Mesh & Res. & Raw & Denoised & Raw & Denoised \\
 \midrule
-Bunny & $64^3$ & 0.082\% & 0.044\% & 0.004\% & 0.000\% \\
-Bunny & $128^3$ & 0.153\% & 0.107\% & 0.063\% & 0.002\% \\
-Teapot & $64^3$ & 0.067\% & 0.033\% & 0.000\% & 0.000\% \\
-Teapot & $128^3$ & 0.063\% & 0.044\% & 0.035\% & 0.001\% \\
+Bunny & $128^3$ & 2.64\% & 0.11\% & 1.58\% & 0.00\% \\
+Teapot & $128^3$ & 0.83\% & 0.04\% & 0.38\% & 0.00\% \\
+Armadillo & $128^3$ & 1.45\% & 0.06\% & 0.73\% & 0.00\% \\
+Dragon & $128^3$ & 1.75\% & 0.08\% & 1.36\% & 0.00\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-While XOR achieves lower raw FPR on synthetic data, multiply-shift achieves 6--20$\times$ lower FPR on voxelized meshes after denoising. We hypothesize this occurs because multiply-shift's superior avalanche effect creates more spatially \emph{incoherent} false positives---isolated noise voxels rather than clustered artifacts. Topological verification effectively filters incoherent noise but struggles with coherent false positive clusters that XOR's regional correlation produces.
+With \texttt{double\_hash}, multiply-shift achieves lower raw FPR and near-zero FPR after denoising. We attribute this to multiply-shift's avalanche effect creating spatially \emph{incoherent} false positives that topological verification filters effectively.
 
-\textbf{Recommendation.} For applications using topological verification on structured spatial data (voxels, point clouds), multiply-shift is preferred. For raw membership queries on uniformly distributed data, XOR provides better FPR with simpler implementation.
+\textbf{Recommendation.} For real-world geographic data (GDELT-like distributions), XOR is strongly preferred. For voxelized meshes with topological verification and \texttt{double\_hash}, multiply-shift excels. For uniform or clustered synthetic data, either strategy performs comparably. When using \texttt{pattern\_lookup} on voxels, prefer XOR.
+
+\subsection{Hash Function Count Sensitivity}\label{sec:k-sensitivity}
+The number of hash functions $k$ directly affects both FPR and computational cost. We evaluate $k \in \{2, \ldots, 12\}$ while maintaining constant 50\% fill rate by adjusting filter size ($m = nk / 0.5$).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{Figures/PDF/k_sensitivity_combined.pdf}
+\caption{FPR vs.\ $k$ (hash functions) at constant 50\% fill rate. Hilbert SFC with \texttt{pattern\_lookup} and XOR seed. Voxel results show mean $\pm$ std across four meshes (bunny, teapot, armadillo, dragon at $128^3$).}
+\label{fig:k-sensitivity}
+\end{figure}
+
+\textbf{Key Findings.} FPR decreases rapidly from $k=2$ ($\sim$10\%) to $k=6$ ($\sim$0.5\%) across all data types. Beyond $k=6$, synthetic data shows diminishing returns while voxelized meshes continue improving through $k=11$. The consistency across 2D synthetic, 3D synthetic, and structured voxel data demonstrates that $k=6$ provides a practical optimum, balancing FPR reduction against the linear increase in hash computations per query.
 
 \subsection{Neighborhood Query Performance}
 Table~\ref{tab:neighbor-performance} compares neighborhood query performance for 3D data (6 neighbors per point). SBBF exploits SFC locality: spatially adjacent cells map to nearby memory addresses, enabling cache-line reuse across neighbor queries.
@@ -403,7 +413,7 @@ SBBF-Morton achieves 4--5$\times$ fewer cycles than baselines for neighbor queri
 \section{Discussion}
 SBBF represents a paradigm shift from "locality-destroying" hashing to "locality-preserving" indexing. The choice of SFC presents a trade-off: **Morton** is optimal for high-speed streaming due to its $O(1)$ hardware encoding, while **Hilbert** is superior for complex neighborhood queries where its $Space-to-Linear$ ratio of 6 vs.\ 9 for Morton, yields higher cache hit rates during sequential spatial scans. For neighborhood-heavy applications like voxel processing, Hilbert's locality advantage outweighs its encoding cost.
 
-\textbf{Seed Strategy.} $XOR$ achieves lower raw FPR on uniformly distributed data, while $multiply-shift$ excels when topological verification is applied to structured data. The avalanche properties of $multiply-shift$ create spatially incoherent false positives that are easily filtered, often achieving zero or near-zero FPR after denoising on voxelized meshes.
+\textbf{Seed Strategy.} The choice between XOR and multiply-shift depends on data distribution and application. XOR dramatically outperforms on real-world geographic data (5--11$\times$ lower FPR on GDELT) and performs marginally better on uniform synthetic data. Multiply-shift excels on voxelized meshes with \texttt{double\_hash} and topological verification, achieving near-zero FPR after denoising. Interestingly, the intra-block strategy interacts with seed choice: \texttt{pattern\_lookup} favors XOR while \texttt{double\_hash} favors multiply-shift on structured 3D data.
 
 \textbf{When to use SBBF.} SBBF has better performance than standard bloom filters even with state-of-the-art hash functions and is most advantageous for: (1) sequential spatial traversals (raster scans, volume rendering), (2) neighborhood-intensive queries (morphological operations, connectivity analysis), and (3) applications tolerant of topological verification overhead.
 

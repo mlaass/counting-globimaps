@@ -228,6 +228,19 @@ PUBLIC HighFive
 PUBLIC OpenMP::OpenMP_CXX
 )
 
+# SBBF K-sensitivity benchmark
+add_executable(sbbf_k_sensitivity experiments/src/sbbf_k_sensitivity.cpp)
+target_link_libraries(sbbf_k_sensitivity
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+# SBBF Seed strategy benchmark
+add_executable(sbbf_seed_strategy_benchmark experiments/src/sbbf_seed_strategy_benchmark.cpp)
+target_link_libraries(sbbf_seed_strategy_benchmark
+PUBLIC HighFive
+PUBLIC OpenMP::OpenMP_CXX
+)
+
 # Hilbert LUT verification tests
 add_executable(test_hilbert_lut tests/test_hilbert_lut.cpp)
 target_link_libraries(test_hilbert_lut

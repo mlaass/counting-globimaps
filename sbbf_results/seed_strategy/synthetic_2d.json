@@ -1,0 +1,142 @@
+{
+  "config": {
+    "bits_per_element": 10.0,
+    "coord_bits": 16,
+    "hash_k": 4,
+    "num_elements": 100000,
+    "num_queries": 100000
+  },
+  "dataset": "synthetic_2d",
+  "experiment": "seed_strategy",
+  "results": [
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99774169921875,
+        "fpr": 0.01915,
+        "insert_ns": 2.51876,
+        "memory_bytes": 131072,
+        "query_ns": 2.7032
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99774169921875,
+        "fpr": 0.01938,
+        "insert_ns": 2.51321,
+        "memory_bytes": 131072,
+        "query_ns": 2.63948
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99774169921875,
+        "fpr": 0.0207,
+        "insert_ns": 2.16402,
+        "memory_bytes": 139264,
+        "query_ns": 2.41239
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99774169921875,
+        "fpr": 0.02139,
+        "insert_ns": 2.15672,
+        "memory_bytes": 139264,
+        "query_ns": 2.39097
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99835205078125,
+        "fpr": 0.019,
+        "insert_ns": 6.14316,
+        "memory_bytes": 131072,
+        "query_ns": 6.01876
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99835205078125,
+        "fpr": 0.01987,
+        "insert_ns": 6.21551,
+        "memory_bytes": 131072,
+        "query_ns": 7.44613
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99835205078125,
+        "fpr": 0.02106,
+        "insert_ns": 5.31734,
+        "memory_bytes": 139264,
+        "query_ns": 5.57309
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99835205078125,
+        "fpr": 0.02137,
+        "insert_ns": 5.38952,
+        "memory_bytes": 139264,
+        "query_ns": 5.68529
+      }
+    }
+  ],
+  "timestamp": "2025-12-27T00:36:28Z"
+}

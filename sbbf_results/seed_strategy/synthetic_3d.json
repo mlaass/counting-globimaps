@@ -1,0 +1,142 @@
+{
+  "config": {
+    "bits_per_element": 10.0,
+    "coord_bits": 16,
+    "hash_k": 4,
+    "num_elements": 100000,
+    "num_queries": 100000
+  },
+  "dataset": "synthetic_3d",
+  "experiment": "seed_strategy",
+  "results": [
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99786376953125,
+        "fpr": 0.01923,
+        "insert_ns": 2.40859,
+        "memory_bytes": 131072,
+        "query_ns": 2.58591
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99786376953125,
+        "fpr": 0.01932,
+        "insert_ns": 2.52699,
+        "memory_bytes": 131072,
+        "query_ns": 2.81004
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99786376953125,
+        "fpr": 0.02092,
+        "insert_ns": 2.1997,
+        "memory_bytes": 139264,
+        "query_ns": 2.52555
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99786376953125,
+        "fpr": 0.02084,
+        "insert_ns": 2.18795,
+        "memory_bytes": 139264,
+        "query_ns": 2.48977
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99761962890625,
+        "fpr": 0.01944,
+        "insert_ns": 15.85093,
+        "memory_bytes": 131072,
+        "query_ns": 15.74583
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "double_hash",
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99761962890625,
+        "fpr": 0.01983,
+        "insert_ns": 15.78163,
+        "memory_bytes": 131072,
+        "query_ns": 15.92716
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "log_num_blocks": 14,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99761962890625,
+        "fpr": 0.0204,
+        "insert_ns": 14.2768,
+        "memory_bytes": 139264,
+        "query_ns": 14.45498
+      }
+    },
+    {
+      "config": {
+        "dimensions": 3,
+        "intra_strategy": "pattern_lookup",
+        "log_num_blocks": 14,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_3D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.99761962890625,
+        "fpr": 0.02024,
+        "insert_ns": 14.82678,
+        "memory_bytes": 139264,
+        "query_ns": 14.51234
+      }
+    }
+  ],
+  "timestamp": "2025-12-27T00:36:28Z"
+}

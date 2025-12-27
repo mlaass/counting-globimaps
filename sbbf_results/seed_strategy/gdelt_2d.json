@@ -1,0 +1,142 @@
+{
+  "config": {
+    "bits_per_element": 10.0,
+    "coord_bits": 16,
+    "hash_k": 4,
+    "num_elements": 1933846,
+    "num_queries": 100000
+  },
+  "dataset": "gdelt_2d",
+  "experiment": "seed_strategy",
+  "results": [
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "log_num_blocks": 19,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.08545112609863281,
+        "fpr": 2e-05,
+        "insert_ns": 5.035736558133378,
+        "memory_bytes": 4194304,
+        "query_ns": 45.83515
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "log_num_blocks": 19,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.08545112609863281,
+        "fpr": 0.00022,
+        "insert_ns": 3.7666494643316994,
+        "memory_bytes": 4194304,
+        "query_ns": 14.53175
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "log_num_blocks": 19,
+        "seed_strategy": "XOR",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.08545112609863281,
+        "fpr": 8e-05,
+        "insert_ns": 2.2034660464173466,
+        "memory_bytes": 4202496,
+        "query_ns": 3.5908
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "log_num_blocks": 19,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "MORTON_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.08545112609863281,
+        "fpr": 0.00057,
+        "insert_ns": 2.243287211080924,
+        "memory_bytes": 4202496,
+        "query_ns": 6.99972
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "log_num_blocks": 19,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.085693359375,
+        "fpr": 4e-05,
+        "insert_ns": 7.463384364628828,
+        "memory_bytes": 4194304,
+        "query_ns": 40.67132
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "double_hash",
+        "log_num_blocks": 19,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.085693359375,
+        "fpr": 0.00019,
+        "insert_ns": 6.794826992428559,
+        "memory_bytes": 4194304,
+        "query_ns": 31.62015
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "log_num_blocks": 19,
+        "seed_strategy": "XOR",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.085693359375,
+        "fpr": 7e-05,
+        "insert_ns": 5.669411111329444,
+        "memory_bytes": 4202496,
+        "query_ns": 40.86173
+      }
+    },
+    {
+      "config": {
+        "dimensions": 2,
+        "intra_strategy": "pattern_lookup",
+        "log_num_blocks": 19,
+        "seed_strategy": "MULTIPLY_SHIFT",
+        "sfc_type": "HILBERT_2D"
+      },
+      "metrics": {
+        "actual_fill_rate": 0.085693359375,
+        "fpr": 0.00049,
+        "insert_ns": 7.628233065094118,
+        "memory_bytes": 4202496,
+        "query_ns": 38.89803
+      }
+    }
+  ],
+  "timestamp": "2025-12-27T00:36:28Z"
+}

@@ -630,7 +630,7 @@ private:
         constexpr uint64_t B = 64;  // Block size in bits
         uint32_t h1 = seed % B;
         uint32_t h2 = (seed / B) % B;
-        if (h2 == 0) h2 = 1;  // Ensure h2 != 0 for good distribution
+        h2 |= 1;  // Force odd to ensure gcd(h2, 64) = 1
 
         uint64_t mask = 0;
         for (unsigned i = 1; i <= config.hash_k; ++i) {
@@ -658,7 +658,7 @@ private:
         for (unsigned p = 0; p < config.multiplex_count; ++p) {
             uint64_t pattern_seed = (seed >> (p * 8)) & 0xFF;
             uint32_t h1 = pattern_seed % 64;
-            uint32_t h2 = ((pattern_seed >> 4) % 63) + 1;
+            uint32_t h2 = ((pattern_seed >> 4) % 63) | 1;  // Force odd
 
             for (unsigned i = 1; i <= bits_per_pattern; ++i) {
                 uint32_t bit_pos = (h1 + i * h2) % 64;

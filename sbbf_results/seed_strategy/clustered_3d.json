@@ -19,10 +19,10 @@
       },
       "metrics": {
         "actual_fill_rate": 0.99774169921875,
-        "fpr": 0.03775,
-        "insert_ns": 3.38842,
+        "fpr": 0.0336,
+        "insert_ns": 3.79797,
         "memory_bytes": 131072,
-        "query_ns": 3.90464
+        "query_ns": 3.78076
       }
     },
     {
@@ -35,10 +35,10 @@
       },
       "metrics": {
         "actual_fill_rate": 0.99774169921875,
-        "fpr": 0.038,
-        "insert_ns": 3.83972,
+        "fpr": 0.03319,
+        "insert_ns": 3.72782,
         "memory_bytes": 131072,
-        "query_ns": 4.04203
+        "query_ns": 3.8885
       }
     },
     {
@@ -52,9 +52,9 @@
       "metrics": {
         "actual_fill_rate": 0.99774169921875,
         "fpr": 0.02622,
-        "insert_ns": 2.1825,
+        "insert_ns": 2.16566,
         "memory_bytes": 139264,
-        "query_ns": 2.50268
+        "query_ns": 2.47111
       }
     },
     {
@@ -68,9 +68,9 @@
       "metrics": {
         "actual_fill_rate": 0.99774169921875,
         "fpr": 0.02711,
-        "insert_ns": 2.16627,
+        "insert_ns": 2.16823,
         "memory_bytes": 139264,
-        "query_ns": 2.51984
+        "query_ns": 2.48272
       }
     },
     {
@@ -83,10 +83,10 @@
       },
       "metrics": {
         "actual_fill_rate": 0.99761962890625,
-        "fpr": 0.03726,
-        "insert_ns": 17.28475,
+        "fpr": 0.03329,
+        "insert_ns": 17.75331,
         "memory_bytes": 131072,
-        "query_ns": 18.00933
+        "query_ns": 18.39783
       }
     },
     {
@@ -99,10 +99,10 @@
       },
       "metrics": {
         "actual_fill_rate": 0.99761962890625,
-        "fpr": 0.03874,
-        "insert_ns": 17.52016,
+        "fpr": 0.03261,
+        "insert_ns": 18.37723,
         "memory_bytes": 131072,
-        "query_ns": 18.24796
+        "query_ns": 19.56484
       }
     },
     {
@@ -116,9 +116,9 @@
       "metrics": {
         "actual_fill_rate": 0.99761962890625,
         "fpr": 0.02705,
-        "insert_ns": 14.28604,
+        "insert_ns": 14.64275,
         "memory_bytes": 139264,
-        "query_ns": 14.39471
+        "query_ns": 15.57213
       }
     },
     {
@@ -132,11 +132,11 @@
       "metrics": {
         "actual_fill_rate": 0.99761962890625,
         "fpr": 0.02654,
-        "insert_ns": 14.47256,
+        "insert_ns": 15.11818,
         "memory_bytes": 139264,
-        "query_ns": 14.67348
+        "query_ns": 15.44312
       }
     }
   ],
-  "timestamp": "2025-12-27T18:22:28Z"
+  "timestamp": "2025-12-29T00:30:43Z"
 }

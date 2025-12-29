@@ -108,7 +108,7 @@ Figure~\ref{fig:sbbf-architecture} illustrates the SBBF architecture. A spatial 
 \node[box, below right=0.6cm and 0.3cm of sfc] (high) {Seed Strategy\\XOR: $s_H \oplus s_L$\\Mult-shift: $s \cdot \phi \gg b$};
 
 % Block array - draw as individual cells
-\node[below=1.6cm of low, font=\scriptsize] (blabel) {};
+\node[below=1.7cm of low, font=\scriptsize] (blabel) {};
 \foreach \i in {0,...,7} {
     \node[bitbox, right=\i*0.3cm of blabel, fill=white] (b\i) {};
 }
@@ -119,8 +119,8 @@ Figure~\ref{fig:sbbf-architecture} illustrates the SBBF architecture. A spatial 
 \node[bitbox, right=0.9cm of blabel, fill=gray!40] (bi) {};
 
 % Magnified block view below
-\node[below=1.2cm of bi, font=\scriptsize, align=center] (maglabel) {Block $B_i$ (magnified, $B$ bits)};
-\node[bitbox, below=0.15cm of maglabel, fill=white, minimum width=0.35cm, minimum height=0.5cm] (m0) {};
+\node[below=1.1cm of bi, font=\scriptsize, align=center] (maglabel) {Block $B_i$ (magnified, $B$ bits)};
+\node[bitbox, below=0.25cm of maglabel, fill=white, minimum width=0.35cm, minimum height=0.5cm] (m0) {};
 \node[bitbox, right=0cm of m0, fill=black, minimum width=0.35cm, minimum height=0.5cm] (m1) {};
 \node[bitbox, right=0cm of m1, fill=white, minimum width=0.35cm, minimum height=0.5cm] (m2) {};
 \node[bitbox, right=0cm of m2, fill=white, minimum width=0.35cm, minimum height=0.5cm] (m3) {};
@@ -128,7 +128,8 @@ Figure~\ref{fig:sbbf-architecture} illustrates the SBBF architecture. A spatial 
 \node[bitbox, right=0cm of m4, fill=white, minimum width=0.35cm, minimum height=0.5cm] (m5) {};
 \node[bitbox, right=0cm of m5, fill=black, minimum width=0.35cm, minimum height=0.5cm] (m6) {};
 \node[bitbox, right=0cm of m6, fill=white, minimum width=0.35cm, minimum height=0.5cm] (m7) {};
-\node[below=0.2cm of m3, font=\footnotesize, align=center, xshift=0.15cm] (hashlab) {$k=3$ bits set via  \\double-hashing or pattern lookup};
+\node[above=0.0cm of m4, font=\tiny] {Set Bits ($k{=}3$)};
+\node[below=0.2cm of m3, font=\footnotesize, align=center, xshift=0.15cm] (hashlab) {Positions derived via  \\double-hashing or pattern lookup};
 
 % Arrows
 \draw[arrow] (voxel) -- (sfc);
@@ -248,12 +249,12 @@ The transform LUT exploits the A4 alternating group structure of 3D Hilbert curv
 \SetKwFunction{FSFC}{SFCEncode}
 \SetKwProg{Fn}{Function}{:}{}
 \Fn{\FGetLoc{$s$}}{
-    $s_L \gets s \bmod 2^p$\tcp*{Low bits: block index}
-    $s_H \gets \lfloor s / 2^p \rfloor$\tcp*{High bits}
-    $\textit{seed} \gets s_H \oplus s_L$\tcp*{XOR for better distribution}
+    $s_L \gets s \bmod 2^p$\tcp*{block index}
+    $s_H \gets \lfloor s / 2^p \rfloor$\tcp*{high bits}
+    $\textit{seed} \gets s_H \oplus s_L$\tcp*{hash seed}
     $h_1 \gets \textit{seed} \bmod B$;
     $h_2 \gets \lfloor \textit{seed} / B \rfloor \bmod B$;
-    \lIf{$h_2 = 0$}{$h_2 \gets 1$}
+    $h_2 \gets h_2 \lor 1$\tcp*{force odd}
     $\textit{mask} \gets 0$\;
     \For{$i \gets 1$ \KwTo $k$}{
         $\textit{mask} \gets \textit{mask} \lor (1 \ll ((h_1 + i \cdot h_2) \bmod B))$\;
@@ -290,7 +291,7 @@ As illustrated in Fig.~\ref{fig:tv-concept}, SBBF collisions on structured data 
 
 Because SBBF mapping is deterministic and spatially coherent, false positives (FPs) appear as regional noise rather than isolated random bits. We implement a "Consensus" query:
 \begin{equation}
-    Query_{TV}(V) = Query(V) \land (CountNeighbors(V) \ge \tau)
+    \text{Query}_{\text{TV}}(V) = \text{Query}(V) \land (\text{CountNeighbors}(V) \ge \tau)
 \end{equation}
 where $\tau$ is a connectivity threshold. The experiments in Fig.~\ref{fig:tv-concept} use $\tau = 2$ (26-connected neighborhood), $k = 4$ hash functions, $2^{15}$ blocks of 64 bits each, and Hilbert 3D space-filling curve indexing. This allows SBBF to operate at higher theoretical False Positive Rates (FPR) than standard BFs while maintaining effective precision.
 

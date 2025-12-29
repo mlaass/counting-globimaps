@@ -94,8 +94,6 @@ For spatial Bloom filters, hash function performance depends critically on input
 
 \section{Methodology}
 
-Figure~\ref{fig:sbbf-architecture} illustrates the SBBF architecture. A spatial coordinate $\mathbf{p}$---either $(x, y)$ for 2D raster data or $(x, y, z)$ for 3D voxels---is first mapped to a 1D SFC value $s$. The low-order bits of $s$ determine the block index, ensuring spatially adjacent cells map to adjacent memory blocks. The high-order bits serve as a ``regional signature'' to derive the intra-block bit mask.
-
 \begin{figure}[htbp]
 \centering
 \begin{tikzpicture}[
@@ -147,6 +145,8 @@ Figure~\ref{fig:sbbf-architecture} illustrates the SBBF architecture. A spatial 
 \caption{SBBF Architecture. Low SFC bits ($s_L$) select block $B_i$ (enabling sequential access). The seed for intra-block hashing combines high and low bits (e.g., $s_H \oplus s_L$ or multiply-shift) to derive $k$ bit positions via double-hashing or pattern lookup.}
 \label{fig:sbbf-architecture}
 \end{figure}
+Figure~\ref{fig:sbbf-architecture} illustrates the SBBF architecture. A spatial coordinate $\mathbf{p}$---either $(x, y)$ for 2D raster data or $(x, y, z)$ for 3D voxels---is first mapped to a 1D SFC value $s$. The low-order bits of $s$ determine the block index, ensuring spatially adjacent cells map to adjacent memory blocks. The high-order bits serve as a ``regional signature'' to derive the intra-block bit mask.
+
 
 \subsection{Spatial Mapping and Bit-Splitting}
 The core of SBBF is the mapping function that converts a spatial coordinate $\mathbf{p}$ into a block index and a bit mask seed. Given an SFC value $s = \text{SFC}(\mathbf{p})$, we partition $s$ into two components:
@@ -352,6 +352,13 @@ Morton encoding uses 15--20 instructions versus 93--129 for hash functions (5--8
 
 The LUT-based Hilbert encoders demonstrate the effectiveness of trading table space for computation: the 2~KB 2D table and 96-byte 3D table both fit in L1 cache, enabling the 25$\times$ and 14$\times$ speedups over reference implementations shown in Table~\ref{tab:hash-comparison}. Hilbert encoding remains 4$\times$ slower than Morton (which uses hardware PDEP), but this overhead is justified by Hilbert's superior locality properties for sequential spatial traversals.
 
+
+\begin{figure*}[htbp!]
+\centering
+\includegraphics[width=\textwidth]{Figures/PDF/scalability_3panel_3d.pdf}
+\caption{3D scalability benchmarks (128K--2B elements). Insert, query, and neighbor latency. Solid lines: double-hash strategy; dashed lines: pattern-lookup strategy.}
+\label{fig:scalability}
+\end{figure*}
 \subsection{SBBF End-to-End Performance}
 Table~\ref{tab:sbbf-performance} compares end-to-end operation performance using the same system-independent metrics as Table~\ref{tab:hash-comparison}. We show both intra-block strategies: \texttt{double\_hash} computes bit positions on-the-fly, while \texttt{pattern} uses pre-computed k-bit patterns for fewer instructions.
 
@@ -365,15 +372,6 @@ SBBF-Morton with pattern lookup uses 4.9$\times$ fewer instructions than Blocked
 \subsection{Random Access vs.\ Linear Traversal}
 The primary advantage of SBBF is revealed during linear spatial scans. Figure~\ref{fig:l1dcache} shows L1-dcache miss rates during volume traversals across grid sizes from $64^3$ to $256^3$ voxels. SBBF with sequential SFC iteration maintains near-zero miss rates (0.05--0.15\%) regardless of grid size, as the sequential block access pattern enables effective hardware prefetching. In contrast, hash-based filters exhibit substantially higher miss rates that increase with data size: at $256^3$, Standard Bloom Filter reaches 7.9\%, BlockedBF 3.7\%, and RegisterBF 2.0\%. This 40--160$\times$ difference in cache efficiency demonstrates that SBBF's SFC-based block indexing transforms random memory access patterns into sequential scans, fundamentally changing the cache behavior from capacity-limited to prefetcher-optimized.
 
-
-\begin{figure}[htbp!]
-\centering
-
-\includegraphics[width=\columnwidth]{Figures/PDF/latency_combined_3d.pdf}\\[0.3em]
-\includegraphics[width=\columnwidth]{Figures/PDF/query_neighbor_combined_3d.pdf}
-\caption{3D scalability benchmarks (128K--2B elements).  Top: insert and query latency. Bottom: query and neighbor latency. Solid lines: double-hash strategy; dashed lines: pattern-lookup strategy.}
-\label{fig:scalability}
-\end{figure}
 
 \subsection{False Positive Rate Analysis}
 Table~\ref{tab:fpr-datasets} compares observed FPR across synthetic distributions. All filters use $k=8$ hash functions and identical memory budgets (1.02~MB, 100K elements) for fair comparison. Both intra-block strategies are shown for SBBF.

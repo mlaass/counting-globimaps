@@ -318,6 +318,49 @@ def plot_query_neighbor_combined(results: list, output_dir: str, dim: int):
     plt.close()
 
 
+def plot_scalability_3panel(results: list, output_dir: str, dim: int):
+    """Create a 3-panel figure: Insert, Query, Neighbor latency."""
+    fig, axes = plt.subplots(1, 3, figsize=(14, 3.5))
+
+    metrics = [
+        ('insert_ns', 'Insert Latency (ns)', axes[0]),
+        ('query_ns', 'Query Latency (ns)', axes[1]),
+        ('neighbor_ns', 'Neighbor Latency (ns)', axes[2]),
+    ]
+
+    for metric, ylabel, ax in metrics:
+        has_data = False
+
+        for filter_pattern, strategy, style in SERIES_CONFIG:
+            elements, values = extract_series(results, filter_pattern, dim, metric, strategy)
+
+            if len(elements) > 0:
+                has_data = True
+                ax.plot(elements, values,
+                       marker=style['marker'], color=style['color'],
+                       linestyle=style['linestyle'], label=style['label'],
+                       markersize=5, linewidth=1.5)
+
+        if has_data:
+            ax.set_xscale('log')
+            ax.set_xlabel('Number of Elements')
+            ax.set_ylabel(ylabel)
+            ax.legend(loc='best', fontsize=7)
+            ax.grid(True, alpha=0.3)
+            ax.xaxis.set_major_formatter(plt.FuncFormatter(
+                lambda x, _: f'{x/1e6:.0f}M' if x >= 1e6 else f'{x/1e3:.0f}K'))
+
+    fig.tight_layout()
+
+    base_name = f"scalability_3panel_{dim}d"
+    for ext in ['pdf', 'png']:
+        filepath = Path(output_dir) / f"{base_name}.{ext}"
+        fig.savefig(filepath, dpi=150 if ext == 'png' else None)
+        print(f"  Saved: {filepath}")
+
+    plt.close()
+
+
 def plot_throughput_scalability(results: list, output_dir: str, dim: int):
     """Plot throughput (ops/sec) vs element count."""
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
@@ -427,7 +470,8 @@ def main():
     for dim in [2, 3]:
         print(f"\n{dim}D Plots:")
 
-        # Combined plots (1x2 each)
+        # Combined plots
+        plot_scalability_3panel(results, args.output, dim)          # insert + query + neighbor (3-panel)
         plot_throughput_scalability(results, args.output, dim)      # insert + query throughput
         plot_combined_latency(results, args.output, dim)            # insert + query latency
         plot_query_neighbor_combined(results, args.output, dim)     # query + neighbor latency

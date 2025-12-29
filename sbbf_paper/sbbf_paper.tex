@@ -128,7 +128,7 @@ Figure~\ref{fig:sbbf-architecture} illustrates the SBBF architecture. A spatial 
 \node[bitbox, right=0cm of m4, fill=white, minimum width=0.35cm, minimum height=0.5cm] (m5) {};
 \node[bitbox, right=0cm of m5, fill=black, minimum width=0.35cm, minimum height=0.5cm] (m6) {};
 \node[bitbox, right=0cm of m6, fill=white, minimum width=0.35cm, minimum height=0.5cm] (m7) {};
-\node[below=0.2cm of m3, font=\tiny, align=center, xshift=0.15cm] (hashlab) {$k=3$ bits set via double-hashing or pattern lookup};
+\node[below=0.2cm of m3, font=\footnotesize, align=center, xshift=0.15cm] (hashlab) {$k=3$ bits set via  \\double-hashing or pattern lookup};
 
 % Arrows
 \draw[arrow] (voxel) -- (sfc);
@@ -172,6 +172,45 @@ Here, $h_1$ provides the starting position and $h_2$ the step size. The constrai
 \textbf{Alternative: Pattern Lookup.} For SIMD implementations, precomputed $k$-bit patterns can replace the double-hashing loop entirely. A table of $\Omega$ random patterns (typically $\Omega = 2^{16}$) is indexed by $\text{seed} \bmod \Omega$, yielding the bit mask in a single memory access. This trades 4~KB of table space for reduced instruction count (11 vs.\ 25 instructions per operation, see Table~\ref{tab:hash-comparison}).
 
 \textbf{Collision behavior.} Unlike standard Bloom filters where collisions are uniformly distributed, SBBF collisions exhibit spatial structure. Two points $\mathbf{p}$ and $\mathbf{q}$ collide (map to identical block and mask) when they share the same low bits (same block) and when their XOR seeds $s_H \oplus s_L$ are identical. Since the seed combines both coarse (high bits) and fine (low bits) spatial information, collisions occur between points that share structural similarity at multiple scales---a property we exploit for topological verification in Section~\ref{sec:denoising}.
+
+\subsection{Theoretical FPR Analysis}
+\label{sec:theoretical-fpr}
+
+The empirical results in Table~\ref{tab:fpr-datasets} show that SBBF achieves lower False Positive Rates (FPR) than standard Blocked Bloom Filters (BBF) on spatially clustered data, despite using identical memory budgets. We attribute this to the reduced variance in block load factors achieved by SFC-based indexing compared to random hashing.
+
+The overall False Positive Rate $F$ of a blocked filter is the expectation of the FPR of individual blocks. Let $n$ be the number of items mapped to a specific block. The FPR of a single block with capacity $B$ bits and $k$ hashes is given by:
+\begin{equation}
+    f(n) \approx \left( 1 - e^{-kn/B} \right)^k
+\end{equation}
+The function $f(n)$ is convex with respect to $n$. By Jensen's Inequality, for a random variable $n$ representing block occupancy:
+\begin{equation}
+    \mathbb{E}[f(n)] \ge f(\mathbb{E}[n])
+\end{equation}
+This inequality implies that a higher variance in block occupancy $n$ increases the aggregate FPR of the filter. We contrast the occupancy variance of random hashing against SBBF.
+
+\subsubsection{Random Hashing (Standard BBF)}
+Standard BBFs distribute $M$ items across $N$ blocks uniformly. The occupancy $n$ of a given block follows a Binomial distribution, which is well-approximated by a Poisson distribution with mean $\lambda = M/N$:
+\begin{equation}
+    P_{\text{rand}}(n) = \frac{\lambda^n e^{-\lambda}}{n!}
+\end{equation}
+The variance of this distribution is $\text{Var}_{\text{rand}}(n) = \lambda$. Due to the ``Birthday Paradox,'' random hashing inevitably creates collision hotspots where $n \gg \lambda$, significantly degrading the aggregate FPR.
+
+\subsubsection{SFC Mapping (SBBF)}
+SBBF maps items using the low-order bits of the Space-Filling Curve value $s$:
+\begin{equation}
+    \text{block\_idx}(s) = s \bmod N
+\end{equation}
+For spatial data, locality implies that items appear in contiguous segments along the SFC. Let $\mathcal{C}$ be the ``Spatial Clumpiness,'' defined as the number of contiguous SFC segments required to cover the dataset.
+
+In the limit of perfectly coherent data ($\mathcal{C}=1$), the dataset forms a single sequence indices $[s_{start}, s_{end}]$. The modulo mapping ensures these items are distributed sequentially across blocks $B_i, B_{i+1}, \dots$ in a round-robin fashion.
+If the load factor $\lambda \approx 1$, SBBF acts as a stratified sampler where every block receives exactly $\lfloor \lambda \rfloor$ or $\lceil \lambda \rceil$ items. The variance approaches zero:
+\begin{equation}
+    \lim_{\mathcal{C} \to 1} \text{Var}_{\text{SBBF}}(n) \approx 0
+\end{equation}
+
+\subsubsection{Conclusion}
+Since $\text{Var}_{\text{SBBF}}(n) \ll \text{Var}_{\text{rand}}(n)$ for structured spatial data, SBBF avoids the collision hotspots inherent to random hashing. This ``forced spreading'' of neighbors lowers the expectation $\mathbb{E}[f(n)]$, theoretically justifying the lower observed FPR.
+
 
 \subsection{Efficient SFC Encoding}
 
@@ -237,15 +276,16 @@ Algorithm~\ref{alg:sbbf} shows the complete insertion and query procedures. Note
 
 \subsection{Topological Verification (Denoising)}\label{sec:denoising}
 
-\begin{figure}[htbp]
+\begin{figure*}[htbp]
 \centering
-\includegraphics[width=\columnwidth]{Figures/PNG/bunny_128_medium.png}\\[0.5em]
-\includegraphics[width=\columnwidth]{Figures/PNG/teapot_128_medium.png}\\[0.5em]
-\includegraphics[width=\columnwidth]{Figures/PNG/armadillo_128_medium.png}\\[0.5em]
-\includegraphics[width=\columnwidth]{Figures/PNG/dragon_128_medium.png}
+\includegraphics[width=0.48\textwidth]{Figures/PNG/bunny_128_medium.png}\hfill
+\includegraphics[width=0.48\textwidth]{Figures/PNG/teapot_128_medium.png}\\[0.5em]
+\includegraphics[width=0.48\textwidth]{Figures/PNG/armadillo_128_medium.png}\hfill
+\includegraphics[width=0.48\textwidth]{Figures/PNG/dragon_128_medium.png}
 \caption{Topological Verification (TV) on voxelized 3D meshes. Each row shows (left to right): ground truth, SBBF raw query results with false positives in red, and denoised output. Isolated false positives are effectively removed by requiring neighbor connectivity.}
 \label{fig:tv-concept}
-\end{figure}
+\end{figure*}
+
 As illustrated in Fig.~\ref{fig:tv-concept}, SBBF collisions on structured data (like surfaces) often manifest as "speckle" noise. Because real voxel data is connected, we can filter queries that lack spatial neighbors.
 
 Because SBBF mapping is deterministic and spatially coherent, false positives (FPs) appear as regional noise rather than isolated random bits. We implement a "Consensus" query:
@@ -341,7 +381,8 @@ The seed derivation strategy determines how the SFC code is transformed into the
 
 \textbf{XOR Strategy.} The seed is computed as $\text{seed} = s_H \oplus s_L$, combining the high-order bits (regional signature) with low-order bits (local position) via bitwise XOR. This approach requires no additional constants and provides direct bit mixing.
 
-\textbf{Multiply-Shift Strategy.} The seed is computed as $\text{seed} = (s \cdot \phi) \gg b$, where $\phi = 2654435769$ (the golden ratio prime). Multiplicative hashing provides superior avalanche properties but requires a multiplication instruction.
+\textbf{Multiply-Shift Strategy.} The seed is computed as $\text{seed} = (s \cdot \phi) \gg b$, where $\phi_{64}$ is the 64-bit Fibonacci hash constant
+  (\texttt{0x9E3779B97F4A7C15}). Multiplicative hashing provides superior avalanche properties but requires a multiplication instruction.
 
 We conduct a comprehensive evaluation across six dataset types: uniform synthetic (2D/3D), clustered synthetic (2D/3D with 50 Gaussian clusters, $\sigma=500$), real-world geographic (GDELT 1.9M events), and voxelized 3D meshes. Figure~\ref{fig:seed-strategy} summarizes the results.
 
@@ -375,23 +416,23 @@ With \texttt{double\_hash}, multiply-shift consistently achieves 1.5--2$\times$ 
 \subsection{Hash Function Count Sensitivity}\label{sec:k-sensitivity}
 The number of hash functions $k$ directly affects both FPR and computational cost. Standard Bloom filter theory establishes the optimal $k = \ln(2) \cdot (m/n)$ for minimum FPR at 50\% fill rate~\citep{Kirsch2008}. Prior work on cache-efficient filters recommends $k \in \{6, 8\}$ as the practical sweet spot, noting that $k > 11$ is never performance-optimal~\citep{Lang2019}, while SIMD-optimized variants prefer $k$ as a power of two for cache-line alignment~\citep{Putze2009}. We evaluate $k \in \{2, \ldots, 12\}$ while maintaining constant 50\% fill rate by adjusting filter size ($m = 2nk$).
 
-\begin{figure*}[htbp]
+\begin{figure}[htbp]
 \centering
-\begin{subfigure}[t]{0.48\textwidth}
+\begin{subfigure}[t]{0.48\columnwidth}
 \centering
 \includegraphics[width=\textwidth]{Figures/PDF/l1dcache_miss_rate.pdf}
-\caption{L1-dcache miss rate vs.\ grid size. SBBF with SFC-sequential traversal (solid) achieves dramatically lower miss rates than hash-based filters with row-major traversal (dashed).}
+\caption{L1-dcache miss rate vs.\ grid size.}
 \label{fig:l1dcache}
 \end{subfigure}\hfill
-\begin{subfigure}[t]{0.48\textwidth}
+\begin{subfigure}[t]{0.48\columnwidth}
 \centering
 \includegraphics[width=\textwidth]{Figures/PDF/k_sensitivity_combined.pdf}
-\caption{FPR vs.\ $k$ (hash functions) at constant 50\% fill rate. Hilbert SFC with \texttt{pattern\_lookup} and XOR seed. Voxel meshes at $128^3$ resolution.}
+\caption{FPR vs.\ $k$ at 50\% fill rate.}
 \label{fig:k-sensitivity}
 \end{subfigure}
-\caption{Cache behavior and parameter sensitivity analysis.}
+\caption{(a) SBBF with SFC-sequential traversal (solid) achieves lower miss rates than hash-based filters (dashed). (b) Hilbert SFC with \texttt{pattern\_lookup} and XOR seed on $128^3$ voxel meshes.}
 \label{fig:cache-sensitivity}
-\end{figure*}
+\end{figure}
 
 \textbf{Key Findings.} FPR decreases rapidly from $k=2$ ($\sim$10\%) to $k=6$ ($\sim$0.5\%) across all data types, consistent with the theoretical optimum $k \approx 0.693 \cdot c$ where $c$ is bits per element. Beyond $k=6$, synthetic data shows diminishing returns---matching prior findings~\citep{Lang2019}---while voxelized meshes continue improving through $k=11$. We attribute this divergence to the structured spatial locality in voxel data: SFC-indexed points cluster in memory, reducing the effective collision rate and shifting the optimum toward higher $k$. Based on these results, we use $k=8$ as the default throughout this paper unless otherwise specified, balancing FPR reduction, cache efficiency (power-of-two alignment), and computational cost.
 
@@ -405,12 +446,12 @@ SBBF-Morton achieves 4--5$\times$ fewer cycles than baselines for neighbor queri
 \subsection{Compression Efficiency vs.\ Data Density}
 We evaluate SBBF's memory efficiency across varying data densities, comparing against exact representations: \textbf{dense voxel grids} (1 bit/cell, $O(1)$ query) and \textbf{coordinate lists} (64 bits/point, $O(\log n)$ binary search). Figure~\ref{fig:density-compression} shows results on a $256^3$ grid (${\sim}16.7$M cells) with uniform random fill from 0.001\% to 100\%.
 
-\begin{figure}[htbp]
+\begin{figure*}[htbp]
 \centering
-\includegraphics[width=\columnwidth]{Figures/PDF/density_compression_combined.pdf}
+\includegraphics[width=\textwidth]{Figures/PDF/density_compression_combined.pdf}
 \caption{SBBF compression efficiency vs.\ data density on $256^3$ grid. (a) Memory ratio vs.\ fill rate. (b) Bits per element. (c) Query time ratio. Gray line indicates parity.}
 \label{fig:density-compression}
-\end{figure}
+\end{figure*}
 
 \textbf{Key Findings.} SBBF maintains approximately constant bits-per-element ($\sim$10 bpe) regardless of density, making it ideal for sparse data. At low densities ($<$10\%), SBBF uses 10--100$\times$ less memory than dense grids, which allocate the full $256^3$ bitset regardless of occupancy. Compared to coordinate lists, SBBF wins below $\sim$0.01\% fill rate and provides $O(1)$ queries vs.\ $O(\log n)$. At high densities ($>$50\%), dense grids become more efficient since their 1-bit-per-cell overhead is minimal. The optimal choice depends on expected sparsity: SBBF for sparse spatial data (typical in voxel processing), dense grids for near-full occupancy.
 

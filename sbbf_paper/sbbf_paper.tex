@@ -76,6 +76,11 @@ SBBF is the first to integrate SFCs directly into the indexing logic of a probab
 \subsection{Spatial Data Representations}
 Exact spatial representations present a memory-accuracy trade-off that depends on data sparsity. \textbf{Dense voxel grids} allocate one bit per cell in an $N^d$ array, providing $O(1)$ lookup but $O(N^d)$ memory regardless of occupancy---a limitation noted by \citet{Niessner2013} in real-time reconstruction. \textbf{Sparse voxel octrees} (SVOs)~\citep{Laine2010} address this by hierarchically subdividing space, achieving approximately 5 bytes per occupied voxel; subsequent work on SVDAGs~\citep{Kampe2013} further compresses via directed acyclic graphs. For unstructured point sets, \textbf{coordinate lists} (COO format) store explicit $(x,y,z)$ tuples, requiring 64--96 bits per point with $O(\log n)$ binary search~\citep{Saad1994}. A recent review~\citep{Nguyen2021} comprehensively compares these approaches. SBBF offers a probabilistic alternative: constant memory regardless of density, $O(1)$ queries, with bounded false positive rate---trading exactness for space efficiency on sparse spatial data.
 
+\subsection{Compressed Bitmap Indices}
+Roaring Bitmaps~\citep{Lemire2018Roaring} represent the state-of-the-art for compressed integer set storage, achieving excellent compression through hybrid encoding (arrays, bitmaps, and run-length encoding) with SIMD-optimized operations. For SFC-encoded spatial data, Roaring offers exact membership (0\% FPR) with typical compression of 1--2 bytes per element on clustered data.
+
+However, Roaring's memory footprint scales with data entropy: uniformly distributed integers compress poorly (approaching 32 bits/element), while highly clustered data achieves sub-byte storage. SBBF provides complementary trade-offs: (1) \emph{guaranteed memory budget}---exactly $m$ bits regardless of data distribution, critical for embedded systems or strict memory constraints; (2) \emph{no resize operations}---Roaring requires dynamic reallocation as data grows, while SBBF has fixed allocation; (3) \emph{cache-predictable access}---SBBF's sequential block access during spatial traversals enables hardware prefetching, whereas Roaring's container-switching incurs branch mispredictions. For applications tolerating bounded false positives (e.g., spatial filtering before exact verification), SBBF offers predictable performance at fixed memory cost.
+
 \textbf{Efficient Hilbert Encoding.} While Hilbert curves provide superior locality, the standard bit-by-bit encoding algorithm requires $O(n)$ iterations with branch-heavy rotation operations---for 16-bit coordinates, this means 16 loop iterations with conditional state transitions, yielding approximately 75~ns per encode. Recent work has addressed this via lookup table (LUT) approaches: processing multiple bits per iteration reduces the iteration count while precomputing state transitions eliminates branch mispredictions. The \texttt{fast-hilbert} library~\citep{FastHilbert} demonstrates 4-bit chunked encoding achieving 3~ns latency. For 3D, Morton-Hilbert decomposition transforms Morton codes (computed in $O(1)$ via PDEP) through a compact 96-byte LUT~\citep{ThreadLocalMutex3D}.
 
 \subsection{Hash Functions for Bloom Filters}
@@ -295,12 +300,12 @@ Because SBBF mapping is deterministic and spatially coherent, false positives (F
 \end{equation}
 where $\tau$ is a connectivity threshold. The experiments in Fig.~\ref{fig:tv-concept} use $\tau = 2$ (26-connected neighborhood), $k = 4$ hash functions, $2^{15}$ blocks of 64 bits each, and Hilbert 3D space-filling curve indexing. This allows SBBF to operate at higher theoretical False Positive Rates (FPR) than standard BFs while maintaining effective precision.
 
-
+\textbf{Semantic Trade-off.} Topological Verification relaxes strict membership semantics for noise reduction. Valid isolated points---such as outliers or single-voxel features---will be incorrectly rejected (False Negatives) when $\text{CountNeighbors}(V) < \tau$. This mode is therefore suitable for surface reconstruction, mesh processing, and connected-component analysis where isolated points are either noise or negligible. For exact point lookups where every valid point must be preserved, TV should be disabled ($\tau = 0$), accepting higher apparent FPR in exchange for zero False Negatives.
 
 \section{Experiments}
 
 \subsection{Experimental Setup}
-All benchmarks were conducted on a Linux workstation with an Intel Core i7-9700K (8 cores, 3.6~GHz base, 4.9~GHz turbo) and 32~GB DDR4-3200 RAM. Code was compiled with GCC 12.2 using \texttt{-O3 -march=native}. We use the nanobench library~\citep{nanobench} with Linux \texttt{perf\_event} for cycle-accurate measurements.
+All benchmarks were conducted on a Linux workstation with an Intel Core i7-9700K (8 cores, 3.6~GHz base, 4.9~GHz turbo) and 32~GB DDR4-3200 RAM. Code was compiled with GCC 12.2 using \texttt{-O3 -march=native}. We use the nanobench library~\citep{nanobench} with Linux \texttt{perf\_event} for cycle-accurate measurements. While newer CPUs (Intel 12th--14th gen, AMD Zen 4) feature larger L2/L3 caches and improved branch predictors, the fundamental latency hierarchy remains: L1 access (${\sim}4$ cycles) versus LLC (${\sim}40$ cycles) versus DRAM (${\sim}200$ cycles). SBBF's advantage stems from converting random LLC/DRAM accesses into sequential L1 hits via SFC-ordered traversal---a benefit that persists across microarchitectures.
 
 \textbf{Datasets.} We evaluate on the GDELT Global Event Database containing 1.93M georeferenced news events. For 2D experiments, coordinates are quantized to 16-bit precision. For 3D experiments, we include an event category dimension (QuadClass: verbal/material cooperation/conflict).
 
@@ -437,6 +442,14 @@ The number of hash functions $k$ directly affects both FPR and computational cos
 
 \textbf{Key Findings.} FPR decreases rapidly from $k=2$ ($\sim$10\%) to $k=6$ ($\sim$0.5\%) across all data types, consistent with the theoretical optimum $k \approx 0.693 \cdot c$ where $c$ is bits per element. Beyond $k=6$, synthetic data shows diminishing returns---matching prior findings~\citep{Lang2019}---while voxelized meshes continue improving through $k=11$. We attribute this divergence to the structured spatial locality in voxel data: SFC-indexed points cluster in memory, reducing the effective collision rate and shifting the optimum toward higher $k$. Based on these results, we use $k=8$ as the default throughout this paper unless otherwise specified, balancing FPR reduction, cache efficiency (power-of-two alignment), and computational cost.
 
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{Figures/PDF/density_compression_combined.pdf}
+\caption{SBBF compression efficiency vs.\ data density on $256^3$ grid. (a) Memory ratio vs.\ fill rate. (b) Bits per element. (c) Query time ratio. Gray line indicates parity.}
+\label{fig:density-compression}
+\end{figure*}
+
 \subsection{Neighborhood Query Performance}
 Table~\ref{tab:neighbor-performance} compares neighborhood query performance for 3D data (6 neighbors per point). SBBF exploits SFC locality: spatially adjacent cells map to nearby memory addresses, enabling cache-line reuse across neighbor queries.
 
@@ -444,15 +457,10 @@ Table~\ref{tab:neighbor-performance} compares neighborhood query performance for
 
 SBBF-Morton achieves 4--5$\times$ fewer cycles than baselines for neighbor queries. The high IPC (7.5) indicates excellent instruction-level parallelism from cache hits. Morton outperforms Hilbert here because its simpler encoding allows faster neighbor coordinate computation.
 
+
 \subsection{Compression Efficiency vs.\ Data Density}
 We evaluate SBBF's memory efficiency across varying data densities, comparing against exact representations: \textbf{dense voxel grids} (1 bit/cell, $O(1)$ query) and \textbf{coordinate lists} (64 bits/point, $O(\log n)$ binary search). Figure~\ref{fig:density-compression} shows results on a $256^3$ grid (${\sim}16.7$M cells) with uniform random fill from 0.001\% to 100\%.
 
-\begin{figure*}[htbp]
-\centering
-\includegraphics[width=\textwidth]{Figures/PDF/density_compression_combined.pdf}
-\caption{SBBF compression efficiency vs.\ data density on $256^3$ grid. (a) Memory ratio vs.\ fill rate. (b) Bits per element. (c) Query time ratio. Gray line indicates parity.}
-\label{fig:density-compression}
-\end{figure*}
 
 \textbf{Key Findings.} SBBF maintains approximately constant bits-per-element ($\sim$10 bpe) regardless of density, making it ideal for sparse data. At low densities ($<$10\%), SBBF uses 10--100$\times$ less memory than dense grids, which allocate the full $256^3$ bitset regardless of occupancy. Compared to coordinate lists, SBBF wins below $\sim$0.01\% fill rate and provides $O(1)$ queries vs.\ $O(\log n)$. At high densities ($>$50\%), dense grids become more efficient since their 1-bit-per-cell overhead is minimal. The optimal choice depends on expected sparsity: SBBF for sparse spatial data (typical in voxel processing), dense grids for near-full occupancy.
 

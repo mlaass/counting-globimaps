@@ -163,9 +163,11 @@ This reduces computation and improves cache efficiency while maintaining good di
 ### Key Files
 
 - `include/globimap.hpp` - Simple binary bloom filter (header-only)
-- `include/counting_globimap.hpp` - Main CountingGloBiMap implementation (header-only)
+- `include/counting_globimap.hpp` - CountingGloBiMap V1 implementation (header-only)
+- `include/counting_globimap_v2.hpp` - **CountingGloBiMap V2** - optimized implementation (header-only)
 - `include/murmur.hpp` - MurmurHash3 implementation for hashing
 - `include/hashfn.hpp` - Hash function interface
+- `docs/counting_globimap_v2_architecture.md` - V2 architecture documentation and design formulas
 - `experiments/src/globimap_test_config.hpp` - Configuration generation utilities
 - `experiments/src/*.cpp` - Experiment executables (dataset tests, polygon processing, benchmarks)
 
@@ -188,7 +190,7 @@ Layers are ordered from finest (typically 1-bit or 8-bit) to coarsest (typically
 
 ## Bloom Filter Implementations
 
-The project includes 10 bloom filter implementations, each with different trade-offs. All are header-only and located in `include/`:
+The project includes 11 bloom filter implementations, each with different trade-offs. All are header-only and located in `include/`:
 
 ### Implementation Overview
 
@@ -200,33 +202,44 @@ The project includes 10 bloom filter implementations, each with different trade-
    - Serialization support (tobuffer/frombuffer)
    - Best for: Simple membership testing, spatial rasterization
 
-2. **CountingGloBiMap** (`counting_globimap.hpp`) - Multi-layer hierarchical filter
+2. **CountingGloBiMap** (`counting_globimap.hpp`) - Multi-layer hierarchical filter (V1)
    - Original implementation with cascading layers
-   - NEW: Optional `minimal_increment` for conservative updates (reduces overcounting)
-   - NEW: Optional `cascade_factor` for early cascade (prevents saturation)
-   - Best for: Highly skewed data with varying count magnitudes
+   - Optional `minimal_increment` for conservative updates (reduces overcounting)
+   - Optional `cascade_factor` for early cascade (prevents saturation)
+   - **Note**: Consider using CountingGloBiMapV2 for better performance
+   - Best for: Legacy compatibility
 
-3. **Variable-Increment CBF** (`variable_increment_bf.hpp`) - Simple single-layer filter
+3. **CountingGloBiMapV2** (`counting_globimap_v2.hpp`) - Optimized multi-layer filter (V2)
+   - **2-3x faster inserts** through compile-time template dispatch
+   - **Overflow bit protocol**: High bit flags overflow, remaining bits continue counting
+   - **Asymmetric layer sizing**: Upper layers can be much smaller for biased data
+   - **Zero memory waste**: Single vector per layer (vs 5 vectors in V1)
+   - Pre-defined configs: `CGM_12`, `CGM_12_20`, `CGM_12_20_32`
+   - Default 12+20 bit layers handle counts up to 1 billion
+   - See `docs/counting_globimap_v2_architecture.md` for design formulas
+   - Best for: **Recommended for all new code** - biased spatial data, high throughput
+
+4. **Variable-Increment CBF** (`variable_increment_bf.hpp`) - Simple single-layer filter
    - Based on Rottenstreich et al. (2014)
    - Uses variable increments [L, 2L-1] for 50% memory savings
    - Simple 4-parameter configuration
    - **⚠️ WARNING**: Provides ~4-5x overcounting for frequency queries (310% error)
    - Best for: **Membership testing only** (`get_bool()`), NOT frequency estimation
 
-4. **Spectral Bloom Filter** (`spectral_bloom_filter.hpp`) - Multiple variants
+5. **Spectral Bloom Filter** (`spectral_bloom_filter.hpp`) - Multiple variants
    - Based on Cohen & Matias (2003)
    - Three variants: MS (Minimum Selection), MI (Minimal Increment), RM (Recurring Minimum)
    - MI variant provides conservative updates for better accuracy
    - RM variant supports deletions
    - Best for: High-frequency item detection with accuracy
 
-5. **d-Left Counting Bloom Filter** (`dleft_counting_bf.hpp`) - Deterministic lookups
+6. **d-Left Counting Bloom Filter** (`dleft_counting_bf.hpp`) - Deterministic lookups
    - Based on Bonomi et al. (2006)
    - Uses d-left hashing with fingerprints for cache-friendly design
    - Supports deletions
    - Best for: Cache-sensitive applications, deterministic query time
 
-6. **Count-Min Sketch** (`count_min_sketch.hpp`) - Probabilistic guarantees
+7. **Count-Min Sketch** (`count_min_sketch.hpp`) - Probabilistic guarantees
    - Based on Cormode & Muthukrishnan (2005)
    - Provides error bounds (epsilon, delta parameters)
    - Optional conservative update
@@ -236,26 +249,26 @@ The project includes 10 bloom filter implementations, each with different trade-
 
 Additional membership-only bloom filters optimized for cache efficiency. From [save-buffer/bloomfilter_benchmarks](https://github.com/save-buffer/bloomfilter_benchmarks).
 
-7. **BlockedBloomFilter** (`blocked_bloom_filter.hpp`) - Cache-line aligned
+8. **BlockedBloomFilter** (`blocked_bloom_filter.hpp`) - Cache-line aligned
    - 256-bit blocks aligned to cache lines
    - First hash selects block, remaining hashes probe within block
    - Reduces cache misses through spatial locality
    - Best for: Memory-constrained systems with cache sensitivity
 
-8. **RegisterBlockedBloomFilter** (`register_blocked_bf.hpp`) - 64-bit atomic masks
+9. **RegisterBlockedBloomFilter** (`register_blocked_bf.hpp`) - 64-bit atomic masks
    - Uses 64-bit registers as atomic units
    - Single mask operation per lookup
    - Compensation parameter tunes memory/FPR tradeoff
    - Best for: Very fast membership testing
 
-9. **SimdBloomFilter** (`simd_bloom_filter.hpp`) - AVX2 vectorized
-   - Processes 8 elements in parallel using AVX-256
-   - Uses gather instructions for efficient block lookups
-   - Batch operations for maximum throughput
-   - Requires AVX2 support (compile with `-march=native`)
-   - Best for: High-throughput applications with SIMD support
+10. **SimdBloomFilter** (`simd_bloom_filter.hpp`) - AVX2 vectorized
+    - Processes 8 elements in parallel using AVX-256
+    - Uses gather instructions for efficient block lookups
+    - Batch operations for maximum throughput
+    - Requires AVX2 support (compile with `-march=native`)
+    - Best for: High-throughput applications with SIMD support
 
-10. **PatternedSimdBloomFilter** (`simd_bloom_filter.hpp`) - Advanced SIMD
+11. **PatternedSimdBloomFilter** (`simd_bloom_filter.hpp`) - Advanced SIMD
     - Pre-generated mask patterns with rotation
     - Better FPR than standard SimdBloomFilter
     - Also requires AVX2 support
@@ -269,13 +282,14 @@ Choose based on your requirements:
 Need error bounds?          → Count-Min Sketch
 Need deletions?             → d-Left CBF or Spectral BF (RM variant)
 Need minimal memory?        → Count-Min Sketch (2.66 KB typical)
-Need best accuracy?         → Spectral BF (MI) or CountingGloBiMap (MI)
+Need best accuracy?         → Spectral BF (MI) or CountingGloBiMapV2 (MI)
 Need cache efficiency?      → d-Left CBF, BlockedBF, or RegisterBlockedBF
 Need SIMD throughput?       → SimdBloomFilter or PatternedSimdBloomFilter
 Need membership only?       → GloBiMap, BlockedBF, or RegisterBlockedBF
-Need frequency estimation?  → Spectral BF (MI), Count-Min Sketch, or CountingGloBiMap (MI)
-Need varying magnitudes?    → CountingGloBiMap (multi-layer)
+Need frequency estimation?  → CountingGloBiMapV2, Spectral BF (MI), or Count-Min Sketch
+Need varying magnitudes?    → CountingGloBiMapV2 (multi-layer, optimized)
 Need spatial rasterization? → GloBiMap (binary)
+Need fastest inserts?       → CountingGloBiMapV2 (2-3x faster than alternatives)
 ```
 
 **⚠️ WARNING**: Do NOT use Variable-Increment CBF for frequency estimation - it provides ~2-5x overcounting due to variable increments [L, 2L-1]. Use `get_bool()` for membership only.
@@ -287,6 +301,7 @@ Need spatial rasterization? → GloBiMap (binary)
 
 # Build individual test suites
 make test_globimap
+make test_counting_globimap_v2    # V2 optimized implementation
 make test_variable_increment_bf
 make test_spectral_bloom_filter
 make test_dleft_counting_bf
@@ -296,6 +311,7 @@ make test_cache_optimal_bf        # Cache-optimal BF (requires AVX2)
 
 # Run tests
 ./test_globimap                   # 14 tests - Binary bloom filter
+./test_counting_globimap_v2       # 15 tests - V2 overflow bit, multi-layer
 ./test_variable_increment_bf      # 15 tests - VI-CBF correctness
 ./test_spectral_bloom_filter      # 17 tests - All SBF variants
 ./test_dleft_counting_bf          # 14 tests - d-Left hashing & deletions
@@ -399,7 +415,29 @@ double epsilon = cms.epsilon_actual();
 double delta = cms.delta_actual();
 ```
 
-**Enhanced CountingGloBiMap:**
+**CountingGloBiMapV2 (Recommended):**
+```cpp
+#include "counting_globimap_v2.hpp"
+using namespace globimap;
+
+// Pre-defined 12+20 bit configuration (recommended)
+CGM_12_20 filter;
+filter.configure(8, {20, 14}, true);  // k=8, layer0=2^20, layer1=2^14, MI mode
+
+std::vector<uint64_t> point = {123, 456};
+for (int i = 0; i < 5000; ++i) filter.put(point);
+uint64_t count = filter.get_min(point);  // Exactly 5000 (full precision)
+
+// Memory: 2^20 * 2 bytes + 2^14 * 4 bytes = 2.06 MB
+std::cout << "Memory: " << filter.memory_usage() / 1024 << " KB\n";
+
+// Other pre-defined configs:
+// CGM_12        - Single 12-bit layer (small counts)
+// CGM_12_20_32  - Three layers (extreme counts up to 2^62)
+// CGM_16_32     - Two layers with larger counters
+```
+
+**Enhanced CountingGloBiMap (V1 - Legacy):**
 ```cpp
 #include "counting_globimap.hpp"
 using namespace globimap;

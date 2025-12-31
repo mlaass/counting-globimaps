@@ -184,6 +184,12 @@ target_link_libraries(test_multicategory
 PUBLIC OpenMP::OpenMP_CXX
 )
 
+# CountingGloBiMapV2 unit tests
+add_executable(test_counting_globimap_v2 tests/test_counting_globimap_v2.cpp)
+target_link_libraries(test_counting_globimap_v2
+PUBLIC OpenMP::OpenMP_CXX
+)
+
 # Cache-optimal bloom filter tests (requires AVX2 via -march=native)
 add_executable(test_cache_optimal_bf tests/test_cache_optimal_bf.cpp)
 target_link_libraries(test_cache_optimal_bf

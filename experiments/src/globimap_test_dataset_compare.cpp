@@ -1,4 +1,5 @@
 #include "counting_globimap.hpp"
+#include "counting_globimap_v2.hpp"
 #include "spectral_bloom_filter.hpp"
 #include "dleft_counting_bf.hpp"
 #include "count_min_sketch.hpp"
@@ -235,6 +236,24 @@ int main() {
             CountingGloBiMap<> gbm(conf);
             uint64_t mem = gbm.byte_size();
             results.push_back(benchmark_filter(gbm, "CountingGloBiMap (MI)", dataset_file, width, height, mem));
+        }
+
+        // CountingGloBiMapV2 (12+20 bit, MI) - ~2 MB
+        {
+            std::cout << "\nTesting CountingGloBiMapV2 (12+20, MI)...\n";
+            CGM_12_20 gbm_v2;
+            gbm_v2.configure(k, {16, 12}, true);  // 2^16 + 2^12 counters, MI mode
+            uint64_t mem = gbm_v2.memory_usage();
+            results.push_back(benchmark_filter(gbm_v2, "CGM V2 (12+20, MI)", dataset_file, width, height, mem));
+        }
+
+        // CountingGloBiMapV2 (12+20 bit, standard) - ~2 MB
+        {
+            std::cout << "\nTesting CountingGloBiMapV2 (12+20)...\n";
+            CGM_12_20 gbm_v2;
+            gbm_v2.configure(k, {16, 12}, false);  // Standard mode
+            uint64_t mem = gbm_v2.memory_usage();
+            results.push_back(benchmark_filter(gbm_v2, "CGM V2 (12+20)", dataset_file, width, height, mem));
         }
 
         // Print summary

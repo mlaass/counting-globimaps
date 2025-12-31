@@ -589,3 +589,59 @@ If HDF5 is in a different location, update paths in `CMakeLists.txt` lines 9, 33
 - **Optimization**: `-Ofast` for Release, `-g` for Debug
 
 The `-march=native` flag optimizes for the build machine's CPU architecture.
+
+## Research Papers
+
+The repository includes draft longpapers documenting the Counting GloBiMap data structure:
+
+### Paper Versions
+
+**`cbf-longpaper-v1/`** - VLDB-formatted version
+- Title: "Counting GloBiMaps - A Probabilistic Data Structure for Handling Big Point Datasets"
+- Format: `\documentclass[sigconf, nonacm]{acmart}` (VLDB template)
+- Main file: `cbf-longpaper-v1.tex`
+- Complete draft with all sections
+
+**`cbf-longpaper-v2/`** - ACM-formatted version
+- Same content adapted for ACM conference format
+- Format: `\documentclass[sigconf]{acmart}` (ACM template)
+- Main file: `cbf-longpaper-v2.tex`
+- Includes BibLaTeX support files (acmnumeric.bbx, acmauthoryear.cbx, etc.)
+- Has some incomplete sections marked with `\todo{}`
+
+### Paper Content Overview
+
+Both papers cover:
+1. **Introduction** - Motivation for probabilistic data structures in spatial computing
+2. **Related Work** - Bloom filters, Counting Bloom filters, GloBiMaps
+3. **Counting GloBiMaps** - Multi-layer architecture, PUT/GET operations
+4. **Operations** - Union, Intersection (with merge functions), SUM for spatial statistics
+5. **Multiresolution** - Re-randomization strategy between layers
+6. **Evaluation** - Experiments on Twitter (213M points) and OSM Asia (1.5B points) datasets
+7. **Point-in-Polygon** - Error analysis for polygon counting queries
+
+### Key Concepts from Papers
+
+- **Layered overflow handling**: Small bit-depth first layer absorbs long tail, overflows cascade up
+- **Hashing trick**: Single MurmurHash3 call generates k hash functions via `h[i] = h1 + (i+1)*h2`
+- **False positive error model**: `err_total = k * (t/n) * (1 - e^(-kn/m))`
+- **Multiresolution re-randomization**: Higher layers use finer spatial resolution to restore hash uniformity
+
+### Building Papers
+
+```bash
+# From paper directory
+cd cbf-longpaper-v1  # or cbf-longpaper-v2
+pdflatex cbf-longpaper-v1.tex
+bibtex cbf-longpaper-v1
+pdflatex cbf-longpaper-v1.tex
+pdflatex cbf-longpaper-v1.tex
+```
+
+### Figures
+
+Both versions include figures in `figures/`:
+- `CGM_Layer_Schema.pdf` - Multi-layer architecture diagram
+- `test_datasets_*.pdf` - Experimental results plots
+- `polygons_mask_*.pdf` - Point-in-polygon error analysis
+- Dataset visualizations (Twitter, OSM, US Census, Global boundaries)

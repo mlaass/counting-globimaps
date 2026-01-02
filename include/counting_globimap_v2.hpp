@@ -324,83 +324,49 @@ private:
     /**
      * @brief Minimal increment put: only increment positions at minimum sum
      *
-     * Two-pass algorithm with hash position caching to avoid recomputation.
+     * Two-pass algorithm:
+     * 1. Compute sum for each hash position
+     * 2. Increment (with cascade) only positions at minimum
      */
     void put_minimal_increment(uint64_t h1, uint64_t h2) {
         // First pass: compute sums and find minimum
-        std::array<HashPosition, 16> positions;  // Max k=16
+        std::array<uint64_t, 64> sums;  // Max k=64
         uint64_t min_sum = std::numeric_limits<uint64_t>::max();
 
         for (unsigned i = 0; i < hash_k_; ++i) {
             uint64_t sum = 0;
             unsigned shift = 0;
-            size_t target_layer = 0;
-            uint64_t target_pos = 0;
 
-            // Find target layer (first non-overflowed) and compute sum
-            size_t layer_idx = 0;
-            std::apply([&](auto&... layer) {
-                bool found_target = false;
-                ((found_target ? [&]() {
-                    // Already found target, just accumulate sum if overflow
-                    uint64_t pos = (h1 + (i + 1) * h2) & layer.mask;
-                    if (layer.has_overflow(pos)) {
-                        sum += static_cast<uint64_t>(layer.get_value(pos)) << shift;
-                        shift += layer.value_bits;
-                    }
-                    ++layer_idx;
-                    return true;
-                }() : [&]() {
+            // Traverse layers to compute total sum
+            std::apply([&](const auto&... layer) {
+                bool should_continue = true;
+                ((should_continue ? [&]() {
                     uint64_t pos = (h1 + (i + 1) * h2) & layer.mask;
                     sum += static_cast<uint64_t>(layer.get_value(pos)) << shift;
                     shift += layer.value_bits;
-
-                    if (!layer.has_overflow(pos)) {
-                        // Found target layer
-                        target_layer = layer_idx;
-                        target_pos = pos;
-                        found_target = true;
-                    }
-                    ++layer_idx;
+                    should_continue = layer.has_overflow(pos);
                     return true;
-                }()), ...);
+                }() : false), ...);
             }, layers_);
 
-            positions[i] = {target_layer, target_pos, sum};
+            sums[i] = sum;
             min_sum = std::min(min_sum, sum);
         }
 
-        // Second pass: increment only positions at minimum
+        // Second pass: cascade increment for positions at minimum
         for (unsigned i = 0; i < hash_k_; ++i) {
-            if (positions[i].sum == min_sum) {
-                increment_layer(positions[i].layer_idx,
-                               positions[i].position,
-                               h1, h2, i);
+            if (sums[i] == min_sum) {
+                // Cascade through layers (same as standard mode)
+                std::apply([&](auto&... layer) {
+                    bool cascaded = true;
+                    ((cascaded ? [&]() {
+                        uint64_t pos = (h1 + (i + 1) * h2) & layer.mask;
+                        cascaded = layer.increment(pos);
+                        return true;
+                    }() : false), ...);
+                }, layers_);
             }
         }
-    }
-
-    /**
-     * @brief Increment a specific layer at a specific position
-     *
-     * If increment causes overflow, cascade to next layer.
-     */
-    void increment_layer(size_t layer_idx, uint64_t pos,
-                         uint64_t h1, uint64_t h2, unsigned hash_i) {
-        size_t current_idx = 0;
-        std::apply([&](auto&... layer) {
-            bool need_cascade = false;
-            ((current_idx == layer_idx ? [&]() {
-                need_cascade = layer.increment(pos);
-                ++current_idx;
-                return true;
-            }() : (current_idx > layer_idx && need_cascade ? [&]() {
-                uint64_t next_pos = (h1 + (hash_i + 1) * h2) & layer.mask;
-                need_cascade = layer.increment(next_pos);
-                ++current_idx;
-                return true;
-            }() : (++current_idx, true))), ...);
-        }, layers_);
     }
 };
 

@@ -1,4 +1,5 @@
 #include "counting_globimap.hpp"
+#include "counting_globimap_v2.hpp"
 #include "spectral_bloom_filter.hpp"
 #include "dleft_counting_bf.hpp"
 #include "count_min_sketch.hpp"
@@ -128,16 +129,25 @@ int main() {
         results.push_back(benchmark_cosine(cms, "Count-Min Sketch", width, height, limit, mem));
     }
 
-    // CountingGloBiMap (MI) - 96 KB
+    // CountingGloBiMap V1 (MI) - 96 KB
     {
-        std::cout << "\nTesting CountingGloBiMap (MI)...\n";
+        std::cout << "\nTesting CountingGloBiMap V1 (MI)...\n";
         FilterConfig conf;
         conf.hash_k = k;
         conf.layers = {{8, 16}, {16, 14}};
         conf.minimal_increment = true;
         CountingGloBiMap<> gbm(conf);
         uint64_t mem = gbm.byte_size();
-        results.push_back(benchmark_cosine(gbm, "CountingGloBiMap (MI)", width, height, limit, mem));
+        results.push_back(benchmark_cosine(gbm, "GloBiMap V1 (MI)", width, height, limit, mem));
+    }
+
+    // CountingGloBiMap V2 (MI) - ~136 KB
+    {
+        std::cout << "\nTesting CountingGloBiMap V2 (MI)...\n";
+        CGM_12_20 gbm_v2;
+        gbm_v2.configure(k, {16, 14}, true);  // k=8, layer0=2^16, layer1=2^14
+        uint64_t mem = gbm_v2.memory_usage();
+        results.push_back(benchmark_cosine(gbm_v2, "GloBiMap V2 (MI)", width, height, limit, mem));
     }
 
     // Print summary

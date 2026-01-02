@@ -1,5 +1,6 @@
 #include "count_min_sketch.hpp"
 #include "counting_globimap.hpp"
+#include "counting_globimap_v2.hpp"
 #include "dleft_counting_bf.hpp"
 #include "spectral_bloom_filter.hpp"
 #include "variable_increment_bf.hpp"
@@ -146,12 +147,18 @@ void test_memory_tiny() {
     CountingGloBiMap<> gbm(gbm_conf);
     uint64_t gbm_mem = gbm.byte_size();
 
+    // CountingGloBiMapV2 (12-bit layer for tiny scenario)
+    CGM_12 gbm_v2;
+    gbm_v2.configure(8, {11}, true);  // k=8, layer0=2^11, MI mode
+    uint64_t gbm_v2_mem = gbm_v2.memory_usage();
+
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "  Variable-Increment CBF: " << config_utils::format_memory(vi_mem) << "\n";
     std::cout << "  Spectral BF (MI):       " << config_utils::format_memory(sbf_mem) << "\n";
     std::cout << "  d-Left CBF:             " << config_utils::format_memory(dleft_mem) << "\n";
     std::cout << "  Count-Min Sketch:       " << config_utils::format_memory(cms_mem) << "\n";
-    std::cout << "  Enhanced GloBiMap:      " << config_utils::format_memory(gbm_mem) << "\n";
+    std::cout << "  GloBiMap V1 (MI):       " << config_utils::format_memory(gbm_mem) << "\n";
+    std::cout << "  GloBiMap V2 (MI):       " << config_utils::format_memory(gbm_v2_mem) << "\n";
 }
 
 void test_throughput_tiny() {
@@ -211,7 +218,7 @@ void test_throughput_tiny() {
                   << (10000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
     }
 
-    // Enhanced GloBiMap
+    // GloBiMap V1
     {
         FilterConfig conf;
         conf.hash_k = 8;
@@ -223,7 +230,20 @@ void test_throughput_tiny() {
             gbm.put(point);
         }
         double elapsed = timer.elapsed_ms();
-        std::cout << "  GloBiMap (MI):  " << std::setw(8) << std::fixed << std::setprecision(2)
+        std::cout << "  GloBiMap V1:    " << std::setw(8) << std::fixed << std::setprecision(2)
+                  << (10000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
+    }
+
+    // GloBiMap V2
+    {
+        CGM_12 gbm_v2;
+        gbm_v2.configure(8, {11}, true);
+        Timer timer;
+        for (const auto &point : dataset) {
+            gbm_v2.put(point);
+        }
+        double elapsed = timer.elapsed_ms();
+        std::cout << "  GloBiMap V2:    " << std::setw(8) << std::fixed << std::setprecision(2)
                   << (10000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
     }
 }
@@ -320,7 +340,7 @@ void test_accuracy_tiny() {
                   << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
     }
 
-    // Enhanced GloBiMap
+    // GloBiMap V1
     {
         FilterConfig conf;
         conf.hash_k = 8;
@@ -338,7 +358,26 @@ void test_accuracy_tiny() {
             double error = std::abs((double)estimated - (double)actual) / (double)actual;
             total_error += error;
         }
-        std::cout << "  GloBiMap (MI):  Avg error = " << std::setw(8) << std::fixed
+        std::cout << "  GloBiMap V1:    Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
+    }
+
+    // GloBiMap V2
+    {
+        CGM_12 gbm_v2;
+        gbm_v2.configure(8, {11}, true);
+        for (const auto &point : dataset) {
+            gbm_v2.put(point);
+        }
+
+        double total_error = 0.0;
+        for (size_t i = 0; i < test_points.size(); ++i) {
+            uint64_t estimated = gbm_v2.get_min(test_points[i]);
+            uint64_t actual = sorted_truth[i].second;
+            double error = std::abs((double)estimated - (double)actual) / (double)actual;
+            total_error += error;
+        }
+        std::cout << "  GloBiMap V2:    Avg error = " << std::setw(8) << std::fixed
                   << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
     }
 }
@@ -370,7 +409,7 @@ void test_memory_medium() {
     CountMinSketch cms(cms_conf);
     uint64_t cms_mem = cms.memory_usage();
 
-    // Enhanced CountingGloBiMap
+    // CountingGloBiMap V1
     FilterConfig gbm_conf;
     gbm_conf.hash_k = 8;
     gbm_conf.layers = {{8, 16}, {16, 14}};
@@ -378,12 +417,18 @@ void test_memory_medium() {
     CountingGloBiMap<> gbm(gbm_conf);
     uint64_t gbm_mem = gbm.byte_size();
 
+    // CountingGloBiMapV2 (12+20 bit for medium scenario)
+    CGM_12_20 gbm_v2;
+    gbm_v2.configure(8, {16, 14}, true);  // k=8, layer0=2^16, layer1=2^14, MI mode
+    uint64_t gbm_v2_mem = gbm_v2.memory_usage();
+
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "  Variable-Increment CBF: " << config_utils::format_memory(vi_mem) << "\n";
     std::cout << "  Spectral BF (MI):       " << config_utils::format_memory(sbf_mem) << "\n";
     std::cout << "  d-Left CBF:             " << config_utils::format_memory(dleft_mem) << "\n";
     std::cout << "  Count-Min Sketch:       " << config_utils::format_memory(cms_mem) << "\n";
-    std::cout << "  Enhanced GloBiMap:      " << config_utils::format_memory(gbm_mem) << "\n";
+    std::cout << "  GloBiMap V1 (MI):       " << config_utils::format_memory(gbm_mem) << "\n";
+    std::cout << "  GloBiMap V2 (MI):       " << config_utils::format_memory(gbm_v2_mem) << "\n";
 }
 
 void test_throughput_medium() {
@@ -443,7 +488,7 @@ void test_throughput_medium() {
                   << (100000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
     }
 
-    // Enhanced GloBiMap
+    // GloBiMap V1
     {
         FilterConfig conf;
         conf.hash_k = 8;
@@ -455,7 +500,20 @@ void test_throughput_medium() {
             gbm.put(point);
         }
         double elapsed = timer.elapsed_ms();
-        std::cout << "  GloBiMap (MI):  " << std::setw(8) << std::fixed << std::setprecision(2)
+        std::cout << "  GloBiMap V1:    " << std::setw(8) << std::fixed << std::setprecision(2)
+                  << (100000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
+    }
+
+    // GloBiMap V2
+    {
+        CGM_12_20 gbm_v2;
+        gbm_v2.configure(8, {16, 14}, true);
+        Timer timer;
+        for (const auto &point : dataset) {
+            gbm_v2.put(point);
+        }
+        double elapsed = timer.elapsed_ms();
+        std::cout << "  GloBiMap V2:    " << std::setw(8) << std::fixed << std::setprecision(2)
                   << (100000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
     }
 }
@@ -552,7 +610,7 @@ void test_accuracy_medium() {
                   << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
     }
 
-    // Enhanced GloBiMap (Baseline: 96 KB)
+    // GloBiMap V1 (Baseline: 96 KB)
     {
         FilterConfig conf;
         conf.hash_k = 8;
@@ -570,7 +628,26 @@ void test_accuracy_medium() {
             double error = std::abs((double)estimated - (double)actual) / (double)actual;
             total_error += error;
         }
-        std::cout << "  GloBiMap (MI):  Avg error = " << std::setw(8) << std::fixed
+        std::cout << "  GloBiMap V1:    Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
+    }
+
+    // GloBiMap V2
+    {
+        CGM_12_20 gbm_v2;
+        gbm_v2.configure(8, {16, 14}, true);
+        for (const auto &point : dataset) {
+            gbm_v2.put(point);
+        }
+
+        double total_error = 0.0;
+        for (size_t i = 0; i < test_points.size(); ++i) {
+            uint64_t estimated = gbm_v2.get_min(test_points[i]);
+            uint64_t actual = sorted_truth[i].second;
+            double error = std::abs((double)estimated - (double)actual) / (double)actual;
+            total_error += error;
+        }
+        std::cout << "  GloBiMap V2:    Avg error = " << std::setw(8) << std::fixed
                   << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
     }
 }
@@ -602,7 +679,7 @@ void test_memory_large() {
     CountMinSketch cms(cms_conf);
     uint64_t cms_mem = cms.memory_usage();
 
-    // Enhanced CountingGloBiMap
+    // CountingGloBiMap V1
     FilterConfig gbm_conf;
     gbm_conf.hash_k = 8;
     gbm_conf.layers = {{8, 20}, {16, 19}};  // 1 MB + 1 MB = 2 MB total
@@ -610,12 +687,18 @@ void test_memory_large() {
     CountingGloBiMap<> gbm(gbm_conf);
     uint64_t gbm_mem = gbm.byte_size();
 
+    // CountingGloBiMapV2 (12+20 bit for large scenario)
+    CGM_12_20 gbm_v2;
+    gbm_v2.configure(8, {20, 16}, true);  // k=8, layer0=2^20, layer1=2^16, MI mode
+    uint64_t gbm_v2_mem = gbm_v2.memory_usage();
+
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "  Variable-Increment CBF: " << config_utils::format_memory(vi_mem) << "\n";
     std::cout << "  Spectral BF (MI):       " << config_utils::format_memory(sbf_mem) << "\n";
     std::cout << "  d-Left CBF:             " << config_utils::format_memory(dleft_mem) << "\n";
     std::cout << "  Count-Min Sketch:       " << config_utils::format_memory(cms_mem) << "\n";
-    std::cout << "  Enhanced GloBiMap:      " << config_utils::format_memory(gbm_mem) << "\n";
+    std::cout << "  GloBiMap V1 (MI):       " << config_utils::format_memory(gbm_mem) << "\n";
+    std::cout << "  GloBiMap V2 (MI):       " << config_utils::format_memory(gbm_v2_mem) << "\n";
 }
 
 void test_throughput_large() {
@@ -675,7 +758,7 @@ void test_throughput_large() {
                   << (1000000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
     }
 
-    // Enhanced GloBiMap
+    // GloBiMap V1
     {
         FilterConfig conf;
         conf.hash_k = 8;
@@ -687,7 +770,20 @@ void test_throughput_large() {
             gbm.put(point);
         }
         double elapsed = timer.elapsed_ms();
-        std::cout << "  GloBiMap (MI):  " << std::setw(8) << std::fixed << std::setprecision(2)
+        std::cout << "  GloBiMap V1:    " << std::setw(8) << std::fixed << std::setprecision(2)
+                  << (1000000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
+    }
+
+    // GloBiMap V2
+    {
+        CGM_12_20 gbm_v2;
+        gbm_v2.configure(8, {20, 16}, true);
+        Timer timer;
+        for (const auto &point : dataset) {
+            gbm_v2.put(point);
+        }
+        double elapsed = timer.elapsed_ms();
+        std::cout << "  GloBiMap V2:    " << std::setw(8) << std::fixed << std::setprecision(2)
                   << (1000000.0 / elapsed * 1000.0) << " inserts/sec (" << elapsed << " ms)\n";
     }
 }
@@ -784,7 +880,7 @@ void test_accuracy_large() {
                   << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
     }
 
-    // Enhanced GloBiMap
+    // GloBiMap V1
     {
         FilterConfig conf;
         conf.hash_k = 8;
@@ -802,7 +898,26 @@ void test_accuracy_large() {
             double error = std::abs((double)estimated - (double)actual) / (double)actual;
             total_error += error;
         }
-        std::cout << "  GloBiMap (MI):  Avg error = " << std::setw(8) << std::fixed
+        std::cout << "  GloBiMap V1:    Avg error = " << std::setw(8) << std::fixed
+                  << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
+    }
+
+    // GloBiMap V2
+    {
+        CGM_12_20 gbm_v2;
+        gbm_v2.configure(8, {20, 16}, true);
+        for (const auto &point : dataset) {
+            gbm_v2.put(point);
+        }
+
+        double total_error = 0.0;
+        for (size_t i = 0; i < test_points.size(); ++i) {
+            uint64_t estimated = gbm_v2.get_min(test_points[i]);
+            uint64_t actual = sorted_truth[i].second;
+            double error = std::abs((double)estimated - (double)actual) / (double)actual;
+            total_error += error;
+        }
+        std::cout << "  GloBiMap V2:    Avg error = " << std::setw(8) << std::fixed
                   << std::setprecision(4) << (total_error / test_points.size() * 100.0) << "%\n";
     }
 }
@@ -822,8 +937,8 @@ void print_summary_table() {
     std::cout << "  Spectral BF (RM)    |   Yes    |     Yes      |    No     |     No\n";
     std::cout << "  d-Left CBF          |   Yes    |      No      |   Yes     |     No\n";
     std::cout << "  Count-Min Sketch    |    No    |   Optional   |    No     |    Yes\n";
-    std::cout << "  GloBiMap (standard) |    No    |      No      |    No     |     No\n";
-    std::cout << "  GloBiMap (MI)       |    No    |     Yes      |    No     |     No\n";
+    std::cout << "  GloBiMap V1 (MI)    |    No    |     Yes      |    No     |     No\n";
+    std::cout << "  GloBiMap V2 (MI)    |    No    |     Yes      |    No     |     No\n";
 }
 
 int main() {

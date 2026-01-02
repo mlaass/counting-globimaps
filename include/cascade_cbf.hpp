@@ -1,5 +1,5 @@
-#ifndef COUNTING_GLOBIMAP_V2_HPP
-#define COUNTING_GLOBIMAP_V2_HPP
+#ifndef CASCADE_CBF_HPP
+#define CASCADE_CBF_HPP
 
 #include "hashfn.hpp"
 #include <algorithm>
@@ -136,7 +136,7 @@ using Layer64 = TypedLayer<uint64_t, 63>;   // 64-bit: 63 value + 1 overflow
  * @tparam Layers... TypedLayer types (e.g., Layer12, Layer20)
  */
 template <typename... Layers>
-class CountingGloBiMapV2 {
+class CascadeCBF {
     static_assert(sizeof...(Layers) > 0, "At least one layer required");
 
 public:
@@ -159,7 +159,7 @@ private:
     };
 
 public:
-    CountingGloBiMapV2() : hash_k_(0), minimal_increment_(false) {}
+    CascadeCBF() : hash_k_(0), minimal_increment_(false) {}
 
     /**
      * @brief Configure filter with hash count and layer sizes
@@ -371,15 +371,15 @@ private:
 };
 
 // Common configurations
-using CGM_8 = CountingGloBiMapV2<Layer8>;
-using CGM_12 = CountingGloBiMapV2<Layer12>;
-using CGM_12_20 = CountingGloBiMapV2<Layer12, Layer20>;
-using CGM_12_20_32 = CountingGloBiMapV2<Layer12, Layer20, Layer32>;
-using CGM_16_32 = CountingGloBiMapV2<Layer16, Layer32>;
+using CCBF_8 = CascadeCBF<Layer8>;
+using CCBF_12 = CascadeCBF<Layer12>;
+using CCBF_12_20 = CascadeCBF<Layer12, Layer20>;
+using CCBF_12_20_32 = CascadeCBF<Layer12, Layer20, Layer32>;
+using CCBF_16_32 = CascadeCBF<Layer16, Layer32>;
 
 // Recommended default: 12+20 bit, 2 layers
-using DefaultCountingGloBiMap = CGM_12_20;
+using DefaultCascadeCBF = CCBF_12_20;
 
 } // namespace globimap
 
-#endif // COUNTING_GLOBIMAP_V2_HPP
+#endif // CASCADE_CBF_HPP

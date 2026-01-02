@@ -44,14 +44,12 @@ def plot_throughput_vs_k(by_impl: dict, output_dir: Path):
     colors = {
         "Spectral BF (MI)": "#2ecc71",
         "Count-Min Sketch": "#e74c3c",
-        "GloBiMap V1 (MI)": "#3498db",
-        "GloBiMap V2 (MI)": "#9b59b6",
+        "CascadeCBF (MI)": "#9b59b6",
     }
     markers = {
         "Spectral BF (MI)": "o",
         "Count-Min Sketch": "s",
-        "GloBiMap V1 (MI)": "^",
-        "GloBiMap V2 (MI)": "D",
+        "CascadeCBF (MI)": "D",
     }
 
     for impl, data in by_impl.items():
@@ -82,14 +80,12 @@ def plot_accuracy_vs_k(by_impl: dict, output_dir: Path):
     colors = {
         "Spectral BF (MI)": "#2ecc71",
         "Count-Min Sketch": "#e74c3c",
-        "GloBiMap V1 (MI)": "#3498db",
-        "GloBiMap V2 (MI)": "#9b59b6",
+        "CascadeCBF (MI)": "#9b59b6",
     }
     markers = {
         "Spectral BF (MI)": "o",
         "Count-Min Sketch": "s",
-        "GloBiMap V1 (MI)": "^",
-        "GloBiMap V2 (MI)": "D",
+        "CascadeCBF (MI)": "D",
     }
 
     # Plot all implementations, clamping very high values for visualization
@@ -109,50 +105,13 @@ def plot_accuracy_vs_k(by_impl: dict, output_dir: Path):
 
     # Add annotations
     ax.axhline(y=0, color='gray', linestyle='--', alpha=0.5)
-    ax.annotate("GloBiMap: 0% at k≥4", xy=(15, 2), fontsize=10, color='#9b59b6')
-    ax.annotate("CMS: 0% at k≥11", xy=(15, 5), fontsize=10, color='#e74c3c')
+    ax.annotate("CascadeCBF: 0% at k>=4", xy=(15, 2), fontsize=10, color='#9b59b6')
+    ax.annotate("CMS: 0% at k>=11", xy=(15, 5), fontsize=10, color='#e74c3c')
 
     plt.tight_layout()
     output_path = output_dir / "k_sensitivity_accuracy.png"
     plt.savefig(output_path, dpi=150)
     plt.savefig(output_dir / "k_sensitivity_accuracy.pdf")
-    print(f"Saved: {output_path}")
-    plt.close()
-
-
-def plot_v1_v2_speedup(by_impl: dict, output_dir: Path):
-    """Plot V2 speedup over V1."""
-    if "GloBiMap V1 (MI)" not in by_impl or "GloBiMap V2 (MI)" not in by_impl:
-        print("Warning: V1 or V2 data not found, skipping speedup plot")
-        return
-
-    v1 = by_impl["GloBiMap V1 (MI)"]
-    v2 = by_impl["GloBiMap V2 (MI)"]
-
-    speedup = [v2t / v1t for v1t, v2t in zip(v1["throughput"], v2["throughput"])]
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.bar(v1["k"], speedup, color="#9b59b6", alpha=0.8, width=0.8)
-    ax.axhline(y=1.0, color='red', linestyle='--', label='No speedup', alpha=0.7)
-    ax.axhline(y=2.0, color='green', linestyle='--', label='2x speedup', alpha=0.7)
-    ax.axhline(y=3.0, color='blue', linestyle='--', label='3x speedup', alpha=0.7)
-
-    ax.set_xlabel("k (number of hash functions)", fontsize=12)
-    ax.set_ylabel("Speedup (V2 / V1)", fontsize=12)
-    ax.set_title("GloBiMap V2 Speedup over V1", fontsize=14)
-    ax.legend(loc="upper right", fontsize=10)
-    ax.grid(True, alpha=0.3, axis='y')
-    ax.set_xlim(0, 33)
-    ax.set_ylim(0, 4)
-
-    # Add average speedup annotation
-    avg_speedup = np.mean(speedup)
-    ax.annotate(f"Avg: {avg_speedup:.2f}x", xy=(28, avg_speedup + 0.1), fontsize=11, color='#9b59b6', fontweight='bold')
-
-    plt.tight_layout()
-    output_path = output_dir / "k_sensitivity_v2_speedup.png"
-    plt.savefig(output_path, dpi=150)
-    plt.savefig(output_dir / "k_sensitivity_v2_speedup.pdf")
     print(f"Saved: {output_path}")
     plt.close()
 
@@ -164,14 +123,12 @@ def plot_combined(by_impl: dict, output_dir: Path):
     colors = {
         "Spectral BF (MI)": "#2ecc71",
         "Count-Min Sketch": "#e74c3c",
-        "GloBiMap V1 (MI)": "#3498db",
-        "GloBiMap V2 (MI)": "#9b59b6",
+        "CascadeCBF (MI)": "#9b59b6",
     }
     markers = {
         "Spectral BF (MI)": "o",
         "Count-Min Sketch": "s",
-        "GloBiMap V1 (MI)": "^",
-        "GloBiMap V2 (MI)": "D",
+        "CascadeCBF (MI)": "D",
     }
 
     # Panel 1: Throughput (all implementations)
@@ -218,8 +175,7 @@ def plot_convergence_comparison(by_impl: dict, output_dir: Path):
     colors = {
         "Spectral BF (MI)": "#2ecc71",
         "Count-Min Sketch": "#e74c3c",
-        "GloBiMap V1 (MI)": "#3498db",
-        "GloBiMap V2 (MI)": "#9b59b6",
+        "CascadeCBF (MI)": "#9b59b6",
     }
 
     # Find k where error drops to 0 for each implementation
@@ -291,7 +247,6 @@ def main():
     print(f"Generating figures in: {args.output}")
     plot_throughput_vs_k(by_impl, args.output)
     plot_accuracy_vs_k(by_impl, args.output)
-    plot_v1_v2_speedup(by_impl, args.output)
     plot_combined(by_impl, args.output)
     plot_convergence_comparison(by_impl, args.output)
 

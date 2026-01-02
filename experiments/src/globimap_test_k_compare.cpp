@@ -1,7 +1,5 @@
-#include "counting_globimap.hpp"
-#include "counting_globimap_v2.hpp"
+#include "cascade_cbf.hpp"
 #include "spectral_bloom_filter.hpp"
-#include "dleft_counting_bf.hpp"
 #include "count_min_sketch.hpp"
 
 #include <chrono>
@@ -205,26 +203,13 @@ int main() {
             std::cout << " err=" << std::fixed << std::setprecision(2) << results.back().mean_error_pct << "%\n";
         }
 
-        // CountingGloBiMap V1 (MI)
+        // CascadeCBF (MI)
         {
-            std::cout << "  GloBiMap V1 (MI)..." << std::flush;
-            FilterConfig conf;
-            conf.hash_k = k;
-            conf.layers = {{8, 16}, {16, 14}};
-            conf.minimal_increment = true;
-            CountingGloBiMap<> gbm(conf);
-            uint64_t mem = gbm.byte_size();
-            results.push_back(benchmark_k(gbm, "GloBiMap V1 (MI)", k, test_data, ground_truth, mem));
-            std::cout << " err=" << std::fixed << std::setprecision(2) << results.back().mean_error_pct << "%\n";
-        }
-
-        // CountingGloBiMap V2 (MI)
-        {
-            std::cout << "  GloBiMap V2 (MI)..." << std::flush;
-            CGM_12_20 gbm_v2;
-            gbm_v2.configure(k, {16, 14}, true);
-            uint64_t mem = gbm_v2.memory_usage();
-            results.push_back(benchmark_k(gbm_v2, "GloBiMap V2 (MI)", k, test_data, ground_truth, mem));
+            std::cout << "  CascadeCBF (MI)..." << std::flush;
+            CCBF_12_20 cbf;
+            cbf.configure(k, {16, 14}, true);
+            uint64_t mem = cbf.memory_usage();
+            results.push_back(benchmark_k(cbf, "CascadeCBF (MI)", k, test_data, ground_truth, mem));
             std::cout << " err=" << std::fixed << std::setprecision(2) << results.back().mean_error_pct << "%\n";
         }
     }

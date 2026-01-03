@@ -1,5 +1,5 @@
 %% Copernicus Publications - AGILE-GISS Template (version 2023) for LaTeX Manuscript Preparation
-%% Counting GloBiMaps Shortpaper
+%% CascadeCBF Shortpaper
 
 %% 2-column AGILE papers
 \documentclass[agile, final]{copernicus-agile}
@@ -9,6 +9,8 @@
 \usepackage{algorithm}
 \usepackage{algorithmic}
 \usepackage{amsmath}
+\usepackage{tikz}
+\usetikzlibrary{shapes.multipart,positioning,arrows.meta,decorations.pathreplacing}
 
 \hypersetup{
     colorlinks=true,
@@ -24,7 +26,7 @@
 
 \begin{document}
 
-\title{Counting GloBiMaps: Probabilistic Counting for Sparse Spatial Point Clouds}
+\title{CascadeCBF: Probabilistic Counting for Sparse Spatial Point Clouds}
 
 \Author[1]{Moritz}{Laass}
 \Author[1]{Martin}{Werner\orcid{0000-0002-4095-6665}}
@@ -38,17 +40,11 @@
 \maketitle
 
 \begin{abstract}
-% TODO: Write abstract (~200 words)
-% - Problem: Large-scale spatial point data with power-law distributions
-% - Solution: Multi-layer counting bloom filter with cascading overflow
-% - Key features: Spatial operations without unpacking, polygon queries
-% - Results: Tested on Twitter (213M) and OSM (1.5B) points
+Spatial point datasets often exhibit power-law frequency distributions where few locations receive most observations. Traditional counting bloom filters struggle with such distributions due to fixed counter bit-depths. We present CascadeCBF, a multi-layer probabilistic data structure using cascading overflow: counters in lower layers handle infrequent locations, while overflow cascades to higher layers for hotspots. CascadeCBF supports spatial operations (union, intersection, aggregation) directly on the compressed representation. Evaluation shows CascadeCBF achieves zero error with $k \geq 4$ hash functions and 2--3$\times$ higher throughput than Spectral Bloom Filters.
 
-\textbf{Submission Type.} Short Paper
+\textbf{Submission Type.} Short Paper \quad \textbf{BoK Concepts.} [AM] Analytical Methods, [DM] Data Modeling
 
-\textbf{BoK Concepts.} [AM] Analytical Methods, [DM] Data Modeling
-
-\keywords{probabilistic data structures, counting bloom filter, spatial data, point clouds, cardinality estimation}
+\keywords{probabilistic data structures, counting bloom filter, spatial data, cardinality estimation}
 
 \end{abstract}
 
@@ -58,12 +54,9 @@
 \introduction
 \label{sec:intro}
 
-% TODO: Write introduction (~400 words)
-% - Motivation: Managing massive spatial datasets (billions of points)
-% - Context: Bloom filters in distributed systems, LSH for large data
-% - Gap: Traditional CBFs don't handle power-law spatial distributions well
-% - Contribution: Layered CGM structure with spatial operations
-% - Paper structure overview
+Geospatial applications generate point data at massive scales---billions of geotagged posts, GPS traces, and sensor observations. A key operation is \emph{cardinality estimation}: counting observations per location for hotspot detection and spatial aggregation. Probabilistic structures like Counting Bloom Filters (CBFs)~\cite{bloom_space/time_1970} offer space-efficient frequency estimation, but fixed bit-depth counters either overflow at hotspots or waste memory on rare locations.
+
+We introduce \emph{CascadeCBF}, extending GloBiMaps~\cite{werner2019globimaps} with cascading overflow: layers use increasing bit-depths, and increments cascade upward when counters saturate. Our contributions: (1) overflow bit signaling for efficient multi-layer counting; (2) spatial operations on compressed representations; (3) evaluation showing competitive accuracy and throughput.
 
 
 %% =============================================================================
@@ -72,116 +65,73 @@
 \section{Background}
 \label{sec:background}
 
-% TODO: Write background (~300 words)
-
-\subsection{Bloom Filters}
-% - Basic BF structure: m-bit array, k hash functions
-% - False positive probability: p = (1 - e^(-kn/m))^k
-% - Optimal k = (m/n) * ln(2)
-
-\subsection{Counting Bloom Filters}
-% - Extension with counters instead of bits
-% - Overflow problem with fixed bit-depth
-% - Prior work: DCFs, multilayer compressed CBFs
-
-\subsection{GloBiMaps}
-% - Binary bloom filters for sparse spatial rasters
-% - Rasterization of coordinates
-% - Error correction strategies
+Counting Bloom Filters (CBFs)~\cite{fan2000summary} extend Bloom filters with $b$-bit counters for frequency queries. Spectral Bloom Filters~\cite{cohen2003spectral} improve accuracy via \emph{minimal increment}---only incrementing counters at the minimum. Count-Min Sketch~\cite{cormode2005improved} provides error bounds: estimates exceed true counts by at most $\varepsilon N$ with probability $1-\delta$. Multi-layer CBFs~\cite{ficara_multilayer_2008} cascade between layers of different bit-depths to handle varying count magnitudes. GloBiMaps~\cite{werner2019globimaps} adapt Bloom filters for sparse spatial rasters, supporting set operations directly on compressed data.
 
 
 %% =============================================================================
-%% COUNTING GLOBIMAPS
+%% CASCADECBF
 %% =============================================================================
-\section{Counting GloBiMaps}
+\section{CascadeCBF}
 \label{sec:cgm}
 
-% TODO: Write CGM section (~600 words)
-
-\subsection{Multi-Layer Architecture}
-\label{sec:architecture}
-
-% - Layer configuration: CGM = {k, L_x = {m_x, b_x}} for x = 1..Lambda
-% - Threshold value: T_x = 2^{b_x} - 1
-% - Cascading overflow: increment first non-maximal layer
-% - Hashing trick: h[i] = h1 + (i+1) * h2
-
-% FIGURE: Multi-layer architecture
 \begin{figure}[ht]
-  \includegraphics[width=8.2cm]{figures/CGM_Layer_Schema.pdf}
-  \caption{Counting GloBiMap multi-layer structure. Points are discretized and hashed to address counter arrays. Overflow cascades to higher layers with larger bit-depth.}
-  \label{fig:cgm_schema}
+\centering
+\begin{tikzpicture}[
+    counter/.style={draw, minimum width=0.55cm, minimum height=0.45cm, font=\tiny},
+    obit/.style={draw, fill=red!20, minimum width=0.22cm, minimum height=0.45cm, font=\tiny},
+    vbits/.style={draw, fill=blue!12, minimum width=0.55cm, minimum height=0.45cm, font=\tiny},
+    arr/.style={-{Stealth[length=1.8mm]}, thick}
+]
+% Layer 1 - base layer (wide)
+\node[font=\scriptsize, anchor=east] at (-3.2,1.6) {Layer 1};
+\node[font=\tiny, gray, anchor=east] at (-3.2,1.25) {$2^{20}$ counters};
+
+\foreach \i in {0,1,2,3,4,5,6} {
+    \pgfmathsetmacro{\x}{-2.8+\i*0.77}
+    \node[obit] at (\x,1.6) {};
+    \node[vbits] at (\x+0.385,1.6) {};
+}
+% Labels for +1 and overflow
+\node[font=\tiny, green!50!black] at (-2.42,1.6) {\textbf{+1}};
+\node[font=\tiny, green!50!black] at (-0.88,1.6) {\textbf{+1}};
+\node[font=\tiny, red!70!black] at (0.66,1.6) {\textbf{\^{}}};
+\node[font=\tiny, green!50!black] at (2.2,1.6) {\textbf{+1}};
+
+% Cascade arrow from overflowed counter
+\draw[arr, red!70!black] (0.66,1.3) -- (0.2,0.55) node[midway, right, font=\tiny] {};
+
+% Layer 2 - overflow layer (narrower = asymmetric)
+\node[font=\scriptsize, anchor=east] at (-1.65,0.25) {Layer 2};
+\node[font=\tiny, gray, anchor=east] at (-1.65,-0.1) {$2^{14}$ counters};
+
+\foreach \i in {0,1,2,3} {
+    \pgfmathsetmacro{\x}{-1.2+\i*0.77}
+    \node[obit] at (\x,0.25) {};
+    \node[vbits, fill=orange!15] at (\x+0.385,0.25) {};
+}
+\node[font=\tiny, green!50!black] at (-0.05,0.25) {\textbf{+1}};
+
+% Counter structure legend (right side)
+\node[font=\tiny, anchor=west] at (2.6,1.8) {Counter:};
+\node[obit, minimum width=0.35cm] (lo) at (3.05,1.35) {\tiny O};
+\node[vbits, minimum width=1.1cm] at (3.775,1.35) {\tiny value};
+\draw[decorate, decoration={brace, amplitude=3pt, mirror}] (2.88,1.05) -- (4.33,1.05);
+\node[font=\tiny] at (3.6,0.85) {$b$ bits};
+
+% Legend
+\node[font=\tiny, anchor=north west, align=left] at (2.6,0.55) {
+\textcolor{green!50!black}{\textbf{+1}} increment\\
+\textcolor{red!70!black}{\textbf{\^{}}} overflow $\to$ cascade
+};
+
+\end{tikzpicture}
+\caption{CascadeCBF: counters split into overflow bit (O) and value bits. When saturated (\^{}), increments cascade to the next layer. Upper layers are smaller (asymmetric sizing).}
+\label{fig:architecture}
 \end{figure}
 
+CascadeCBF consists of $k$ hash functions and layers $L_1, \ldots, L_\Lambda$ with increasing bit-depths $b_1 < \cdots < b_\Lambda$. The \emph{overflow bit protocol} (Fig.~\ref{fig:architecture}) reserves each counter's high bit as overflow flag: when value bits saturate, the flag is set and increments cascade to the next layer.
 
-\subsection{PUT and GET Operations}
-\label{sec:operations}
-
-% PUT Operation description
-% - Discretize coordinates (raster projection)
-% - Compute k hash positions using hashing trick
-% - For each hash position, increment first non-maximal layer
-
-\begin{algorithm}[ht]
-\caption{PUT Operation}
-\label{alg:put}
-\begin{algorithmic}
-\REQUIRE CGM $A = \{k, \{b_x, m_x\}\}$, point $p$
-\STATE $c \leftarrow \text{RasterProjection}(p)$
-\STATE $h_1, h_2 \leftarrow \hashfn(c)$
-\FOR{$i = 0$ \TO $k-1$}
-  \FOR{$x = 1$ \TO $\Lambda$}
-    \STATE $j \leftarrow (h_1 + (i+1) \cdot h_2) \mod m_x$
-    \STATE $v \leftarrow \val(j, L_{A,x})$
-    \IF{$v < 2^{b_x} - 1$}
-      \STATE $\val(j, L_{A,x}) \leftarrow v + 1$
-      \STATE \textbf{break}
-    \ENDIF
-  \ENDFOR
-\ENDFOR
-\end{algorithmic}
-\end{algorithm}
-
-% GET Operation description
-% - Returns minimum count across all k hash positions
-% - Sums values across layers when overflow detected
-
-\begin{algorithm}[ht]
-\caption{GET Operation}
-\label{alg:get}
-\begin{algorithmic}
-\REQUIRE CGM $A = \{k, \{b_x, m_x\}\}$, point $p$
-\ENSURE $v_{min}$
-\STATE $c \leftarrow \text{RasterProjection}(p)$
-\STATE $h_1, h_2 \leftarrow \hashfn(c)$
-\STATE $v_{min} \leftarrow \infty$
-\FOR{$i = 0$ \TO $k-1$}
-  \STATE $s \leftarrow 0$
-  \FOR{$x = 1$ \TO $\Lambda$}
-    \STATE $j \leftarrow (h_1 + (i+1) \cdot h_2) \mod m_x$
-    \STATE $v \leftarrow \val(j, L_{A,x})$
-    \STATE $s \leftarrow s + v$
-    \IF{$v = 0$}
-      \RETURN $0$
-    \ENDIF
-    \IF{$v < 2^{b_x} - 1$}
-      \STATE \textbf{break}
-    \ENDIF
-  \ENDFOR
-  \STATE $v_{min} \leftarrow \min(v_{min}, s)$
-\ENDFOR
-\RETURN $v_{min}$
-\end{algorithmic}
-\end{algorithm}
-
-
-\subsection{Error Model}
-\label{sec:error}
-
-% - Distinction: n = unique positions, t = total elements
-% - Total error: err_total = k * (t/n) * (1 - e^(-kn/m))
-% - Mean error: err_mean = k * (t/n^2) * (1 - e^(-kn/m))
-% - Power-law distributions: errors concentrate in high-frequency bins
+\textbf{PUT} increments counters at $k$ hash positions, traversing layers until finding a non-saturated counter. Optional \emph{minimal increment} mode only increments positions at minimum count. \textbf{GET} returns the minimum sum across $k$ positions, where each sum accumulates values across layers until a non-overflowed counter. Expected overcount is $\mathcal{O}(k \cdot (t/n) \cdot (1 - e^{-kn/m}))$; for power-law data, relative error is $\mathcal{O}(1/c)$ for count $c$.
 
 
 %% =============================================================================
@@ -190,26 +140,7 @@
 \section{Spatial Operations}
 \label{sec:spatial}
 
-% TODO: Write spatial operations section (~400 words)
-
-\subsection{Union and Intersection}
-\label{sec:set_ops}
-
-% Union: vector addition of CGMs (bitwise OR for 1-bit first layer)
-% Intersection family with merge functions:
-% - minimum(v_a, v_b) = min(v_a, v_b) -- classical intersection
-% - mask(v_a, v_b) = v_a -- subset of A overlapping B
-% - add(v_a, v_b) = v_a + v_b -- aggregation
-% - subtract(v_a, v_b) = max(v_a - v_b, 0)
-
-\subsection{Spatial Statistics}
-\label{sec:spatial_stats}
-
-% SUM operation for point-in-polygon queries
-% - Rasterize polygon geometry
-% - Cache hash values for repeated queries
-% - Sum GET results over all polygon pixels
-% - Can encode polygons as binary GloBiMaps for mask operations
+CascadeCBF supports operations directly on compressed data: \textbf{union} via element-wise addition, \textbf{intersection} via merge functions ($\min$, mask, subtract), and \textbf{spatial aggregation} by summing GET results over rasterized polygon cells.
 
 
 %% =============================================================================
@@ -218,39 +149,15 @@
 \section{Evaluation}
 \label{sec:evaluation}
 
-We evaluate Counting GloBiMaps against established probabilistic counting structures: Spectral Bloom Filters with Minimal Increment (SBF-MI)~\cite{cohen2003spectral} and Count-Min Sketch (CMS)~\cite{cormode2005improved}. All experiments use Zipfian-distributed data ($\alpha=1.5$) with 10,000 unique items and 100,000 total insertions, representative of power-law spatial data.
-
-\subsection{Hash Function Sensitivity}
-\label{sec:k_sensitivity}
-
-The number of hash functions $k$ is critical for accuracy. Figure~\ref{fig:k_sensitivity} shows throughput and mean error as $k$ varies from 1 to 32.
+We compare CascadeCBF against Spectral Bloom Filters (SBF-MI)~\cite{cohen2003spectral} and Count-Min Sketch (CMS)~\cite{cormode2005improved} on Zipfian data ($\alpha=1.5$, 10K unique items, 100K insertions).
 
 \begin{figure}[ht]
   \includegraphics[width=8.2cm]{figures/k_sensitivity_combined.pdf}
-  \caption{K-parameter sensitivity comparison. (a) Insert throughput decreases with $k$ due to additional hash computations. (b) Mean query error rapidly approaches 0\% as $k$ increases.}
+  \caption{K-parameter sensitivity: (a) throughput decreases with $k$; (b) error approaches 0\% as $k$ increases. CascadeCBF achieves 0\% error at $k \geq 4$.}
   \label{fig:k_sensitivity}
 \end{figure}
 
-Key findings:
-\begin{itemize}[nosep,leftmargin=*]
-  \item \textbf{CGM achieves 0\% error at $k \geq 4$}, matching SBF-MI
-  \item CMS requires $k \geq 11$ for perfect accuracy on this workload
-  \item At $k=8$: CGM achieves 2--3$\times$ higher throughput than SBF-MI with identical accuracy
-\end{itemize}
-
-The multi-layer architecture enables efficient handling of power-law distributions where few items have high counts while most have low counts.
-
-\subsection{Memory Efficiency}
-\label{sec:memory}
-
-With a two-layer configuration ($L_1$: 12-bit counters at $2^{16}$ slots, $L_2$: 20-bit counters at $2^{14}$ slots), CGM uses 192~KB total memory while supporting counts up to $2^{31}$ without overflow. Comparable CMS configurations require significantly more memory for equivalent accuracy on skewed distributions.
-
-\subsection{Point-in-Polygon Queries}
-\label{sec:pip}
-
-% Polygon error: PERR = |sum_real - sum_err| / sum_real
-% Higher bit-depth in last layer reduces error
-For spatial aggregation queries, polygon regions are rasterized and GET operations are summed over all interior cells. The error model predicts that errors concentrate in high-frequency bins, making CGM particularly suitable for hotspot analysis where accurate counting of frequently-visited locations is more important than rare locations.
+Figure~\ref{fig:k_sensitivity} shows that \textbf{CascadeCBF achieves 0\% error at $k \geq 4$}, matching SBF-MI, while CMS requires $k \geq 11$. At $k=8$, CascadeCBF provides 2--3$\times$ higher throughput than SBF-MI. With a two-layer configuration (12-bit + 20-bit counters), CascadeCBF uses 192~KB while supporting counts up to $2^{31}$.
 
 
 %% =============================================================================
@@ -259,12 +166,7 @@ For spatial aggregation queries, polygon regions are rasterized and GET operatio
 \section{Conclusions}
 \label{sec:conclusions}
 
-% TODO: Write conclusions (~150 words)
-% - Summary: Multi-layer CGM for large spatial point clouds
-% - Key benefits: Compact representation, spatial operations without unpacking
-% - Demonstrated on real datasets (Twitter, OSM)
-% - Future work: Multiresolution re-randomization strategy to counter
-%   decreasing hash variability in higher layers
+CascadeCBF provides efficient cardinality estimation for power-law spatial data through cascading overflow between layers. Experiments show zero error at $k \geq 4$ with 2--3$\times$ higher throughput than Spectral Bloom Filters. Future work includes multiresolution re-randomization and deletion support.
 
 
 %% =============================================================================
@@ -272,7 +174,7 @@ For spatial aggregation queries, polygon regions are rasterized and GET operatio
 %% =============================================================================
 \subsection*{Data and Software Availability}
 
-The implementation of Counting GloBiMaps is available as a header-only C++ library at \url{https://github.com/mlaass/counting-globimaps}. The Twitter and OpenStreetMap datasets used in evaluation are described in the referenced prior work.
+The implementation of CascadeCBF is available as a header-only C++ library at \url{https://github.com/mlaass/counting-globimaps}. The Twitter and OpenStreetMap datasets used in evaluation are described in the referenced prior work.
 
 
 %% =============================================================================

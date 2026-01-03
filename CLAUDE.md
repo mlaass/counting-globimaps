@@ -599,9 +599,32 @@ The `-march=native` flag optimizes for the build machine's CPU architecture.
 
 ## Research Papers
 
-The repository includes draft longpapers documenting the Counting GloBiMap data structure:
+The repository includes papers documenting the Counting GloBiMap data structure:
 
-### Paper Versions
+### AGILE-GISS 2026 Shortpaper
+
+**`cbf-shortpaper/`** - 2-page shortpaper for AGILE-GISS 2026
+- Title: "CascadeCBF: Probabilistic Counting for Sparse Spatial Point Clouds"
+- Format: `\documentclass[agile, final]{copernicus-agile}` (Copernicus AGILE template)
+- Main file: `cbf-shortpaper.tex`
+- **Complete** - ready for submission
+
+Key content:
+- Overflow bit protocol for cascading multi-layer counting
+- PUT/GET operations with minimal increment mode
+- Spatial operations (union, intersection, aggregation)
+- Evaluation showing CascadeCBF achieves 0% error at k≥4, 2-3× throughput vs Spectral BF
+
+```bash
+# Build shortpaper
+cd cbf-shortpaper
+pdflatex cbf-shortpaper.tex
+bibtex cbf-shortpaper
+pdflatex cbf-shortpaper.tex
+pdflatex cbf-shortpaper.tex
+```
+
+### Longpaper Versions
 
 **`cbf-longpaper-v1/`** - VLDB-formatted version
 - Title: "Counting GloBiMaps - A Probabilistic Data Structure for Handling Big Point Datasets"

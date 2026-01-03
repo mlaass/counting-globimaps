@@ -82,9 +82,9 @@ Counting Bloom Filters (CBFs)~\cite{fan2000summary} extend Bloom filters with $b
     vbits/.style={draw, fill=blue!12, minimum width=0.55cm, minimum height=0.45cm, font=\tiny},
     arr/.style={-{Stealth[length=1.8mm]}, thick}
 ]
-% Layer 1 - base layer (wide)
-\node[font=\scriptsize, anchor=east] at (-3.2,1.6) {Layer 1};
-\node[font=\tiny, gray, anchor=east] at (-3.2,1.25) {$2^{20}$ counters};
+% Layer 0 - base layer (wide) - holds LOW bits
+\node[font=\scriptsize, anchor=east] at (-3.2,1.6) {Layer 0};
+\node[font=\tiny, gray, anchor=east] at (-3.2,1.25) {low bits};
 
 \foreach \i in {0,1,2,3,4,5,6} {
     \pgfmathsetmacro{\x}{-2.8+\i*0.77}
@@ -100,9 +100,9 @@ Counting Bloom Filters (CBFs)~\cite{fan2000summary} extend Bloom filters with $b
 % Cascade arrow from overflowed counter
 \draw[arr, red!70!black] (0.66,1.3) -- (0.2,0.55) node[midway, right, font=\tiny] {};
 
-% Layer 2 - overflow layer (narrower = asymmetric)
-\node[font=\scriptsize, anchor=east] at (-1.65,0.25) {Layer 2};
-\node[font=\tiny, gray, anchor=east] at (-1.65,-0.1) {$2^{14}$ counters};
+% Layer 1 - overflow layer (narrower) - holds HIGH bits
+\node[font=\scriptsize, anchor=east] at (-1.65,0.25) {Layer 1};
+\node[font=\tiny, gray, anchor=east] at (-1.65,-0.1) {high bits};
 
 \foreach \i in {0,1,2,3} {
     \pgfmathsetmacro{\x}{-1.2+\i*0.77}
@@ -125,11 +125,11 @@ Counting Bloom Filters (CBFs)~\cite{fan2000summary} extend Bloom filters with $b
 };
 
 \end{tikzpicture}
-\caption{CascadeCBF: counters split into overflow bit (O) and value bits. When saturated (\^{}), increments cascade to the next layer. Upper layers are smaller (asymmetric sizing).}
+\caption{CascadeCBF: Layer 0 holds low-order bits; when value bits saturate (\^{}), overflow bit O is set and Layer 1 (high-order bits) is incremented.}
 \label{fig:architecture}
 \end{figure}
 
-CascadeCBF consists of $k$ hash functions and layers $L_1, \ldots, L_\Lambda$ with increasing bit-depths $b_1 < \cdots < b_\Lambda$. The \emph{overflow bit protocol} (Fig.~\ref{fig:architecture}) reserves each counter's high bit as overflow flag: when value bits saturate, the flag is set and increments cascade to the next layer.
+CascadeCBF consists of $k$ hash functions and layers $L_0, \ldots, L_{\Lambda-1}$ with increasing bit-depths $b_0 < \cdots < b_{\Lambda-1}$. The \emph{overflow bit protocol} (Fig.~\ref{fig:architecture}) reserves each counter's high bit as overflow flag: when value bits saturate, the flag is set and increments cascade to the next layer. Since Layer 1 is only accessed every $2^{b_0-1}$ increments, most operations touch only Layer 0---improving cache locality.
 
 \textbf{PUT} increments counters at $k$ hash positions, traversing layers until finding a non-saturated counter. Optional \emph{minimal increment} mode only increments positions at minimum count. \textbf{GET} returns the minimum sum across $k$ positions, where each sum accumulates values across layers until a non-overflowed counter. Expected overcount is $\mathcal{O}(k \cdot (t/n) \cdot (1 - e^{-kn/m}))$; for power-law data, relative error is $\mathcal{O}(1/c)$ for count $c$.
 

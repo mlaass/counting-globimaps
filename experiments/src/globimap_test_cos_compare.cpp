@@ -128,10 +128,10 @@ int main() {
         results.push_back(benchmark_cosine(cms, "Count-Min Sketch", width, height, limit, mem));
     }
 
-    // CascadeCBF (MI) - ~136 KB
+    // CascadeCBF (MI) - ~160 KB
     {
         std::cout << "\nTesting CascadeCBF (MI)...\n";
-        CCBF_12_20 cbf;
+        CCBF_16_16 cbf;
         cbf.configure(k, {16, 14}, true);  // k=8, layer0=2^16, layer1=2^14
         uint64_t mem = cbf.memory_usage();
         results.push_back(benchmark_cosine(cbf, "CascadeCBF (MI)", width, height, limit, mem));

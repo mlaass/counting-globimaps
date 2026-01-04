@@ -40,7 +40,7 @@
 \maketitle
 
 \begin{abstract}
-Spatial point datasets often exhibit power-law frequency distributions where few locations receive most observations. Traditional counting bloom filters struggle with such distributions due to fixed counter bit-depths. We present CascadeCBF, a multi-layer probabilistic data structure using cascading overflow: counters in lower layers handle infrequent locations, while overflow cascades to higher layers for hotspots. CascadeCBF supports spatial operations (union, intersection, aggregation) directly on the compressed representation. Evaluation shows CascadeCBF achieves zero error with $k \geq 4$ hash functions and 2--3$\times$ higher throughput than Spectral Bloom Filters.
+Spatial point datasets often exhibit power-law frequency distributions where few locations receive most observations. Traditional counting bloom filters struggle with such distributions due to fixed counter bit-depths. We present CascadeCBF, a multi-layer probabilistic data structure using cascading overflow: counters in lower layers handle infrequent locations, while overflow cascades to higher layers for hotspots. CascadeCBF supports spatial operations (union, intersection, aggregation) directly on the compressed representation. Evaluation on Zipfian distributions shows CascadeCBF with minimal increment and independent hashes matches the memory efficiency of Spectral Bloom Filters and Count-Min Sketch, while the multi-layer design enables exact counts for highly skewed data.
 
 \textbf{Submission Type.} Short Paper \quad \textbf{BoK Concepts.} [AM] Analytical Methods, [DM] Data Modeling
 
@@ -149,15 +149,23 @@ CascadeCBF supports operations directly on compressed data: \textbf{union} via e
 \section{Evaluation}
 \label{sec:evaluation}
 
-We compare CascadeCBF against Spectral Bloom Filters (SBF-MI)~\cite{cohen2003spectral} and Count-Min Sketch (CMS)~\cite{cormode2005improved} on Zipfian data ($\alpha=1.5$, 10K unique items, 100K insertions).
+We compare CascadeCBF (with minimal increment and independent hashes) against Spectral Bloom Filters (SBF-MI)~\cite{cohen2003spectral}, Count-Min Sketch (CMS)~\cite{cormode2005improved}, and d-Left CBF~\cite{bonomi2006improved} on Zipfian data (10K unique items, 100K insertions).
 
 \begin{figure}[ht]
   \includegraphics[width=8.2cm]{figures/k_sensitivity_combined.pdf}
-  \caption{K-parameter sensitivity: (a) throughput decreases with $k$; (b) error approaches 0\% as $k$ increases. CascadeCBF achieves 0\% error at $k \geq 4$.}
+  \caption{K-parameter sensitivity ($\alpha=1.5$): (a) throughput decreases with $k$; (b) error approaches 0\% as $k$ increases. CascadeCBF achieves 0\% error at $k \geq 4$.}
   \label{fig:k_sensitivity}
 \end{figure}
 
-Figure~\ref{fig:k_sensitivity} shows that \textbf{CascadeCBF achieves 0\% error at $k \geq 4$}, matching SBF-MI, while CMS requires $k \geq 11$. At $k=8$, CascadeCBF provides 2--3$\times$ higher throughput than SBF-MI. With a two-layer configuration (12-bit + 20-bit counters), CascadeCBF uses 192~KB while supporting counts up to $2^{31}$.
+Figure~\ref{fig:k_sensitivity} shows that \textbf{CascadeCBF achieves 0\% error at $k \geq 4$}, matching SBF-MI, while CMS requires $k \geq 11$. Standard mode CascadeCBF provides 1.5--2$\times$ higher throughput than SBF-MI; with minimal increment mode, throughput is comparable.
+
+\begin{figure}[ht]
+  \includegraphics[width=8.2cm]{figures/memory_efficiency.pdf}
+  \caption{Memory efficiency across Zipfian skew levels ($\alpha$). Single-layer CascadeCBF (MI+IH) matches SBF-MI and CMS accuracy. Two-layer version achieves exact counts at high skew.}
+  \label{fig:memory}
+\end{figure}
+
+Figure~\ref{fig:memory} shows error vs. memory across Zipfian distributions. Single-layer CascadeCBF with minimal increment and independent hashes (MI+IH) matches the memory efficiency of SBF-MI and CMS: at $\alpha=1.5$, all achieve $<$1\% error with 32~KB. Two-layer CascadeCBF achieves 0\% error at higher skew ($\alpha=2.0$) with just 10~KB by cascading overflow to a second layer.
 
 
 %% =============================================================================
@@ -166,7 +174,7 @@ Figure~\ref{fig:k_sensitivity} shows that \textbf{CascadeCBF achieves 0\% error 
 \section{Conclusions}
 \label{sec:conclusions}
 
-CascadeCBF provides efficient cardinality estimation for power-law spatial data through cascading overflow between layers. Experiments show zero error at $k \geq 4$ with 2--3$\times$ higher throughput than Spectral Bloom Filters. Future work includes multiresolution re-randomization and deletion support.
+CascadeCBF provides efficient cardinality estimation for power-law spatial data through cascading overflow between layers. Experiments show that with minimal increment and independent hashes, CascadeCBF matches the memory efficiency of Spectral Bloom Filters and Count-Min Sketch while supporting counts up to $2^{31}$. The multi-layer design enables exact counts for highly skewed data by cascading to additional layers. Future work includes multiresolution re-randomization and deletion support.
 
 
 %% =============================================================================

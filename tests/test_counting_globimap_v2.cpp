@@ -1,4 +1,4 @@
-#include "counting_globimap_v2.hpp"
+#include "cascade_cbf.hpp"
 #include <cassert>
 #include <iostream>
 #include <random>
@@ -6,6 +6,15 @@
 #include <chrono>
 
 using namespace globimap;
+
+// Type aliases - using efficient 16-bit layers
+using CGM_16 = CCBF_16;
+using CGM_16_16 = CCBF_16_16;
+
+// Legacy aliases for backward compatibility
+using CGM_12 = CCBF_12;
+using CGM_12_20 = CCBF_12_20;
+using CGM_12_20_32 = CCBF_12_20_32;
 
 // Simple test framework (matching existing tests)
 int test_count = 0;
@@ -278,6 +287,81 @@ TEST(cgm_layer_access) {
 }
 
 // ============================================================================
+// Independent Hash Mode Tests
+// ============================================================================
+
+TEST(cgm_independent_hash_mode_basic) {
+    CGM_12_20 filter;
+    filter.configure(8, {18, 14}, false, true);  // non-MI, independent hashes
+
+    ASSERT_TRUE(filter.uses_independent_hashes());
+    ASSERT_TRUE(!filter.is_minimal_increment());
+
+    std::vector<uint64_t> point = {100, 200};
+
+    ASSERT_EQ(filter.get_min(point), 0);
+    filter.put(point);
+    ASSERT_EQ(filter.get_min(point), 1);
+
+    for (int i = 0; i < 99; ++i) {
+        filter.put(point);
+    }
+    ASSERT_EQ(filter.get_min(point), 100);
+}
+
+TEST(cgm_independent_hash_with_mi) {
+    CGM_12_20 filter;
+    filter.configure(8, {18, 14}, true, true);  // MI + independent hashes
+
+    ASSERT_TRUE(filter.uses_independent_hashes());
+    ASSERT_TRUE(filter.is_minimal_increment());
+
+    std::vector<uint64_t> point = {42, 84};
+
+    for (int i = 0; i < 100; ++i) {
+        filter.put(point);
+    }
+    ASSERT_EQ(filter.get_min(point), 100);
+}
+
+TEST(cgm_independent_hash_cascade) {
+    CGM_12_20 filter;
+    filter.configure(4, {10, 8}, false, true);  // independent hashes
+
+    std::vector<uint64_t> point = {42, 84};
+
+    // Insert beyond Layer12 max (2047)
+    for (int i = 0; i < 3000; ++i) {
+        filter.put(point);
+    }
+
+    uint64_t count = filter.get_min(point);
+    ASSERT_EQ(count, 3000);
+}
+
+TEST(cgm_independent_hash_multiple_points) {
+    CGM_12_20 filter;
+    filter.configure(8, {18, 14}, false, true);
+
+    std::vector<std::vector<uint64_t>> points = {
+        {100, 200},
+        {100, 201},
+        {101, 200},
+        {999, 888}
+    };
+
+    for (int i = 0; i < 50; ++i) filter.put(points[0]);
+    for (int i = 0; i < 100; ++i) filter.put(points[1]);
+    for (int i = 0; i < 200; ++i) filter.put(points[2]);
+    for (int i = 0; i < 500; ++i) filter.put(points[3]);
+
+    ASSERT_EQ(filter.get_min(points[0]), 50);
+    ASSERT_EQ(filter.get_min(points[1]), 100);
+    ASSERT_EQ(filter.get_min(points[2]), 200);
+    ASSERT_EQ(filter.get_min(points[3]), 500);
+}
+
+// ============================================================================
 // Performance benchmark (informational)
 // ============================================================================
 
@@ -330,8 +414,8 @@ void benchmark_insert() {
 // ============================================================================
 
 int main() {
-    std::cout << "CountingGloBiMapV2 Unit Tests\n";
-    std::cout << "============================\n\n";
+    std::cout << "CascadeCBF Unit Tests\n";
+    std::cout << "=====================\n\n";
 
     // TypedLayer tests
     run_test_layer_basic_increment();
@@ -351,6 +435,12 @@ int main() {
     run_test_cgm_multi_category();
     run_test_cgm_clear();
     run_test_cgm_layer_access();
+
+    // Independent hash mode tests
+    run_test_cgm_independent_hash_mode_basic();
+    run_test_cgm_independent_hash_with_mi();
+    run_test_cgm_independent_hash_cascade();
+    run_test_cgm_independent_hash_multiple_points();
 
     std::cout << "\n============================\n";
     std::cout << "Tests passed: " << test_passed << "/" << test_count << "\n";

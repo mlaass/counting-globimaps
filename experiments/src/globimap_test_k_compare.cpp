@@ -150,9 +150,9 @@ void save_results(const std::vector<KSensitivityResult>& results) {
 }
 
 int main() {
-    // Continuous k values from 1 to 32
+    // Continuous k values from 1 to 12 (sufficient since CascadeCBF converges at k>=4)
     std::vector<uint> k_values;
-    for (uint k = 1; k <= 32; ++k) k_values.push_back(k);
+    for (uint k = 1; k <= 12; ++k) k_values.push_back(k);
 
     size_t num_unique = 10000;
     size_t total_items = 100000;
@@ -206,7 +206,7 @@ int main() {
         // CascadeCBF (MI)
         {
             std::cout << "  CascadeCBF (MI)..." << std::flush;
-            CCBF_12_20 cbf;
+            CCBF_16_16 cbf;
             cbf.configure(k, {16, 14}, true);
             uint64_t mem = cbf.memory_usage();
             results.push_back(benchmark_k(cbf, "CascadeCBF (MI)", k, test_data, ground_truth, mem));

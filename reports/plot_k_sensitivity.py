@@ -62,7 +62,8 @@ def plot_throughput_vs_k(by_impl: dict, output_dir: Path):
     ax.set_title("Insert Throughput vs k Parameter", fontsize=14)
     ax.legend(loc="upper right", fontsize=10)
     ax.grid(True, alpha=0.3)
-    ax.set_xlim(0, 33)
+    max_k = max(max(d["k"]) for d in by_impl.values())
+    ax.set_xlim(0.5, max_k + 0.5)
     ax.set_ylim(0, None)
 
     plt.tight_layout()
@@ -100,13 +101,12 @@ def plot_accuracy_vs_k(by_impl: dict, output_dir: Path):
     ax.set_title("Query Accuracy vs k Parameter (Zipfian α=1.5)", fontsize=14)
     ax.legend(loc="upper right", fontsize=10)
     ax.grid(True, alpha=0.3)
-    ax.set_xlim(0, 33)
+    max_k = max(max(d["k"]) for d in by_impl.values())
+    ax.set_xlim(0.5, max_k + 0.5)
     ax.set_ylim(-1, 50)  # Focus on 0-50% range
 
     # Add annotations
     ax.axhline(y=0, color='gray', linestyle='--', alpha=0.5)
-    ax.annotate("CascadeCBF: 0% at k>=4", xy=(15, 2), fontsize=10, color='#9b59b6')
-    ax.annotate("CMS: 0% at k>=11", xy=(15, 5), fontsize=10, color='#e74c3c')
 
     plt.tight_layout()
     output_path = output_dir / "k_sensitivity_accuracy.png"
@@ -142,7 +142,8 @@ def plot_combined(by_impl: dict, output_dir: Path):
     ax1.set_title("(a) Insert Throughput", fontsize=12)
     ax1.legend(loc="upper right", fontsize=9)
     ax1.grid(True, alpha=0.3)
-    ax1.set_xlim(0, 33)
+    max_k = max(max(d["k"]) for d in by_impl.values())
+    ax1.set_xlim(0.5, max_k + 0.5)
 
     # Panel 2: Accuracy (all implementations, clamped)
     for impl, data in by_impl.items():
@@ -156,7 +157,7 @@ def plot_combined(by_impl: dict, output_dir: Path):
     ax2.set_title("(b) Query Accuracy", fontsize=12)
     ax2.legend(loc="upper right", fontsize=9)
     ax2.grid(True, alpha=0.3)
-    ax2.set_xlim(0, 33)
+    ax2.set_xlim(0.5, max_k + 0.5)
     ax2.set_ylim(-1, 50)
     ax2.axhline(y=0, color='gray', linestyle='--', alpha=0.5)
 

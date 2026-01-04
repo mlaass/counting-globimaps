@@ -78,6 +78,7 @@ add_executable(compare_all_implementations experiments/src/compare_all_implement
 add_executable(globimap_test_dataset_compare experiments/src/globimap_test_dataset_compare.cpp)
 add_executable(globimap_test_cos_compare experiments/src/globimap_test_cos_compare.cpp)
 add_executable(globimap_test_k_compare experiments/src/globimap_test_k_compare.cpp)
+add_executable(globimap_test_zipfian_memory experiments/src/globimap_test_zipfian_memory.cpp)
 
 # Unit tests
 add_executable(test_variable_increment_bf tests/test_variable_increment_bf.cpp)
@@ -151,6 +152,10 @@ PUBLIC OpenMP::OpenMP_CXX
 )
 
 target_link_libraries(globimap_test_k_compare
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+target_link_libraries(globimap_test_zipfian_memory
 PUBLIC OpenMP::OpenMP_CXX
 )
 

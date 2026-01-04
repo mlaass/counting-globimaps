@@ -1,6 +1,9 @@
 #include "counting_globimap.hpp"
-#include "counting_globimap_v2.hpp"
+#include "cascade_cbf.hpp"
 #include "spectral_bloom_filter.hpp"
+
+// Type aliases for backward compatibility
+using CGM_16_16 = globimap::CCBF_16_16;
 #include "dleft_counting_bf.hpp"
 #include "count_min_sketch.hpp"
 
@@ -238,22 +241,22 @@ int main() {
             results.push_back(benchmark_filter(gbm, "CountingGloBiMap (MI)", dataset_file, width, height, mem));
         }
 
-        // CountingGloBiMapV2 (12+20 bit, MI) - ~2 MB
+        // CascadeCBF (16+16 bit, MI) - ~160 KB
         {
-            std::cout << "\nTesting CountingGloBiMapV2 (12+20, MI)...\n";
-            CGM_12_20 gbm_v2;
-            gbm_v2.configure(k, {16, 12}, true);  // 2^16 + 2^12 counters, MI mode
-            uint64_t mem = gbm_v2.memory_usage();
-            results.push_back(benchmark_filter(gbm_v2, "CGM V2 (12+20, MI)", dataset_file, width, height, mem));
+            std::cout << "\nTesting CascadeCBF (16+16, MI)...\n";
+            CGM_16_16 cbf;
+            cbf.configure(k, {16, 14}, true);  // 2^16 + 2^14 counters, MI mode
+            uint64_t mem = cbf.memory_usage();
+            results.push_back(benchmark_filter(cbf, "CascadeCBF (16+16, MI)", dataset_file, width, height, mem));
         }
 
-        // CountingGloBiMapV2 (12+20 bit, standard) - ~2 MB
+        // CascadeCBF (16+16 bit, standard) - ~160 KB
         {
-            std::cout << "\nTesting CountingGloBiMapV2 (12+20)...\n";
-            CGM_12_20 gbm_v2;
-            gbm_v2.configure(k, {16, 12}, false);  // Standard mode
-            uint64_t mem = gbm_v2.memory_usage();
-            results.push_back(benchmark_filter(gbm_v2, "CGM V2 (12+20)", dataset_file, width, height, mem));
+            std::cout << "\nTesting CascadeCBF (16+16)...\n";
+            CGM_16_16 cbf;
+            cbf.configure(k, {16, 14}, false);  // Standard mode
+            uint64_t mem = cbf.memory_usage();
+            results.push_back(benchmark_filter(cbf, "CascadeCBF (16+16)", dataset_file, width, height, mem));
         }
 
         // Print summary

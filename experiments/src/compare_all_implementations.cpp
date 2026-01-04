@@ -138,8 +138,8 @@ void test_memory_tiny() {
     CountMinSketch cms(cms_conf);
     uint64_t cms_mem = cms.memory_usage();
 
-    // CascadeCBF (12-bit layer for tiny scenario)
-    CCBF_12 cbf;
+    // CascadeCBF (16-bit layer for tiny scenario)
+    CCBF_16 cbf;
     cbf.configure(8, {11}, true);  // k=8, layer0=2^11, MI mode
     uint64_t cbf_mem = cbf.memory_usage();
 
@@ -210,7 +210,7 @@ void test_throughput_tiny() {
 
     // CascadeCBF
     {
-        CCBF_12 cbf;
+        CCBF_16 cbf;
         cbf.configure(8, {11}, true);
         Timer timer;
         for (const auto &point : dataset) {
@@ -316,7 +316,7 @@ void test_accuracy_tiny() {
 
     // CascadeCBF
     {
-        CCBF_12 cbf;
+        CCBF_16 cbf;
         cbf.configure(8, {11}, true);
         for (const auto &point : dataset) {
             cbf.put(point);
@@ -361,8 +361,8 @@ void test_memory_medium() {
     CountMinSketch cms(cms_conf);
     uint64_t cms_mem = cms.memory_usage();
 
-    // CascadeCBF (12+20 bit for medium scenario)
-    CCBF_12_20 cbf;
+    // CascadeCBF (16+16 bit for medium scenario)
+    CCBF_16_16 cbf;
     cbf.configure(8, {16, 14}, true);  // k=8, layer0=2^16, layer1=2^14, MI mode
     uint64_t cbf_mem = cbf.memory_usage();
 
@@ -433,7 +433,7 @@ void test_throughput_medium() {
 
     // CascadeCBF
     {
-        CCBF_12_20 cbf;
+        CCBF_16_16 cbf;
         cbf.configure(8, {16, 14}, true);
         Timer timer;
         for (const auto &point : dataset) {
@@ -539,7 +539,7 @@ void test_accuracy_medium() {
 
     // CascadeCBF
     {
-        CCBF_12_20 cbf;
+        CCBF_16_16 cbf;
         cbf.configure(8, {16, 14}, true);
         for (const auto &point : dataset) {
             cbf.put(point);
@@ -584,9 +584,9 @@ void test_memory_large() {
     CountMinSketch cms(cms_conf);
     uint64_t cms_mem = cms.memory_usage();
 
-    // CascadeCBF (12+20 bit for large scenario)
-    CCBF_12_20 cbf;
-    cbf.configure(8, {20, 16}, true);  // k=8, layer0=2^20, layer1=2^16, MI mode
+    // CascadeCBF (16+16 bit for large scenario)
+    CCBF_16_16 cbf;
+    cbf.configure(8, {20, 18}, true);  // k=8, layer0=2^20, layer1=2^18, MI mode
     uint64_t cbf_mem = cbf.memory_usage();
 
     std::cout << std::fixed << std::setprecision(2);
@@ -656,8 +656,8 @@ void test_throughput_large() {
 
     // CascadeCBF
     {
-        CCBF_12_20 cbf;
-        cbf.configure(8, {20, 16}, true);
+        CCBF_16_16 cbf;
+        cbf.configure(8, {20, 18}, true);
         Timer timer;
         for (const auto &point : dataset) {
             cbf.put(point);
@@ -762,8 +762,8 @@ void test_accuracy_large() {
 
     // CascadeCBF
     {
-        CCBF_12_20 cbf;
-        cbf.configure(8, {20, 16}, true);
+        CCBF_16_16 cbf;
+        cbf.configure(8, {20, 18}, true);
         for (const auto &point : dataset) {
             cbf.put(point);
         }

@@ -146,20 +146,165 @@ private:
     std::tuple<Layers...> layers_;
     unsigned hash_k_;
     bool minimal_increment_;
+    bool use_independent_hashes_;
 
-    // Hash seeds
+    // Base seeds for hashing
     static constexpr uint64_t SEED1 = 8589845122ULL;
     static constexpr uint64_t SEED2 = 8465418721ULL;
+    // Seed multiplier for generating independent hash seeds (same as CMS)
+    static constexpr uint64_t SEED_STEP = 0x123456789ABCDEFULL;
 
-    // Cache for minimal increment mode
-    struct HashPosition {
-        size_t layer_idx;
-        uint64_t position;
-        uint64_t sum;
-    };
+    // Maximum supported k value
+    static constexpr unsigned MAX_K = 64;
+
+    // =========================================================================
+    // Compile-time bit shift computation for each layer
+    // =========================================================================
+
+    template <size_t LayerIdx>
+    static constexpr unsigned bit_shift_for_layer() {
+        if constexpr (LayerIdx == 0) {
+            return 0;
+        } else {
+            using PrevLayer = std::tuple_element_t<LayerIdx - 1, std::tuple<Layers...>>;
+            return bit_shift_for_layer<LayerIdx - 1>() + PrevLayer::value_bits;
+        }
+    }
+
+    // =========================================================================
+    // Compile-time layer access helpers
+    // =========================================================================
+
+    template <size_t I>
+    auto& layer_mut() { return std::get<I>(layers_); }
+
+    template <size_t I>
+    const auto& layer_ref() const { return std::get<I>(layers_); }
+
+    // =========================================================================
+    // Explicit cascade increment using compile-time recursion
+    // =========================================================================
+
+    template <size_t LayerIdx = 0>
+    inline void cascade_increment_at(uint64_t hash_base, uint64_t hash_mult, unsigned k_idx) {
+        if constexpr (LayerIdx < num_layers) {
+            auto& layer = std::get<LayerIdx>(layers_);
+            uint64_t pos = (hash_base + (k_idx + 1) * hash_mult) & layer.mask;
+            bool overflow = layer.increment(pos);
+            if (overflow) {
+                cascade_increment_at<LayerIdx + 1>(hash_base, hash_mult, k_idx);
+            }
+        }
+    }
+
+    // Version for independent hash mode (uses h1 directly)
+    template <size_t LayerIdx = 0>
+    inline void cascade_increment_direct(uint64_t h1) {
+        if constexpr (LayerIdx < num_layers) {
+            auto& layer = std::get<LayerIdx>(layers_);
+            uint64_t pos = h1 & layer.mask;
+            bool overflow = layer.increment(pos);
+            if (overflow) {
+                cascade_increment_direct<LayerIdx + 1>(h1);
+            }
+        }
+    }
+
+    // =========================================================================
+    // Compute sum across all layers for a position (compile-time recursion)
+    // =========================================================================
+
+    template <size_t LayerIdx = 0>
+    inline uint64_t compute_sum_at(uint64_t hash_base, uint64_t hash_mult, unsigned k_idx) const {
+        if constexpr (LayerIdx < num_layers) {
+            const auto& layer = std::get<LayerIdx>(layers_);
+            uint64_t pos = (hash_base + (k_idx + 1) * hash_mult) & layer.mask;
+            auto val = layer.get_value(pos);
+            constexpr unsigned shift = bit_shift_for_layer<LayerIdx>();
+            uint64_t contribution = static_cast<uint64_t>(val) << shift;
+
+            if (layer.has_overflow(pos)) {
+                return contribution + compute_sum_at<LayerIdx + 1>(hash_base, hash_mult, k_idx);
+            }
+            return contribution;
+        }
+        return 0;
+    }
+
+    // Version for independent hash mode
+    template <size_t LayerIdx = 0>
+    inline uint64_t compute_sum_direct(uint64_t h1) const {
+        if constexpr (LayerIdx < num_layers) {
+            const auto& layer = std::get<LayerIdx>(layers_);
+            uint64_t pos = h1 & layer.mask;
+            auto val = layer.get_value(pos);
+            constexpr unsigned shift = bit_shift_for_layer<LayerIdx>();
+            uint64_t contribution = static_cast<uint64_t>(val) << shift;
+
+            if (layer.has_overflow(pos)) {
+                return contribution + compute_sum_direct<LayerIdx + 1>(h1);
+            }
+            return contribution;
+        }
+        return 0;
+    }
+
+    // =========================================================================
+    // Query: check if any layer has zero without overflow (early exit)
+    // Returns pair<sum, is_zero>
+    // =========================================================================
+
+    template <size_t LayerIdx = 0>
+    inline std::pair<uint64_t, bool> query_sum_at(uint64_t hash_base, uint64_t hash_mult,
+                                                  unsigned k_idx) const {
+        if constexpr (LayerIdx < num_layers) {
+            const auto& layer = std::get<LayerIdx>(layers_);
+            uint64_t pos = (hash_base + (k_idx + 1) * hash_mult) & layer.mask;
+            auto val = layer.get_value(pos);
+
+            // Early exit: zero in non-overflowed layer means point not present
+            if (val == 0 && !layer.has_overflow(pos)) {
+                return {0, true};  // is_zero = true
+            }
+
+            constexpr unsigned shift = bit_shift_for_layer<LayerIdx>();
+            uint64_t contribution = static_cast<uint64_t>(val) << shift;
+
+            if (layer.has_overflow(pos)) {
+                auto [rest, is_zero] = query_sum_at<LayerIdx + 1>(hash_base, hash_mult, k_idx);
+                return {contribution + rest, is_zero};
+            }
+            return {contribution, false};
+        }
+        return {0, false};
+    }
+
+    // Version for independent hash mode
+    template <size_t LayerIdx = 0>
+    inline std::pair<uint64_t, bool> query_sum_direct(uint64_t h1) const {
+        if constexpr (LayerIdx < num_layers) {
+            const auto& layer = std::get<LayerIdx>(layers_);
+            uint64_t pos = h1 & layer.mask;
+            auto val = layer.get_value(pos);
+
+            if (val == 0 && !layer.has_overflow(pos)) {
+                return {0, true};
+            }
+
+            constexpr unsigned shift = bit_shift_for_layer<LayerIdx>();
+            uint64_t contribution = static_cast<uint64_t>(val) << shift;
+
+            if (layer.has_overflow(pos)) {
+                auto [rest, is_zero] = query_sum_direct<LayerIdx + 1>(h1);
+                return {contribution + rest, is_zero};
+            }
+            return {contribution, false};
+        }
+        return {0, false};
+    }
 
 public:
-    CascadeCBF() : hash_k_(0), minimal_increment_(false) {}
+    CascadeCBF() : hash_k_(0), minimal_increment_(false), use_independent_hashes_(false) {}
 
     /**
      * @brief Configure filter with hash count and layer sizes
@@ -167,12 +312,15 @@ public:
      * @param hash_k Number of hash functions
      * @param logsizes Array of log2(layer_size) for each layer
      * @param minimal_increment Use conservative update (MI mode)
+     * @param independent_hashes Use independent hash seeds per k (slower but better for skewed data)
      */
     void configure(unsigned hash_k,
                    const std::array<unsigned, num_layers>& logsizes,
-                   bool minimal_increment = false) {
+                   bool minimal_increment = false,
+                   bool independent_hashes = false) {
         hash_k_ = hash_k;
         minimal_increment_ = minimal_increment;
+        use_independent_hashes_ = independent_hashes;
 
         // Resize each layer
         size_t idx = 0;
@@ -192,13 +340,23 @@ public:
      * @brief Insert a point with raw pointer
      */
     void putp(const uint64_t* point, size_t len) {
-        uint64_t h1 = SEED1, h2 = SEED2;
-        hash(point, len, &h1, &h2);
-
-        if (minimal_increment_) {
-            put_minimal_increment(h1, h2);
+        if (use_independent_hashes_) {
+            // Independent hash mode: compute separate hash for each k
+            if (minimal_increment_) {
+                put_minimal_increment_independent(point, len);
+            } else {
+                put_standard_independent(point, len);
+            }
         } else {
-            put_standard(h1, h2);
+            // Hashing trick mode: h1 + (i+1)*h2
+            uint64_t h1 = SEED1, h2 = SEED2;
+            hash(point, len, &h1, &h2);
+
+            if (minimal_increment_) {
+                put_minimal_increment(h1, h2);
+            } else {
+                put_standard(h1, h2);
+            }
         }
     }
 
@@ -211,42 +369,24 @@ public:
 
     /**
      * @brief Query minimum count with raw pointer
+     * Uses compile-time recursion with early exit (no std::apply overhead)
      */
     uint64_t get_minp(const uint64_t* point, size_t len) const {
+        if (use_independent_hashes_) {
+            return get_minp_independent(point, len);
+        }
+
+        // Hashing trick mode
         uint64_t h1 = SEED1, h2 = SEED2;
         hash(point, len, &h1, &h2);
 
         uint64_t min_count = std::numeric_limits<uint64_t>::max();
 
         for (unsigned i = 0; i < hash_k_; ++i) {
-            uint64_t total = 0;
-            unsigned shift = 0;
-            bool found_zero = false;
-
-            // Traverse layers, accumulating bit-shifted values
-            std::apply([&](const auto&... layer) {
-                bool should_continue = true;
-                ((should_continue && !found_zero ? [&]() {
-                    uint64_t pos = (h1 + (i + 1) * h2) & layer.mask;
-                    auto val = layer.get_value(pos);
-
-                    if (val == 0 && !layer.has_overflow(pos)) {
-                        // Zero in non-overflowed layer means point not present
-                        found_zero = true;
-                        return true;
-                    }
-
-                    total += static_cast<uint64_t>(val) << shift;
-                    shift += layer.value_bits;
-                    should_continue = layer.has_overflow(pos);
-                    return true;
-                }() : false), ...);
-            }, layers_);
-
-            if (found_zero) {
-                return 0;
+            auto [total, is_zero] = query_sum_at<0>(h1, h2, i);
+            if (is_zero) {
+                return 0;  // Early exit: point definitely not present
             }
-
             min_count = std::min(min_count, total);
         }
 
@@ -291,6 +431,11 @@ public:
     bool is_minimal_increment() const { return minimal_increment_; }
 
     /**
+     * @brief Check if independent hash mode is enabled
+     */
+    bool uses_independent_hashes() const { return use_independent_hashes_; }
+
+    /**
      * @brief Get layer count
      */
     static constexpr size_t layer_count() { return num_layers; }
@@ -306,23 +451,17 @@ public:
 private:
     /**
      * @brief Standard put: increment all k positions
+     * Uses compile-time recursion for cascade (no std::apply overhead)
      */
     void put_standard(uint64_t h1, uint64_t h2) {
         for (unsigned i = 0; i < hash_k_; ++i) {
-            // Cascade through layers until one doesn't overflow
-            std::apply([&](auto&... layer) {
-                bool cascaded = true;
-                ((cascaded ? [&]() {
-                    uint64_t pos = (h1 + (i + 1) * h2) & layer.mask;
-                    cascaded = layer.increment(pos);
-                    return true;
-                }() : false), ...);
-            }, layers_);
+            cascade_increment_at<0>(h1, h2, i);
         }
     }
 
     /**
      * @brief Minimal increment put: only increment positions at minimum sum
+     * Uses compile-time recursion (no std::apply overhead)
      *
      * Two-pass algorithm:
      * 1. Compute sum for each hash position
@@ -330,55 +469,113 @@ private:
      */
     void put_minimal_increment(uint64_t h1, uint64_t h2) {
         // First pass: compute sums and find minimum
-        std::array<uint64_t, 64> sums;  // Max k=64
+        std::array<uint64_t, MAX_K> sums;
         uint64_t min_sum = std::numeric_limits<uint64_t>::max();
 
         for (unsigned i = 0; i < hash_k_; ++i) {
-            uint64_t sum = 0;
-            unsigned shift = 0;
-
-            // Traverse layers to compute total sum
-            std::apply([&](const auto&... layer) {
-                bool should_continue = true;
-                ((should_continue ? [&]() {
-                    uint64_t pos = (h1 + (i + 1) * h2) & layer.mask;
-                    sum += static_cast<uint64_t>(layer.get_value(pos)) << shift;
-                    shift += layer.value_bits;
-                    should_continue = layer.has_overflow(pos);
-                    return true;
-                }() : false), ...);
-            }, layers_);
-
-            sums[i] = sum;
-            min_sum = std::min(min_sum, sum);
+            sums[i] = compute_sum_at<0>(h1, h2, i);
+            min_sum = std::min(min_sum, sums[i]);
         }
 
         // Second pass: cascade increment for positions at minimum
         for (unsigned i = 0; i < hash_k_; ++i) {
             if (sums[i] == min_sum) {
-                // Cascade through layers (same as standard mode)
-                std::apply([&](auto&... layer) {
-                    bool cascaded = true;
-                    ((cascaded ? [&]() {
-                        uint64_t pos = (h1 + (i + 1) * h2) & layer.mask;
-                        cascaded = layer.increment(pos);
-                        return true;
-                    }() : false), ...);
-                }, layers_);
+                cascade_increment_at<0>(h1, h2, i);
             }
         }
     }
+
+    // =========================================================================
+    // Independent hash mode methods (truly independent hashes per k position)
+    // =========================================================================
+
+    /**
+     * @brief Compute hash for k-th position using independent seed
+     */
+    inline void compute_hash_k(const uint64_t* point, size_t len, unsigned k,
+                               uint64_t* h1, uint64_t* h2) const {
+        *h1 = SEED1 + k * SEED_STEP;
+        *h2 = SEED2;
+        hash(point, len, h1, h2);
+    }
+
+    /**
+     * @brief Standard put with independent hashes
+     * Uses compile-time recursion (no std::apply overhead)
+     */
+    void put_standard_independent(const uint64_t* point, size_t len) {
+        for (unsigned i = 0; i < hash_k_; ++i) {
+            uint64_t h1, h2;
+            compute_hash_k(point, len, i, &h1, &h2);
+            cascade_increment_direct<0>(h1);
+        }
+    }
+
+    /**
+     * @brief Minimal increment put with independent hashes
+     * Uses compile-time recursion (no std::apply overhead)
+     */
+    void put_minimal_increment_independent(const uint64_t* point, size_t len) {
+        // Pre-compute all hashes
+        std::array<uint64_t, MAX_K> hashes;
+        for (unsigned i = 0; i < hash_k_; ++i) {
+            uint64_t h1, h2;
+            compute_hash_k(point, len, i, &h1, &h2);
+            hashes[i] = h1;
+        }
+
+        // First pass: compute sums and find minimum
+        std::array<uint64_t, MAX_K> sums;
+        uint64_t min_sum = std::numeric_limits<uint64_t>::max();
+
+        for (unsigned i = 0; i < hash_k_; ++i) {
+            sums[i] = compute_sum_direct<0>(hashes[i]);
+            min_sum = std::min(min_sum, sums[i]);
+        }
+
+        // Second pass: cascade increment for positions at minimum
+        for (unsigned i = 0; i < hash_k_; ++i) {
+            if (sums[i] == min_sum) {
+                cascade_increment_direct<0>(hashes[i]);
+            }
+        }
+    }
+
+    /**
+     * @brief Query minimum count with independent hashes
+     * Uses compile-time recursion with early exit (no std::apply overhead)
+     */
+    uint64_t get_minp_independent(const uint64_t* point, size_t len) const {
+        uint64_t min_count = std::numeric_limits<uint64_t>::max();
+
+        for (unsigned i = 0; i < hash_k_; ++i) {
+            uint64_t h1, h2;
+            compute_hash_k(point, len, i, &h1, &h2);
+
+            auto [total, is_zero] = query_sum_direct<0>(h1);
+            if (is_zero) {
+                return 0;
+            }
+            min_count = std::min(min_count, total);
+        }
+
+        return min_count;
+    }
 };
 
-// Common configurations
+// Common configurations (legacy - wastes bits in storage)
 using CCBF_8 = CascadeCBF<Layer8>;
 using CCBF_12 = CascadeCBF<Layer12>;
 using CCBF_12_20 = CascadeCBF<Layer12, Layer20>;
 using CCBF_12_20_32 = CascadeCBF<Layer12, Layer20, Layer32>;
 using CCBF_16_32 = CascadeCBF<Layer16, Layer32>;
 
-// Recommended default: 12+20 bit, 2 layers
-using DefaultCascadeCBF = CCBF_12_20;
+// Efficient configurations (full utilization of storage bits)
+using CCBF_16 = CascadeCBF<Layer16>;              // Single 16-bit layer, max 32767
+using CCBF_16_16 = CascadeCBF<Layer16, Layer16>;  // Two 16-bit layers, 30 value bits total
+
+// Recommended default: 16+16 bit, 2 layers (38% less memory than 32-bit at same accuracy)
+using DefaultCascadeCBF = CCBF_16_16;
 
 } // namespace globimap
 

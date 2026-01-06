@@ -1,4 +1,5 @@
 #include "counting_globimap.hpp"
+#include "cascade_cbf.hpp"
 #include "spectral_bloom_filter.hpp"
 #include "dleft_counting_bf.hpp"
 #include "count_min_sketch.hpp"
@@ -281,6 +282,16 @@ int main() {
         CountingGloBiMap<> gbm(conf);
         uint64_t mem = gbm.byte_size();
         results.push_back(benchmark_multicategory_dataset(gbm, "CountingGloBiMap (MI)", dataset_file, mem, coords));
+        std::cout << "\n";
+    }
+
+    // CascadeCBF (MI) - new optimized implementation
+    {
+        std::cout << "Testing CascadeCBF (MI)...\n";
+        CCBF_16_16 cbf;
+        cbf.configure(k, {20, 16}, true);  // k=8, layer0=2^20, layer1=2^16, MI mode
+        uint64_t mem = cbf.memory_usage();
+        results.push_back(benchmark_multicategory_dataset(cbf, "CascadeCBF (MI)", dataset_file, mem, coords));
         std::cout << "\n";
     }
 

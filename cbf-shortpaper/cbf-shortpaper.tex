@@ -42,7 +42,7 @@
 \begin{abstract}
 Spatial point datasets often exhibit power-law frequency distributions where few locations receive most observations. Traditional counting bloom filters struggle with such distributions due to fixed counter bit-depths. We present CascadeCBF, a multi-layer probabilistic data structure using cascading overflow: counters in lower layers handle infrequent locations, while overflow cascades to higher layers for hotspots. CascadeCBF supports spatial operations (union, intersection, aggregation) directly on the compressed representation. Evaluation on Zipfian distributions shows CascadeCBF with minimal increment and independent hashes matches the memory efficiency of Spectral Bloom Filters and Count-Min Sketch, while the multi-layer design enables exact counts for highly skewed data.
 
-\textbf{Submission Type.} Short Paper \quad \textbf{BoK Concepts.} [AM] Analytical Methods, [DM] Data Modeling
+\textbf{Submission Type.} Short Paper \quad \textbf{BoK Concepts.} [AM5] Geostatistics, [DM3] Data Structures
 
 \keywords{probabilistic data structures, counting bloom filter, spatial data, cardinality estimation}
 
@@ -56,11 +56,11 @@ Spatial point datasets often exhibit power-law frequency distributions where few
 
 Geospatial applications generate point data at massive scales---billions of geotagged posts, GPS traces, sensor observations, and mobility records. A key operation is \emph{cardinality estimation}: counting observations per location for hotspot detection, trajectory analysis, and spatial aggregation. Consider urban traffic monitoring where a single intersection may log millions of vehicles per year while suburban roads see only dozens. Or pandemic surveillance where disease cases cluster dramatically in population centers. These applications require counting structures that adapt to wildly varying frequencies across space.
 
-Probabilistic structures like Counting Bloom Filters (CBFs)~\cite{bloom_space/time_1970} offer space-efficient frequency estimation, but fixed bit-depth counters either overflow at hotspots or waste memory on rare locations. This is problematic for spatial data, which typically follows power-law distributions: a few locations (city centers, popular venues) receive orders of magnitude more observations than the majority. A 4-bit counter overflows at count 15---insufficient for any urban hotspot---while 32-bit counters waste 28 bits for locations with fewer than 16 observations.
+Probabilistic structures like Counting Bloom Filters (CBFs)~\cite{fan2000summary} offer space-efficient frequency estimation, but fixed bit-depth counters either overflow at hotspots or waste memory on rare locations. This is problematic for spatial data, which typically follows power-law distributions: a few locations (city centers, popular venues) receive orders of magnitude more observations than the majority. A 4-bit counter overflows at count 15---insufficient for any urban hotspot---while 32-bit counters waste 28 bits for locations with fewer than 16 observations.
 
-We introduce \emph{CascadeCBF}, extending GloBiMaps~\cite{werner2019globimaps} with cascading overflow: layers use increasing bit-depths, and increments cascade upward when counters saturate. Unlike traditional multi-layer approaches that incur rebuild overhead or require Huffman coding, CascadeCBF uses a simple overflow bit protocol: each counter reserves its high bit as a flag, enabling $\mathcal{O}(1)$ overflow detection. This design achieves three properties simultaneously: (1) \emph{cache efficiency}---most operations touch only the first layer; (2) \emph{unbounded counts}---cascading handles arbitrary frequencies; (3) \emph{composability}---spatial operations work directly on the compressed representation.
+We introduce \emph{CascadeCBF}, extending GloBiMaps~\cite{werner2019globimaps} with cascading overflow: layers use increasing bit-depths, and increments cascade upward when counters saturate. Unlike traditional multi-layer approaches that incur rebuild overhead or require Huffman coding, CascadeCBF uses a simple overflow bit protocol: each counter reserves its high bit as a flag, enabling $\mathcal{O}(1)$ overflow detection. This design achieves three properties simultaneously: (1) \emph{cache efficiency}---most operations touch only the first layer; (2) \emph{large count range}---two layers handle counts up to $2^{30}$; (3) \emph{composability}---spatial operations work directly on the compressed representation.
 
-Our contributions are: (1) an overflow bit protocol for efficient multi-layer counting with cache-friendly access patterns; (2) spatial operations (union, intersection, aggregation) directly on compressed representations; (3) comprehensive evaluation on four real-world spatial datasets demonstrating competitive accuracy and 2--3$\times$ throughput improvements over Spectral Bloom Filters.
+Our contributions are: (1) an overflow bit protocol for efficient multi-layer counting with cache-friendly access patterns; (2) spatial operations (union, intersection, aggregation) directly on compressed representations; (3) comprehensive evaluation on four real-world spatial datasets demonstrating competitive accuracy and up to 1.6$\times$ throughput improvements over alternatives.
 
 
 %% =============================================================================
@@ -83,13 +83,13 @@ Counting Bloom Filters (CBFs)~\cite{fan2000summary} replace single bits with $b$
 
 Spectral Bloom Filters~\cite{cohen2003spectral} improve accuracy via \emph{minimal increment} (MI)---only incrementing counters at the current minimum count. This reduces overcounting from false positive collisions. Three variants exist: Minimum Selection (MS) queries the minimum counter; Minimal Increment (MI) only increments minimum counters during insertion; and Recurring Minimum (RM) supports deletions by tracking which counters hold the minimum. Count-Min Sketch~\cite{cormode2005improved} provides provable error bounds: estimates exceed true counts by at most $\varepsilon N$ with probability $1-\delta$, requiring $k = \lceil \ln(1/\delta) \rceil$ rows and $w = \lceil e/\varepsilon \rceil$ columns.
 
-Multi-layer approaches address the bit-depth tradeoff. Dynamic Count Filters~\cite{aguilar-saborit_dynamic_2006} resize counters dynamically but incur rebuild overhead when many counters overflow simultaneously. Multilayer Compressed CBFs~\cite{ficara_multilayer_2008} use Huffman coding for variable-length counters, trading CPU cycles for memory efficiency. d-Left Counting Bloom Filters~\cite{bonomi2006improved} use d-left hashing with multiple subtables, achieving near-optimal space at the cost of more complex insertion logic.
+Multi-layer approaches address the bit-depth tradeoff. Dynamic Bloom Filters~\cite{guo2009dynamic} and Dynamic Count Filters~\cite{aguilar-saborit_dynamic_2006} resize dynamically but incur rebuild overhead when many counters overflow simultaneously. Multilayer Compressed CBFs~\cite{ficara_multilayer_2008} use Huffman coding for variable-length counters, trading CPU cycles for memory efficiency. d-Left Counting Bloom Filters~\cite{bonomi2006improved} use d-left hashing with multiple subtables, achieving near-optimal space at the cost of more complex insertion logic.
 
 \subsection{Spatial Data Characteristics}
 
 Real-world spatial data follows power-law (Zipfian) distributions~\cite{broder2004network}: a few locations receive most observations, making fixed-depth counters particularly inefficient. The Zipfian distribution with parameter $\alpha$ assigns probability $p(r) \propto r^{-\alpha}$ to the $r$-th ranked item. Human mobility data typically exhibits $\alpha \in [1.0, 2.0]$: city centers, transit hubs, and popular venues dominate while suburban and rural areas remain sparse.
 
-GloBiMaps~\cite{werner2019globimaps} adapt Bloom filters for sparse spatial rasters by hashing discretized coordinates, supporting set operations (union, intersection) directly on the compressed representation. Coordinates are discretized via floor division: for resolution $r$, point $(x, y)$ maps to cell $(\lfloor x/r \rfloor, \lfloor y/r \rfloor)$. This enables multiresolution queries---coarse queries use larger $r$ for overview, fine queries use smaller $r$ for detail.
+GloBiMaps~\cite{werner2019globimaps,werner2021globimapsai} adapt Bloom filters for sparse spatial rasters by hashing discretized coordinates, supporting set operations (union, intersection) directly on the compressed representation. Coordinates are discretized via floor division: for resolution $r$, point $(x, y)$ maps to cell $(\lfloor x/r \rfloor, \lfloor y/r \rfloor)$. This enables multiresolution queries---coarse queries use larger $r$ for overview, fine queries use smaller $r$ for detail.
 
 
 %% =============================================================================
@@ -155,7 +155,7 @@ GloBiMaps~\cite{werner2019globimaps} adapt Bloom filters for sparse spatial rast
 
 CascadeCBF consists of $k$ hash functions and layers $L_0, \ldots, L_{\Lambda-1}$ with increasing bit-depths $b_0 < \cdots < b_{\Lambda-1}$. The \emph{overflow bit protocol} (Fig.~\ref{fig:architecture}) reserves each counter's high bit as overflow flag: when value bits saturate, the flag is set and increments cascade to the next layer. Since Layer 1 is only accessed every $2^{b_0-1}$ increments, most operations touch only Layer 0---improving cache locality.
 
-We use the \emph{hashing trick}: a single MurmurHash3 call produces two 64-bit values $(h_1, h_2)$, from which $k$ hash positions are derived as $j_i = (h_1 + (i+1) \cdot h_2) \bmod m_x$. This reduces hash computation from $\mathcal{O}(k)$ to $\mathcal{O}(1)$ while maintaining the pairwise independence required for Bloom filter guarantees. The 128-bit MurmurHash3 output provides excellent distribution for spatial coordinates, which often exhibit spatial autocorrelation that could defeat weaker hash functions.
+We use the \emph{hashing trick}~\cite{kirsch2006less}: a single MurmurHash3 call produces two 64-bit values $(h_1, h_2)$, from which $k$ hash positions are derived as $j_i = (h_1 + (i+1) \cdot h_2) \bmod m_x$. This reduces hash computation from $\mathcal{O}(k)$ to $\mathcal{O}(1)$ while maintaining the pairwise independence required for Bloom filter guarantees. PUT and GET operations are $\mathcal{O}(k \cdot \Lambda)$ worst-case but typically $\mathcal{O}(k)$ since most counters remain in Layer~0. The 128-bit MurmurHash3 output provides excellent distribution for spatial coordinates, which often exhibit spatial autocorrelation that could defeat weaker hash functions.
 
 \textbf{Layer Sizing.} Layers use asymmetric sizing: Layer~0 is large (handling the common case of low counts) while upper layers are progressively smaller. For $n$ unique items with expected maximum count $c_{\max}$, Layer~0 should have $m_0 \geq k \cdot n / \ln 2$ counters for optimal Bloom filter performance. Layer~1 only stores overflow from the $\sim$1\% highest-frequency items, so $m_1 = m_0/64$ typically suffices. This asymmetry saves significant memory compared to uniform-sized layers.
 
@@ -188,9 +188,13 @@ We use the \emph{hashing trick}: a single MurmurHash3 call produces two 64-bit v
   \STATE $s \gets 0$
   \FOR{$x = 0$ \TO $\Lambda-1$}
     \STATE $j \gets (h_1 + (i+1) \cdot h_2) \bmod m_x$
-    \STATE $s \gets s + \val(j, L_x)$
-    \IF{overflow bit not set \OR $\val(j, L_x) = 0$}
-      \STATE \textbf{break}
+    \STATE $v \gets \val(j, L_x)$
+    \IF{$v = 0$ \AND overflow bit not set}
+      \STATE \textbf{break} \COMMENT{early exit: not present}
+    \ENDIF
+    \STATE $s \gets s + v \cdot 2^{\sigma_x}$ \COMMENT{$\sigma_x$: bit offset for layer $x$}
+    \IF{overflow bit not set}
+      \STATE \textbf{break} \COMMENT{no higher layers needed}
     \ENDIF
   \ENDFOR
   \STATE $v_{\min} \gets \min(v_{\min}, s)$
@@ -201,7 +205,7 @@ We use the \emph{hashing trick}: a single MurmurHash3 call produces two 64-bit v
 
 Optional \emph{minimal increment} (MI) mode only increments positions at minimum count, reducing false positive accumulation. Without MI, each insertion increments all $k$ counters; collisions with other items cause overcounting proportional to filter load. With MI, only minimum-value counters are incremented, so overcounting only occurs when all $k$ positions collide with items of equal or higher count---a rare event for high-frequency items.
 
-The expected total overcount for $t$ insertions into $n$ unique positions is:
+The expected total overcount for $t$ insertions into $n$ unique positions follows from standard Bloom filter analysis~\cite{broder2004network}:
 \begin{equation}
 \text{err}_{\text{total}} = k \cdot \frac{t}{n} \cdot \left(1 - e^{-kn/m}\right)
 \end{equation}
@@ -231,15 +235,15 @@ A key advantage of CascadeCBF over general-purpose sketches is native support fo
 \section{Evaluation}
 \label{sec:evaluation}
 
-We compare CascadeCBF (with minimal increment and independent hashes) against Spectral Bloom Filters (SBF-MI)~\cite{cohen2003spectral}, Count-Min Sketch (CMS)~\cite{cormode2005improved}, and d-Left CBF~\cite{bonomi2006improved} on Zipfian data (10K unique items, 100K insertions).
+We compare CascadeCBF (with minimal increment) against Spectral Bloom Filters (SBF-MI)~\cite{cohen2003spectral} and Count-Min Sketch (CMS)~\cite{cormode2005improved} on Zipfian data (10K unique items, 100K insertions).
 
 \begin{figure}[ht]
   \includegraphics[width=8.2cm]{figures/k_sensitivity_combined.pdf}
-  \caption{K-parameter sensitivity ($\alpha=1.5$): (a) throughput decreases with $k$; (b) error approaches 0\% as $k$ increases. CascadeCBF achieves 0\% error at $k \geq 4$.}
+  \caption{K-parameter sensitivity ($\alpha=1.5$): (a) throughput decreases with $k$; (b) error decreases with $k$. CascadeCBF achieves negligible error ($<$0.01\%) at $k \geq 4$.}
   \label{fig:k_sensitivity}
 \end{figure}
 
-Figure~\ref{fig:k_sensitivity} shows that \textbf{CascadeCBF achieves 0\% error at $k \geq 4$}, matching SBF-MI, while CMS requires $k \geq 11$. This difference arises because CMS uses separate counter arrays per hash function (requiring more hashes to achieve the same coverage), whereas CascadeCBF and SBF share a single counter array across all $k$ positions. The optimal $k^* \approx 0.693(m/n) \approx 4$ for our configuration explains why $k = 4$ suffices.
+Figure~\ref{fig:k_sensitivity} shows that \textbf{CascadeCBF achieves negligible error ($<$0.01\%) at $k \geq 4$}, matching SBF-MI, while CMS requires $k \geq 11$. This difference arises because CMS uses separate counter arrays per hash function (requiring more hashes to achieve the same coverage), whereas CascadeCBF and SBF share a single counter array across all $k$ positions. The optimal $k^* \approx 0.693(m/n) \approx 4$ for our configuration explains why $k = 4$ suffices.
 
 Standard mode CascadeCBF provides 1.5--2$\times$ higher throughput than SBF-MI due to simpler increment logic. The difference stems from minimal increment mode requiring a preliminary scan to find minimum counters before incrementing, whereas standard mode increments all $k$ positions unconditionally. With minimal increment mode enabled, throughput is comparable to SBF-MI but accuracy improves significantly for low-$k$ configurations where false positive collisions would otherwise accumulate.
 
@@ -249,7 +253,7 @@ Standard mode CascadeCBF provides 1.5--2$\times$ higher throughput than SBF-MI d
   \label{fig:memory}
 \end{figure}
 
-Figure~\ref{fig:memory} shows error vs. memory across Zipfian distributions. Single-layer CascadeCBF with minimal increment and independent hashes (MI+IH) matches the memory efficiency of SBF-MI and CMS: at $\alpha=1.5$, all achieve $<$1\% error with 32~KB. Two-layer CascadeCBF achieves 0\% error at higher skew ($\alpha=2.0$) with just 10~KB by cascading overflow to a second layer.
+Figure~\ref{fig:memory} shows error vs. memory across Zipfian distributions. Single-layer CascadeCBF with minimal increment and independent hashes (MI+IH) matches the memory efficiency of SBF-MI and CMS: at $\alpha=1.5$, all achieve $<$1\% error with 32~KB. Two-layer CascadeCBF achieves negligible error at higher skew ($\alpha=2.0$) with just 10~KB by cascading overflow to a second layer.
 
 This is particularly relevant for geospatial data, where population centers create extreme hotspots (e.g., $\alpha > 1.5$) that would overflow single-layer counters. NYC taxi data exhibits $\alpha \approx 2.0$: Times Square receives thousands of pickups daily while outer-borough streets see single digits. The multi-layer design adapts naturally: Times Square counters overflow to Layer~1 while suburban counters remain in compact Layer~0 storage.
 
@@ -269,19 +273,18 @@ Real-world spatial data often includes categorical attributes (event types, time
 \label{tab:multicategory}
 \small
 \begin{tabular}{lccc}
-\hline
+\tophline
 \textbf{Implementation} & \textbf{Memory} & \textbf{Insert} & \textbf{Error} \\
  & (KB) & (s) & (\%) \\
-\hline
+\middlehline
 Spectral BF (MI) & 2048 & 0.15 & 0.00 \\
 Count-Min Sketch & 88 & 0.17 & 0.00 \\
-CountingGloBiMap (MI) & 1536 & 0.22 & 0.11 \\
 CascadeCBF (MI) & 2176 & 0.13 & 0.00 \\
-\hline
+\bottomhline
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:multicategory} shows that CascadeCBF achieves perfect category isolation (0\% error) with the fastest insert time, validating multi-dimensional indexing.
+Table~\ref{tab:multicategory} shows that CascadeCBF achieves perfect category isolation (negligible error) with the fastest insert time, validating multi-dimensional indexing.
 
 \subsection{Polygon Counting}
 
@@ -301,16 +304,16 @@ Power-law spatial data grows over time as events accumulate at hotspots. We trac
 \label{tab:timeseries}
 \small
 \begin{tabular}{lcccccc}
-\hline
+\tophline
 \textbf{Date} & \textbf{Pts} & \textbf{Cum.} & \textbf{SBF} & \textbf{CMS} & \textbf{CCBF} \\
-\hline
+\middlehline
 2020-03 & 142 & 142 & 0.0 & 0.0 & 0.0 \\
 2020-06 & 7.9K & 8.1K & 0.0 & 0.0 & 0.0 \\
 2020-12 & 84K & 92K & 0.0 & 0.0 & 0.0 \\
 2021-06 & 183K & 274K & 0.0 & 0.0 & 0.0 \\
 2021-12 & 289K & 563K & 0.23 & 0.23 & 0.0 \\
 2022-06 & 547K & 1.1M & 0.51 & 0.51 & 0.0 \\
-\hline
+\bottomhline
 \end{tabular}
 \end{table}
 
@@ -326,18 +329,18 @@ Urban transportation data exhibits extreme spatial concentration---Manhattan rec
 \label{tab:taxi}
 \small
 \begin{tabular}{lcccc}
-\hline
+\tophline
 \textbf{Implementation} & \textbf{Memory} & \textbf{Insert} & \textbf{Mean Err} & \textbf{Max Err} \\
  & (KB) & (s) & (\%) & (\%) \\
-\hline
+\middlehline
 Spectral BF (MI) & 2048 & 0.085 & 0.28 & 500 \\
 Count-Min Sketch & 2041 & 0.108 & 0.39 & 800 \\
 CascadeCBF (MI) & 2176 & 0.066 & 0.29 & 800 \\
-\hline
+\bottomhline
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:taxi} shows all implementations achieve sub-1\% mean error with comparable memory budgets (~2~MB). CascadeCBF achieves 0.29\% mean error with the fastest insert time (0.066s), while CMS shows slightly higher error (0.39\%) due to its separate-array design accumulating more collisions. Named hotspots---Times Square (23 trips), Central Park South (60 trips), Grand Central (7 trips)---all show \textbf{0\% error} for CascadeCBF and Spectral BF.
+Table~\ref{tab:taxi} shows all implementations achieve sub-1\% mean error with comparable memory budgets (~2~MB). CascadeCBF achieves 0.29\% mean error with the fastest insert time (0.066s), while CMS shows slightly higher error (0.39\%) due to its separate-array design accumulating more collisions. Single-cell queries at named hotspots---Times Square (23 pickups), Central Park South (60 pickups), Grand Central (7 pickups)---show exact counts for CascadeCBF and Spectral BF. Maximum errors (500--800\%) occur at low-count cells where a single false positive collision dominates (e.g., true count 1, estimate 6).
 
 The key advantage of CascadeCBF in urban scenarios is throughput: 1.6$\times$ faster inserts than CMS (0.066s vs.\ 0.108s) due to shared counter arrays requiring fewer memory accesses per operation. For streaming urban analytics where millions of GPS points arrive per second, this throughput difference compounds significantly.
 
@@ -350,7 +353,7 @@ The key advantage of CascadeCBF in urban scenarios is throughput: 1.6$\times$ fa
 
 \textbf{When to Use CascadeCBF.} CascadeCBF excels when (1) data follows power-law distributions with extreme hotspots, (2) counts span multiple orders of magnitude, or (3) spatial operations (union, aggregation) are needed. For uniform distributions or when provable error bounds are required, Count-Min Sketch may be preferable despite its higher error on skewed data.
 
-\textbf{Parameter Selection.} The number of hash functions $k$ controls the accuracy/throughput tradeoff. Our experiments show $k=4$ suffices for typical spatial workloads (0\% error). Layer sizing follows a simple heuristic: Layer~0 handles the common case (low counts), so its size $m_0$ should satisfy the Bloom filter optimality condition $m_0/n \approx 14$ for 1\% false positives. Layer~1 can be significantly smaller---we use $m_1 = m_0/64$ since only $\sim$1\% of elements overflow.
+\textbf{Parameter Selection.} The number of hash functions $k$ controls the accuracy/throughput tradeoff. Our experiments show $k=4$ suffices for typical spatial workloads. Layer sizing follows a simple heuristic: Layer~0 handles the common case (low counts), so its size $m_0$ should satisfy the Bloom filter optimality condition $m_0/n \approx 14$ for 1\% false positives. Layer~1 can be significantly smaller---we use $m_1 = m_0/64$ since only $\sim$1\% of elements overflow.
 
 \textbf{Memory vs. Accuracy.} With 16-bit Layer~0 and 32-bit Layer~1 counters, CascadeCBF handles counts up to $2^{31}$ with 2.5 bytes per counter on average (Layer~0 dominates memory). Compared to fixed 32-bit CBF (4 bytes/counter), this saves 37.5\% memory while providing exact counts for low-frequency items.
 
@@ -363,9 +366,9 @@ The key advantage of CascadeCBF in urban scenarios is throughput: 1.6$\times$ fa
 \section{Conclusions}
 \label{sec:conclusions}
 
-CascadeCBF provides efficient cardinality estimation for power-law spatial data through cascading overflow between layers. The overflow bit protocol enables compact storage while maintaining cache locality---most operations touch only Layer~0. With minimal increment mode, CascadeCBF achieves 0\% error at $k \geq 4$, matching Spectral Bloom Filters while supporting counts up to $2^{31}$ with 2--3$\times$ higher throughput.
+CascadeCBF provides efficient cardinality estimation for power-law spatial data through cascading overflow between layers. The overflow bit protocol enables compact storage while maintaining cache locality---most operations touch only Layer~0. With minimal increment mode, CascadeCBF achieves negligible error ($<$0.01\%) at $k \geq 4$, matching Spectral Bloom Filters while supporting counts up to $2^{30}$ with up to 1.6$\times$ higher throughput.
 
-Evaluation on four real-world datasets spanning global news events, pandemic surveillance, and urban mobility demonstrates versatile spatial capabilities: (1) \emph{multi-category indexing} on 1.9M GDELT events with perfect category isolation; (2) \emph{polygon aggregation} with $<$2\% error on country-level queries; (3) \emph{time-series tracking} on COVID-19 data maintaining 0\% error as counts grow to 1.1M; and (4) \emph{urban mobility} analysis on 987K NYC taxi trips achieving 0\% error on named hotspots with 1.6$\times$ faster throughput than Count-Min Sketch.
+Evaluation on four real-world datasets spanning global news events, pandemic surveillance, and urban mobility demonstrates versatile spatial capabilities: (1) \emph{multi-category indexing} on 1.9M GDELT events with perfect category isolation; (2) \emph{polygon aggregation} with $<$2\% error on country-level queries; (3) \emph{time-series tracking} on COVID-19 data maintaining negligible error as counts grow to 1.1M; and (4) \emph{urban mobility} analysis on 987K NYC taxi trips with 1.6$\times$ faster throughput than Count-Min Sketch.
 
 The multi-layer overflow design handles extreme spatial concentration characteristic of human mobility data. Where single-layer approaches must choose between overflow (small counters) and memory waste (large counters), CascadeCBF adapts per-element: most counters use compact Layer~0 storage while overflow cascades to Layer~1 only when needed.
 

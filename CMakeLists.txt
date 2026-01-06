@@ -226,4 +226,26 @@ target_link_libraries(hash_benchmark
 PUBLIC OpenMP::OpenMP_CXX
 )
 
+# Polygon counting comparison experiment
+add_executable(globimap_test_polygon_compare experiments/src/globimap_test_polygon_compare.cpp)
+target_link_libraries(globimap_test_polygon_compare
+PUBLIC HighFive
+PUBLIC shp
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+# Time-series evolution experiment
+add_executable(globimap_test_timeseries experiments/src/globimap_test_timeseries.cpp)
+target_link_libraries(globimap_test_timeseries
+PUBLIC HighFive
+PUBLIC OpenMP::OpenMP_CXX
+)
+
+# NYC Taxi urban mobility experiment
+add_executable(globimap_test_taxi experiments/src/globimap_test_taxi.cpp)
+target_link_libraries(globimap_test_taxi
+PUBLIC HighFive
+PUBLIC OpenMP::OpenMP_CXX
+)
+
 endif()

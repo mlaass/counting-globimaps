@@ -607,13 +607,16 @@ The repository includes papers documenting the Counting GloBiMap data structure:
 - Title: "CascadeCBF: Probabilistic Counting for Sparse Spatial Point Clouds"
 - Format: `\documentclass[agile, final]{copernicus-agile}` (Copernicus AGILE template)
 - Main file: `cbf-shortpaper.tex`
-- **Complete** - ready for submission
 
-Key content:
-- Overflow bit protocol for cascading multi-layer counting
-- PUT/GET operations with minimal increment mode
-- Spatial operations (union, intersection, aggregation)
-- Evaluation showing CascadeCBF achieves 0% error at k≥4, 2-3× throughput vs Spectral BF
+**Figures used** (in `cbf-shortpaper/figures/`):
+- `k_sensitivity_combined.pdf` - Accuracy vs k parameter (generated from experiments)
+- `memory_efficiency.pdf` - Memory efficiency comparison
+- `CGM_Layer_Schema.pdf` - Multi-layer architecture diagram
+
+**Tables in paper**:
+- Table 1: Multi-category isolation on GDELT (1.9M events)
+- Table 2: Time-series accuracy across COVID-19 snapshots
+- Table 3: NYC Taxi urban hotspot accuracy
 
 ```bash
 # Build shortpaper
@@ -622,6 +625,125 @@ pdflatex cbf-shortpaper.tex
 bibtex cbf-shortpaper
 pdflatex cbf-shortpaper.tex
 pdflatex cbf-shortpaper.tex
+```
+
+### Shortpaper Experiments & Results Workflow
+
+The shortpaper figures and tables are generated from C++ experiments that output JSON results, which are then processed by Python scripts.
+
+#### Step 1: Run Experiments
+
+All experiments output JSON to `results/` subdirectories:
+
+```bash
+# Build all experiment executables
+cd build && make -j$(nproc)
+
+# Run individual experiments (from project root)
+
+# K-sensitivity (Figure 1: k_sensitivity_combined.pdf)
+./build/globimap_test_k_compare
+# Output: results/k_sensitivity/compare_k_sensitivity.json
+
+# Multi-category isolation (Table 1)
+./build/globimap_test_multicategory_dataset
+# Output: results/multicategory/compare_multicategory_gdelt_events_multicategory.json
+
+# Time-series COVID-19 evolution (Table 2)
+./build/globimap_test_timeseries
+# Output: results/timeseries/timeseries_covid19.json
+
+# NYC Taxi urban hotspots (Table 3)
+./build/globimap_test_taxi
+# Output: results/taxi/taxi_benchmark_nyc_taxi.json
+
+# Memory efficiency / Zipfian distribution (Figure 2: memory_efficiency.pdf)
+./build/globimap_test_zipfian_memory
+# Output: results/zipfian_memory/compare_zipfian_memory.json
+
+# Polygon counting comparison
+./build/globimap_test_polygon_compare
+# Output: results/polygon/polygon_compare_gdelt_countries.json
+
+# Or run all comparison experiments at once:
+./run_all_experiments.sh
+```
+
+#### Step 2: Generate Figures from Results
+
+Python scripts in `scripts/` process JSON results into publication-quality figures:
+
+```bash
+# Generate k-sensitivity figure (accuracy vs k)
+uv run scripts/plot_k_sensitivity.py
+# Reads: results/k_sensitivity/compare_k_sensitivity.json
+# Output: cbf-shortpaper/figures/k_sensitivity_combined.pdf
+
+# Generate memory efficiency figure
+uv run scripts/plot_density_compression.py
+# Reads: results/zipfian_memory/compare_zipfian_memory.json
+# Output: cbf-shortpaper/figures/memory_efficiency.pdf
+
+# Other plotting scripts:
+uv run scripts/plot_scalability.py       # Scalability analysis
+uv run scripts/plot_seed_strategy.py     # Seed strategy comparison
+uv run scripts/plot_l1dcache.py          # Cache performance
+```
+
+#### Step 3: Generate LaTeX Tables
+
+Tables can be generated from JSON or manually updated in the .tex file:
+
+```bash
+# Generate LaTeX tables from benchmark results
+uv run scripts/generate_latex_tables.py --input results/dataset_comparison/*.json
+uv run scripts/generate_seed_voxel_table.py  # Seed strategy table
+```
+
+#### Results Directory Structure
+
+```
+results/
+├── k_sensitivity/          # K parameter sweep results
+│   └── compare_k_sensitivity.json
+├── multicategory/          # Multi-category isolation tests
+│   └── compare_multicategory_gdelt_events_multicategory.json
+├── timeseries/             # COVID-19 time evolution
+│   └── timeseries_covid19.json
+├── taxi/                   # NYC taxi urban mobility
+│   └── taxi_benchmark_nyc_taxi.json
+├── zipfian_memory/         # Memory efficiency on Zipfian data
+│   └── compare_zipfian_memory.json
+├── polygon/                # Point-in-polygon queries
+│   └── polygon_compare_gdelt_countries.json
+├── dataset_comparison/     # GDELT/COVID-19 dataset comparison
+├── cosine/                 # Cosine distribution tests
+├── implementation_comparison/ # Quick baseline comparison
+└── logs/                   # Experiment output logs
+```
+
+#### Complete Workflow Example
+
+```bash
+# 1. Prepare datasets
+uv run datasets/utils/csv_to_hdf5.py --dataset all
+uv run datasets/utils/convert_gdelt_multicategory.py \
+    datasets/gdelt/gdelt_events_sample.csv \
+    -o datasets/hdf5/gdelt_events_multicategory.h5
+
+# 2. Build experiments
+mkdir -p build && cd build && cmake .. && make -j$(nproc) && cd ..
+
+# 3. Run all experiments
+./run_all_experiments.sh
+
+# 4. Generate figures
+uv run scripts/plot_k_sensitivity.py
+uv run scripts/plot_density_compression.py
+
+# 5. Rebuild paper with updated figures
+cd cbf-shortpaper
+pdflatex cbf-shortpaper.tex && bibtex cbf-shortpaper && pdflatex cbf-shortpaper.tex && pdflatex cbf-shortpaper.tex
 ```
 
 ### Longpaper Versions

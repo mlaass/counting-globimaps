@@ -40,7 +40,7 @@
 \maketitle
 
 \begin{abstract}
-Spatial point datasets often exhibit power-law frequency distributions where few locations receive most observations. Traditional counting bloom filters struggle with such distributions due to fixed counter bit-depths. We present CascadeCBF, a multi-layer probabilistic data structure using cascading overflow: counters in lower layers handle infrequent locations, while overflow cascades to higher layers for hotspots. CascadeCBF supports spatial operations (union, intersection, aggregation) directly on the compressed representation. Evaluation on Zipfian distributions shows CascadeCBF with minimal increment and independent hashes matches the memory efficiency of Spectral Bloom Filters and Count-Min Sketch, while the multi-layer design enables exact counts for highly skewed data.
+Spatial point datasets often exhibit power-law frequency distributions where few locations receive most observations. Traditional counting bloom filters struggle with such distributions due to fixed counter bit-depths. We present CascadeCBF, a multi-layer probabilistic data structure using cascading overflow: counters in lower layers handle infrequent locations, while overflow cascades to higher layers for hotspots. CascadeCBF supports spatial operations (union, intersection, aggregation) directly on the compressed representation. Evaluation on Zipfian distributions shows CascadeCBF with minimal increment and independent hashes matches the memory efficiency of Spectral Bloom Filters and Count-Min Sketch, while the multi-layer design enables high-precision counting for highly skewed data.
 
 \textbf{Submission Type.} Short Paper \quad \textbf{BoK Concepts.} [AM5] Geostatistics, [DM3] Data Structures
 
@@ -158,6 +158,9 @@ CascadeCBF consists of $k$ hash functions and layers $L_0, \ldots, L_{\Lambda-1}
 We use the \emph{hashing trick}~\cite{kirsch2006less}: a single MurmurHash3 call produces two 64-bit values $(h_1, h_2)$, from which $k$ hash positions are derived as $j_i = (h_1 + (i+1) \cdot h_2) \bmod m_x$. This reduces hash computation from $\mathcal{O}(k)$ to $\mathcal{O}(1)$ while maintaining the pairwise independence required for Bloom filter guarantees. PUT and GET operations are $\mathcal{O}(k \cdot \Lambda)$ worst-case but typically $\mathcal{O}(k)$ since most counters remain in Layer~0. The 128-bit MurmurHash3 output provides excellent distribution for spatial coordinates, which often exhibit spatial autocorrelation that could defeat weaker hash functions.
 
 \textbf{Layer Sizing.} Layers use asymmetric sizing: Layer~0 is large (handling the common case of low counts) while upper layers are progressively smaller. For $n$ unique items with expected maximum count $c_{\max}$, Layer~0 should have $m_0 \geq k \cdot n / \ln 2$ counters for optimal Bloom filter performance. Layer~1 only stores overflow from the $\sim$1.5\% of counters that exceed Layer~0 capacity, so $m_1 = m_0/64$ typically suffices. This asymmetry saves significant memory compared to uniform-sized layers.
+When $m_1 < m_0$, the same hash values map to a compressed index space in Layer~1.
+Since overflow events are rare for power-law data (typically 1--5\%),
+any resulting collisions contribute to the standard false positive rate.
 
 \begin{algorithm}[ht]
 \caption{PUT Operation}
@@ -235,7 +238,7 @@ A key advantage of CascadeCBF over general-purpose sketches is native support fo
 \section{Evaluation}
 \label{sec:evaluation}
 
-We compare CascadeCBF (with minimal increment) against Spectral Bloom Filters (SBF-MI)~\cite{cohen2003spectral} and Count-Min Sketch (CMS)~\cite{cormode2005improved} on Zipfian data (10K unique items, 100K insertions).
+We compare CascadeCBF (with minimal increment) against Spectral Bloom Filters (SBF-MI)~\cite{cohen2003spectral} and Count-Min Sketch with conservative update (CMS)~\cite{cormode2005improved} on Zipfian data (10K unique items, 100K insertions).
 
 \begin{figure}[ht]
   \includegraphics[width=8.2cm]{figures/k_sensitivity_combined.pdf}
@@ -249,7 +252,7 @@ Standard mode CascadeCBF provides 1.5--2$\times$ higher throughput than SBF-MI d
 
 \begin{figure}[ht]
   \includegraphics[width=8.2cm]{figures/memory_efficiency.pdf}
-  \caption{Memory efficiency across Zipfian skew levels ($\alpha$). Single-layer CascadeCBF (MI+IH) matches SBF-MI and CMS accuracy. Two-layer version achieves exact counts at high skew.}
+  \caption{Memory efficiency across Zipfian skew levels ($\alpha$). Single-layer CascadeCBF (MI+IH) matches SBF-MI and CMS accuracy. Two-layer version achieves near-zero error at high skew.}
   \label{fig:memory}
 \end{figure}
 

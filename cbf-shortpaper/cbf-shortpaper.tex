@@ -270,25 +270,10 @@ CascadeCBF in standard mode achieves the fastest insert times (0.13s GDELT, 7.0s
 
 Real-world spatial data often includes categorical attributes (event types, time bins). We extend coordinates as $\langle$lat, lon, category$\rangle$ triplets, hashing the full vector to ensure category isolation. This approach requires no additional memory---categories share the same filter---while providing complete separation. We test on GDELT events classified into four types derived from Goldstein scale: Verbal Cooperation (46\%), Material Cooperation (14\%), Verbal Conflict (31\%), Material Conflict (10\%).
 
-\begin{table}[ht]
-\centering
-\caption{Multi-category isolation on GDELT (1.9M events).}
-\label{tab:multicategory}
-\small
-\begin{tabular}{lccc}
-\tophline
-\textbf{Implementation} & \textbf{Memory} & \textbf{Insert} & \textbf{Error} \\
- & (KB) & (s) & (\%) \\
-\middlehline
-Spectral BF (MI) & 2048 & 0.15 & 0.00 \\
-Count-Min Sketch & 88 & 0.17 & 0.00 \\
-CascadeCBF (MI) & 2176 & 0.13 & 0.00 \\
-\bottomhline
-\end{tabular}
-\end{table}
-\footnotetext{All experiments use $k=8$ hash functions. CascadeCBF uses 16-bit Layer~0 ($2^{20}$ counters) and 32-bit Layer~1 ($2^{14}$ counters).}
+\input{tables/tab_multicategory_512kb.tex}
+\footnotetext{All implementations use 32-bit counters at 512~KB with $k=8$ hash functions and 1-degree resolution (20K unique cells, max count 33K). Error is mean relative error across 10K queries per category.}
 
-Table~\ref{tab:multicategory} shows that CascadeCBF achieves perfect category isolation (near-zero error) with the fastest insert time, validating multi-dimensional indexing.
+Table~\ref{tab:multicategory_512kb} shows CascadeCBF achieves the lowest error (0.02\%) under constrained memory. At this resolution, maximum cell counts reach 33,051---exceeding the 32,768 threshold that triggers Layer~1 overflow. CascadeCBF's two 16-bit layers provide more counters than single 32-bit implementations at equal memory, while the overflow protocol handles extreme counts that would saturate single-layer filters.
 
 \subsection{Polygon Counting}
 
@@ -302,24 +287,7 @@ For polygons with $>$1000 events, CascadeCBF achieves $<$2\% error. CMS shows hi
 
 Power-law spatial data grows over time as events accumulate at hotspots. We track COVID-19 pandemic evolution across 6 snapshots (March 2020--June 2022), inserting 1.1M cumulative points. This tests the multi-layer overflow design under realistic growth patterns: early snapshots fit entirely in Layer~0, while later snapshots trigger overflow to Layer~1 as counts exceed $2^{15}$.
 
-\begin{table}[ht]
-\centering
-\caption{Time-series accuracy: mean error (\%) at each snapshot.}
-\label{tab:timeseries}
-\small
-\begin{tabular}{lcccccc}
-\tophline
-\textbf{Date} & \textbf{Pts} & \textbf{Cum.} & \textbf{SBF} & \textbf{CMS} & \textbf{CCBF} \\
-\middlehline
-2020-03 & 142 & 142 & 0.0 & 0.0 & 0.0 \\
-2020-06 & 7.9K & 8.1K & 0.0 & 0.0 & 0.0 \\
-2020-12 & 84K & 92K & 0.0 & 0.0 & 0.0 \\
-2021-06 & 183K & 274K & 0.0 & 0.0 & 0.0 \\
-2021-12 & 289K & 563K & 0.23 & 0.23 & 0.0 \\
-2022-06 & 547K & 1.1M & 0.51 & 0.51 & 0.0 \\
-\bottomhline
-\end{tabular}
-\end{table}
+\input{tables/tab_timeseries.tex}
 
 Table~\ref{tab:timeseries} shows CascadeCBF maintains 0\% error throughout all snapshots, while SBF-MI and CMS accumulate 0.51\% error as counts grow to 1.1M. This validates the multi-layer overflow design: Layer~1 handles hotspot overflow while Layer~0 remains cache-efficient. The error growth in single-layer approaches is gradual---0\% through mid-2021, then increasing as counters saturate. CascadeCBF's two-layer design provides headroom for continued growth beyond 1M points without accuracy degradation.
 
@@ -327,22 +295,7 @@ Table~\ref{tab:timeseries} shows CascadeCBF maintains 0\% error throughout all s
 
 Urban transportation data exhibits extreme spatial concentration---Manhattan receives $>$90\% of NYC taxi pickups while outer boroughs remain sparse. This creates challenging conditions for probabilistic counting: hash collisions between dense Manhattan cells accumulate errors rapidly. We evaluate on 987K yellow taxi trips~\cite{nyc_tlc_data} from January 2015, rasterized to 4096$\times$4096 cells covering the NYC metropolitan area.
 
-\begin{table}[ht]
-\centering
-\caption{NYC Taxi: urban hotspot accuracy.}
-\label{tab:taxi}
-\small
-\begin{tabular}{lcccc}
-\tophline
-\textbf{Implementation} & \textbf{Memory} & \textbf{Insert} & \textbf{Mean Err} & \textbf{Max Err} \\
- & (KB) & (s) & (\%) & (\%) \\
-\middlehline
-Spectral BF (MI) & 2048 & 0.085 & 0.28 & 500 \\
-Count-Min Sketch & 2041 & 0.108 & 0.39 & 800 \\
-CascadeCBF (MI) & 2176 & 0.066 & 0.29 & 800 \\
-\bottomhline
-\end{tabular}
-\end{table}
+\input{tables/tab_taxi.tex}
 
 Table~\ref{tab:taxi} shows all implementations achieve sub-1\% mean error with comparable memory budgets (~2~MB). CascadeCBF achieves 0.29\% mean error with the fastest insert time (0.066s), while CMS shows slightly higher error (0.39\%) due to its separate-array design accumulating more collisions. Single-cell queries at named hotspots---Times Square (23 pickups), Central Park South (60 pickups), Grand Central (7 pickups)---show exact counts for CascadeCBF and Spectral BF. Maximum errors (500--800\%) occur at low-count cells where a single false positive collision dominates (e.g., true count 1, estimate 6); these affect $<$0.1\% of queried cells and the 95th percentile error is $<$5\%.
 

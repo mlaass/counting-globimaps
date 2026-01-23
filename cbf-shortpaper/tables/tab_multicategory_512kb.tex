@@ -1,0 +1,19 @@
+% Auto-generated from fair_compare_512kb_gdelt_multicategory.json
+% Run: uv run scripts/generate_shortpaper_tables.py
+% Unique cells: 20477, Max count: 33051
+\begin{table}[ht]
+\centering
+\caption{Multi-category isolation on GDELT (1.9M events) at 512~KB, resolution=1.}
+\label{tab:multicategory_512kb}
+\small
+\begin{tabular}{lcc}
+\tophline
+\textbf{Implementation} & \textbf{Memory} & \textbf{Error} \\
+ & (KB) & (\%) \\
+\middlehline
+CascadeCBF (MI) & 511 & 0.02 \\
+Spectral BF (MI) & 512 & 0.05 \\
+Count-Min Sketch & 511 & 0.13 \\
+\bottomhline
+\end{tabular}
+\end{table}

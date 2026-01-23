@@ -1,0 +1,18 @@
+% Auto-generated from timeseries_covid19.json
+% Run: uv run scripts/generate_shortpaper_tables.py
+\begin{table}[ht]
+\centering
+\caption{Time-series accuracy: mean error (\%) at each snapshot.}
+\label{tab:timeseries}
+\small
+\begin{tabular}{lcccccc}
+\tophline
+\textbf{Date} & 2020-03 & 2020-06 & 2020-12 & 2021-06 & 2021-12 & 2022-06 \\
+\textbf{Cumulative} & 142 & 8K & 92K & 274K & 563K & 1.1M \\
+\middlehline
+Spectral BF (MI) & 0.00 & 0.00 & 0.00 & 0.00 & 0.23 & 0.51 \\
+Count-Min Sketch & 0.00 & 0.00 & 0.00 & 0.00 & 0.23 & 0.51 \\
+CascadeCBF (MI) & 0.00 & 0.00 & 0.00 & 0.00 & 0.00 & 0.00 \\
+\bottomhline
+\end{tabular}
+\end{table}

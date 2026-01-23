@@ -1,0 +1,18 @@
+% Auto-generated from taxi_benchmark_nyc_taxi.json
+% Run: uv run scripts/generate_shortpaper_tables.py
+\begin{table}[ht]
+\centering
+\caption{NYC Taxi: urban hotspot accuracy (987K pickups).}
+\label{tab:taxi}
+\small
+\begin{tabular}{lcccc}
+\tophline
+\textbf{Implementation} & \textbf{Memory} & \textbf{Insert} & \textbf{Mean Err} & \textbf{Max Err} \\
+ & (KB) & (s) & (\%) & (\%) \\
+\middlehline
+Spectral BF (MI) & 2048 & 0.085 & 0.28 & 500 \\
+CascadeCBF (MI) & 2176 & 0.066 & 0.29 & 800 \\
+Count-Min Sketch & 2041 & 0.108 & 0.39 & 800 \\
+\bottomhline
+\end{tabular}
+\end{table}

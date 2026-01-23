@@ -63,18 +63,19 @@ def generate_multicategory_table(json_path: Path, output_path: Path, label_suffi
 \\caption{{{caption}}}
 \\label{{{label}}}
 \\small
-\\begin{{tabular}}{{lcc}}
+\\begin{{tabular}}{{lccc}}
 \\tophline
-\\textbf{{Implementation}} & \\textbf{{Memory}} & \\textbf{{Error}} \\\\
- & (KB) & (\\%) \\\\
+\\textbf{{Implementation}} & \\textbf{{Memory}} & \\textbf{{Mean Err}} & \\textbf{{Max Err}} \\\\
+ & (KB) & (\\%) & (\\%) \\\\
 \\middlehline
 """
 
     for impl in implementations:
         name = impl["name"]
         mem_kb = impl["memory_bytes"] // 1024
-        error = impl["overall_mean_error_pct"]
-        latex += f"{name} & {mem_kb} & {error:.2f} \\\\\n"
+        mean_err = impl["overall_mean_error_pct"]
+        max_err = impl.get("overall_max_error_pct", 0)
+        latex += f"{name} & {mem_kb} & {mean_err:.2f} & {max_err:.0f} \\\\\n"
 
     latex += """\\bottomhline
 \\end{tabular}

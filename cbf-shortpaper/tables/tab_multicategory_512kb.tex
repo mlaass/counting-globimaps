@@ -6,14 +6,14 @@
 \caption{Multi-category isolation on GDELT (1.9M events) at 512~KB, resolution=1.}
 \label{tab:multicategory_512kb}
 \small
-\begin{tabular}{lcc}
+\begin{tabular}{lccc}
 \tophline
-\textbf{Implementation} & \textbf{Memory} & \textbf{Error} \\
- & (KB) & (\%) \\
+\textbf{Implementation} & \textbf{Memory} & \textbf{Mean Err} & \textbf{Max Err} \\
+ & (KB) & (\%) & (\%) \\
 \middlehline
-CascadeCBF (MI) & 511 & 0.02 \\
-Spectral BF (MI) & 512 & 0.05 \\
-Count-Min Sketch & 511 & 0.13 \\
+CascadeCBF (MI) & 511 & 0.02 & 100 \\
+Spectral BF (MI) & 512 & 0.05 & 300 \\
+Count-Min Sketch & 511 & 0.13 & 2100 \\
 \bottomhline
 \end{tabular}
 \end{table}

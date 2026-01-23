@@ -1,19 +1,19 @@
-% Auto-generated from fair_compare_1024kb_gdelt_multicategory.json
+% Auto-generated from fair_compare_512kb_gdelt_multicategory.json
 % Run: uv run scripts/generate_shortpaper_tables.py
 % Unique cells: 20477, Max count: 33051
 \begin{table}[ht]
 \centering
-\caption{Multi-category isolation on GDELT (1.9M events) at 1024~KB, resolution=1.}
+\caption{Multi-category isolation on GDELT (1.9M events) at 512~KB, resolution=1.}
 \label{tab:multicategory}
 \small
-\begin{tabular}{lcc}
+\begin{tabular}{lccc}
 \tophline
-\textbf{Implementation} & \textbf{Memory} & \textbf{Error} \\
- & (KB) & (\%) \\
+\textbf{Implementation} & \textbf{Memory} & \textbf{Mean Err} & \textbf{Max Err} \\
+ & (KB) & (\%) & (\%) \\
 \middlehline
-CascadeCBF (MI) & 1024 & 0.00 \\
-Spectral BF (MI) & 1024 & 0.00 \\
-Count-Min Sketch & 1023 & 0.00 \\
+CascadeCBF (MI) & 511 & 0.02 & 100 \\
+Spectral BF (MI) & 512 & 0.05 & 300 \\
+Count-Min Sketch & 511 & 0.13 & 2100 \\
 \bottomhline
 \end{tabular}
 \end{table}

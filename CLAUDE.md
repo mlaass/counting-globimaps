@@ -645,9 +645,10 @@ cd build && make -j$(nproc)
 ./build/globimap_test_k_compare
 # Output: results/k_sensitivity/compare_k_sensitivity.json
 
-# Multi-category isolation (Table 1)
-./build/globimap_test_multicategory_dataset
-# Output: results/multicategory/compare_multicategory_gdelt_events_multicategory.json
+# Multi-category isolation FAIR comparison (Table 1) - same memory budget
+./build/globimap_test_multicategory_fair 1024
+# Output: results/multicategory_fair/fair_compare_1024kb_gdelt_multicategory.json
+# Argument: memory budget in KB (default: 1024)
 
 # Time-series COVID-19 evolution (Table 2)
 ./build/globimap_test_timeseries
@@ -692,10 +693,20 @@ uv run scripts/plot_l1dcache.py          # Cache performance
 
 #### Step 3: Generate LaTeX Tables
 
-Tables can be generated from JSON or manually updated in the .tex file:
+Tables are auto-generated from JSON results. The shortpaper uses `\input{}` to include generated tables.
 
 ```bash
-# Generate LaTeX tables from benchmark results
+# Generate all shortpaper tables (multicategory, timeseries, taxi)
+uv run scripts/generate_shortpaper_tables.py
+# Reads: results/multicategory_fair/*.json, results/timeseries/*.json, results/taxi/*.json
+# Outputs: cbf-shortpaper/tables/tab_multicategory.tex, tab_timeseries.tex, tab_taxi.tex
+
+# The LaTeX file includes these with:
+#   \input{tables/tab_multicategory.tex}
+#   \input{tables/tab_timeseries.tex}
+#   \input{tables/tab_taxi.tex
+
+# Other table generation scripts:
 uv run scripts/generate_latex_tables.py --input results/dataset_comparison/*.json
 uv run scripts/generate_seed_voxel_table.py  # Seed strategy table
 ```
@@ -708,6 +719,8 @@ results/
 │   └── compare_k_sensitivity.json
 ├── multicategory/          # Multi-category isolation tests
 │   └── compare_multicategory_gdelt_events_multicategory.json
+├── multicategory_fair/     # Fair memory comparison (same budget)
+│   └── fair_compare_1024kb_gdelt_multicategory.json
 ├── timeseries/             # COVID-19 time evolution
 │   └── timeseries_covid19.json
 ├── taxi/                   # NYC taxi urban mobility

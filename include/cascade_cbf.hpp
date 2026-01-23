@@ -31,6 +31,8 @@ struct TypedLayer {
     std::vector<StorageType> counters;
     uint64_t mask;
     unsigned logsize;
+    uint64_t size_ = 0;       // Actual size (for both modes)
+    bool use_modulo_ = false; // true = modulo indexing, false = bitmask indexing
 
     // Compile-time constants
     static constexpr unsigned value_bits = ValueBits;
@@ -39,16 +41,35 @@ struct TypedLayer {
     static constexpr StorageType value_mask = overflow_bit - 1;
     static constexpr StorageType max_value = value_mask;
 
-    TypedLayer() : mask(0), logsize(0) {}
+    TypedLayer() : mask(0), logsize(0), size_(0), use_modulo_(false) {}
 
     /**
-     * @brief Resize layer to 2^logsize counters
+     * @brief Resize layer to 2^logsize counters (power-of-2 mode)
      */
     void resize(unsigned new_logsize) {
         logsize = new_logsize;
-        uint64_t size = uint64_t(1) << logsize;
-        mask = size - 1;
-        counters.resize(size, StorageType(0));
+        size_ = uint64_t(1) << logsize;
+        mask = size_ - 1;
+        use_modulo_ = false;
+        counters.resize(size_, StorageType(0));
+    }
+
+    /**
+     * @brief Resize layer to exact size (arbitrary size mode)
+     */
+    void resize_exact(uint64_t exact_size) {
+        size_ = exact_size;
+        use_modulo_ = true;
+        mask = 0;  // Not used in modulo mode
+        logsize = 0;
+        counters.resize(size_, StorageType(0));
+    }
+
+    /**
+     * @brief Calculate position from hash value
+     */
+    inline uint64_t calc_pos(uint64_t h) const {
+        return use_modulo_ ? (h % size_) : (h & mask);
     }
 
     /**
@@ -102,7 +123,7 @@ struct TypedLayer {
      * @brief Number of counters
      */
     size_t size() const {
-        return counters.size();
+        return size_;
     }
 
     /**
@@ -189,7 +210,8 @@ private:
     inline void cascade_increment_at(uint64_t hash_base, uint64_t hash_mult, unsigned k_idx) {
         if constexpr (LayerIdx < num_layers) {
             auto& layer = std::get<LayerIdx>(layers_);
-            uint64_t pos = (hash_base + (k_idx + 1) * hash_mult) & layer.mask;
+            uint64_t h = hash_base + (k_idx + 1) * hash_mult;
+            uint64_t pos = layer.calc_pos(h);
             bool overflow = layer.increment(pos);
             if (overflow) {
                 cascade_increment_at<LayerIdx + 1>(hash_base, hash_mult, k_idx);
@@ -202,7 +224,7 @@ private:
     inline void cascade_increment_direct(uint64_t h1) {
         if constexpr (LayerIdx < num_layers) {
             auto& layer = std::get<LayerIdx>(layers_);
-            uint64_t pos = h1 & layer.mask;
+            uint64_t pos = layer.calc_pos(h1);
             bool overflow = layer.increment(pos);
             if (overflow) {
                 cascade_increment_direct<LayerIdx + 1>(h1);
@@ -218,7 +240,8 @@ private:
     inline uint64_t compute_sum_at(uint64_t hash_base, uint64_t hash_mult, unsigned k_idx) const {
         if constexpr (LayerIdx < num_layers) {
             const auto& layer = std::get<LayerIdx>(layers_);
-            uint64_t pos = (hash_base + (k_idx + 1) * hash_mult) & layer.mask;
+            uint64_t h = hash_base + (k_idx + 1) * hash_mult;
+            uint64_t pos = layer.calc_pos(h);
             auto val = layer.get_value(pos);
             constexpr unsigned shift = bit_shift_for_layer<LayerIdx>();
             uint64_t contribution = static_cast<uint64_t>(val) << shift;
@@ -236,7 +259,7 @@ private:
     inline uint64_t compute_sum_direct(uint64_t h1) const {
         if constexpr (LayerIdx < num_layers) {
             const auto& layer = std::get<LayerIdx>(layers_);
-            uint64_t pos = h1 & layer.mask;
+            uint64_t pos = layer.calc_pos(h1);
             auto val = layer.get_value(pos);
             constexpr unsigned shift = bit_shift_for_layer<LayerIdx>();
             uint64_t contribution = static_cast<uint64_t>(val) << shift;
@@ -259,7 +282,8 @@ private:
                                                   unsigned k_idx) const {
         if constexpr (LayerIdx < num_layers) {
             const auto& layer = std::get<LayerIdx>(layers_);
-            uint64_t pos = (hash_base + (k_idx + 1) * hash_mult) & layer.mask;
+            uint64_t h = hash_base + (k_idx + 1) * hash_mult;
+            uint64_t pos = layer.calc_pos(h);
             auto val = layer.get_value(pos);
 
             // Early exit: zero in non-overflowed layer means point not present
@@ -284,7 +308,7 @@ private:
     inline std::pair<uint64_t, bool> query_sum_direct(uint64_t h1) const {
         if constexpr (LayerIdx < num_layers) {
             const auto& layer = std::get<LayerIdx>(layers_);
-            uint64_t pos = h1 & layer.mask;
+            uint64_t pos = layer.calc_pos(h1);
             auto val = layer.get_value(pos);
 
             if (val == 0 && !layer.has_overflow(pos)) {
@@ -307,7 +331,7 @@ public:
     CascadeCBF() : hash_k_(0), minimal_increment_(false), use_independent_hashes_(false) {}
 
     /**
-     * @brief Configure filter with hash count and layer sizes
+     * @brief Configure filter with hash count and layer sizes (power-of-2 mode)
      *
      * @param hash_k Number of hash functions
      * @param logsizes Array of log2(layer_size) for each layer
@@ -326,6 +350,33 @@ public:
         size_t idx = 0;
         std::apply([&](auto&... layer) {
             ((layer.resize(logsizes[idx++])), ...);
+        }, layers_);
+    }
+
+    /**
+     * @brief Configure filter with exact layer sizes (arbitrary size mode)
+     *
+     * Uses modulo indexing instead of bitmask for arbitrary memory budgets.
+     * Note: Modulo is slower than bitmask; use this for fair memory comparisons,
+     * not performance benchmarks.
+     *
+     * @param hash_k Number of hash functions
+     * @param exact_sizes Array of exact counter counts for each layer
+     * @param minimal_increment Use conservative update (MI mode)
+     * @param independent_hashes Use independent hash seeds per k
+     */
+    void configure_exact(unsigned hash_k,
+                         const std::array<uint64_t, num_layers>& exact_sizes,
+                         bool minimal_increment = false,
+                         bool independent_hashes = false) {
+        hash_k_ = hash_k;
+        minimal_increment_ = minimal_increment;
+        use_independent_hashes_ = independent_hashes;
+
+        // Resize each layer with exact sizes
+        size_t idx = 0;
+        std::apply([&](auto&... layer) {
+            ((layer.resize_exact(exact_sizes[idx++])), ...);
         }, layers_);
     }
 

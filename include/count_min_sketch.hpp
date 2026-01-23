@@ -31,17 +31,24 @@ struct CMSConfig {
     double delta;             // Failure probability: 1 - delta confidence
     bool conservative_update; // Use conservative update (default: false)
     uint counter_bits;        // Bits per counter (8, 16, 32, or 64)
+    uint exact_width = 0;     // If > 0, use this width instead of epsilon-derived
+    uint exact_depth = 0;     // If > 0, use this depth instead of delta-derived
 
     /**
      * @brief Validate configuration parameters
      */
     void validate() const {
-        if (epsilon <= 0.0 || epsilon >= 1.0) {
-            throw std::invalid_argument("epsilon must be in (0, 1)");
+        // Only validate epsilon/delta if not using exact dimensions
+        if (exact_width == 0) {
+            if (epsilon <= 0.0 || epsilon >= 1.0) {
+                throw std::invalid_argument("epsilon must be in (0, 1)");
+            }
         }
 
-        if (delta <= 0.0 || delta >= 1.0) {
-            throw std::invalid_argument("delta must be in (0, 1)");
+        if (exact_depth == 0) {
+            if (delta <= 0.0 || delta >= 1.0) {
+                throw std::invalid_argument("delta must be in (0, 1)");
+            }
         }
 
         if (counter_bits != 8 && counter_bits != 16 &&
@@ -177,9 +184,13 @@ public:
     explicit CountMinSketch(const CMSConfig &conf) : config_(conf), total_(0) {
         config_.validate();
 
-        // Calculate dimensions from epsilon and delta
-        width_ = CMSConfig::calculate_width(config_.epsilon);
-        depth_ = CMSConfig::calculate_depth(config_.delta);
+        // Use exact dimensions if provided, otherwise calculate from epsilon/delta
+        width_ = (config_.exact_width > 0)
+            ? config_.exact_width
+            : CMSConfig::calculate_width(config_.epsilon);
+        depth_ = (config_.exact_depth > 0)
+            ? config_.exact_depth
+            : CMSConfig::calculate_depth(config_.delta);
 
         // Initialize counter matrix
         switch (config_.counter_bits) {

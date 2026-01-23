@@ -38,9 +38,10 @@ enum SBFVariant {
  */
 struct SBFConfig {
     uint hash_k;              // Number of hash functions
-    uint logsize;             // Filter size: 2^logsize counters
+    uint logsize;             // Filter size: 2^logsize counters (power-of-2 mode)
     uint counter_bits;        // Bits per counter (8, 16, 32, or 64)
     SBFVariant variant;       // Which algorithm to use
+    uint64_t exact_size = 0;  // Arbitrary size (takes precedence over logsize if > 0)
 
     /**
      * @brief Validate configuration parameters
@@ -48,7 +49,9 @@ struct SBFConfig {
      */
     void validate() const {
         config_utils::validate_positive(hash_k, "hash_k");
-        config_utils::validate_positive(logsize, "logsize");
+        if (exact_size == 0) {
+            config_utils::validate_positive(logsize, "logsize");
+        }
         config_utils::validate_range(counter_bits, 8, 64, "counter_bits");
 
         if (counter_bits != 8 && counter_bits != 16 &&
@@ -82,9 +85,10 @@ struct SBFConfig {
 class SpectralBloomFilter {
 private:
     SBFConfig config_;
-    uint64_t size_;           // 2^logsize
-    uint64_t mask_;           // size_ - 1, for fast modulo
+    uint64_t size_;           // Number of counters
+    uint64_t mask_;           // size_ - 1, for fast modulo (power-of-2 mode only)
     uint64_t max_value_;      // Maximum counter value
+    bool use_modulo_;         // true = use % size_, false = use & mask_
 
     // Primary counter storage (templated by bit depth)
     std::vector<uint8_t> counters8_;
@@ -122,6 +126,15 @@ private:
         h1 = SEED_MINVAL1;
         h2 = SEED_MINVAL2;
         hash(point.data(), point.size(), &h1, &h2);
+    }
+
+    /**
+     * @brief Calculate position from hash values
+     * Uses modulo for arbitrary sizes, bitmask for power-of-2 sizes
+     */
+    inline uint64_t calc_pos(uint64_t h1, uint64_t h2, uint i) const {
+        uint64_t h = h1 + (i + 1) * h2;
+        return use_modulo_ ? (h % size_) : (h & mask_);
     }
 
     /**
@@ -203,8 +216,17 @@ public:
     explicit SpectralBloomFilter(const SBFConfig &conf) : config_(conf) {
         config_.validate();
 
-        size_ = 1ULL << config_.logsize;
-        mask_ = size_ - 1;
+        if (config_.exact_size > 0) {
+            // Arbitrary size mode (modulo indexing)
+            size_ = config_.exact_size;
+            use_modulo_ = true;
+            mask_ = 0;  // Not used in modulo mode
+        } else {
+            // Power-of-2 mode (bitmask indexing)
+            size_ = 1ULL << config_.logsize;
+            use_modulo_ = false;
+            mask_ = size_ - 1;
+        }
         max_value_ = config_utils::max_counter_value(config_.counter_bits);
 
         // Allocate primary counter storage
@@ -252,7 +274,7 @@ public:
         if (config_.variant == MINIMUM_SELECTION) {
             // MS: Simple increment all k positions
             for (uint i = 0; i < config_.hash_k; ++i) {
-                uint64_t pos = (h1 + (i + 1) * h2) & mask_;
+                uint64_t pos = calc_pos(h1, h2, i);
                 increment_counter(pos);
             }
         } else if (config_.variant == MINIMAL_INCREMENT) {
@@ -260,7 +282,7 @@ public:
             // First pass: find minimum
             uint64_t min_count = UINT64_MAX;
             for (uint i = 0; i < config_.hash_k; ++i) {
-                uint64_t pos = (h1 + (i + 1) * h2) & mask_;
+                uint64_t pos = calc_pos(h1, h2, i);
                 uint64_t count = get_counter(pos);
                 if (count < min_count) {
                     min_count = count;
@@ -269,7 +291,7 @@ public:
 
             // Second pass: increment only counters at minimum
             for (uint i = 0; i < config_.hash_k; ++i) {
-                uint64_t pos = (h1 + (i + 1) * h2) & mask_;
+                uint64_t pos = calc_pos(h1, h2, i);
                 if (get_counter(pos) == min_count) {
                     increment_counter(pos);
                 }
@@ -282,7 +304,7 @@ public:
             // First pass: find minimum
             uint64_t min_count = UINT64_MAX;
             for (uint i = 0; i < config_.hash_k; ++i) {
-                uint64_t pos = (h1 + (i + 1) * h2) & mask_;
+                uint64_t pos = calc_pos(h1, h2, i);
                 uint64_t count = get_counter(pos);
                 if (count < min_count) {
                     min_count = count;
@@ -291,9 +313,9 @@ public:
 
             // Second pass: increment counters at minimum and record min value
             for (uint i = 0; i < config_.hash_k; ++i) {
-                uint64_t pos = (h1 + (i + 1) * h2) & mask_;
+                uint64_t pos = calc_pos(h1, h2, i);
                 if (get_counter(pos) == min_count) {
-                    uint64_t minval_pos = (h1_min + (i + 1) * h2_min) & mask_;
+                    uint64_t minval_pos = calc_pos(h1_min, h2_min, i);
                     set_minval(minval_pos, min_count);  // Record min before increment
                     increment_counter(pos);
                 }
@@ -324,7 +346,7 @@ public:
 
         uint64_t min_count = UINT64_MAX;
         for (uint i = 0; i < config_.hash_k; ++i) {
-            uint64_t pos = (h1 + (i + 1) * h2) & mask_;
+            uint64_t pos = calc_pos(h1, h2, i);
             uint64_t count = get_counter(pos);
             if (count < min_count) {
                 min_count = count;
@@ -363,8 +385,8 @@ public:
         hash_point_minval(point, h1_min, h2_min);
 
         for (uint i = 0; i < config_.hash_k; ++i) {
-            uint64_t pos = (h1 + (i + 1) * h2) & mask_;
-            uint64_t minval_pos = (h1_min + (i + 1) * h2_min) & mask_;
+            uint64_t pos = calc_pos(h1, h2, i);
+            uint64_t minval_pos = calc_pos(h1_min, h2_min, i);
 
             uint64_t recorded_min = get_minval(minval_pos);
             uint64_t current_count = get_counter(pos);
@@ -387,7 +409,7 @@ public:
 
         uint64_t sum = 0;
         for (uint i = 0; i < config_.hash_k; ++i) {
-            uint64_t pos = (h1 + (i + 1) * h2) & mask_;
+            uint64_t pos = calc_pos(h1, h2, i);
             sum += get_counter(pos);
         }
 
@@ -432,7 +454,11 @@ public:
         }
         ss << "  Configuration:\n";
         ss << "    k (hash functions): " << config_.hash_k << "\n";
-        ss << "    Filter size: 2^" << config_.logsize << " = " << size_ << " counters\n";
+        if (use_modulo_) {
+            ss << "    Filter size: " << size_ << " counters (exact size, modulo indexing)\n";
+        } else {
+            ss << "    Filter size: 2^" << config_.logsize << " = " << size_ << " counters\n";
+        }
         ss << "    Counter bits: " << config_.counter_bits << " bits\n";
         ss << "  Memory usage: " << config_utils::format_memory(memory_usage());
         if (config_.variant == RECURRING_MINIMUM) {

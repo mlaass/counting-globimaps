@@ -220,6 +220,13 @@ PUBLIC HighFive
 PUBLIC OpenMP::OpenMP_CXX
 )
 
+# Fair memory comparison experiment (same memory budget across all implementations)
+add_executable(globimap_test_multicategory_fair experiments/src/globimap_test_multicategory_fair.cpp)
+target_link_libraries(globimap_test_multicategory_fair
+PUBLIC HighFive
+PUBLIC OpenMP::OpenMP_CXX
+)
+
 # Hash function benchmark
 add_executable(hash_benchmark experiments/src/hash_benchmark.cpp)
 target_link_libraries(hash_benchmark

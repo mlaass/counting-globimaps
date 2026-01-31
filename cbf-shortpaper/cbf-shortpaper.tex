@@ -28,12 +28,14 @@
 
 \title{CascadeCBF: Probabilistic Counting for Sparse Spatial Point Clouds}
 
-\Author[1]{Moritz}{Laass\orcid{0000-0001-7628-6760}}
-\Author[1]{Martin}{Werner\orcid{0000-0002-4095-6665}}
+%\Author[1]{Moritz}{Laass\orcid{0000-0001-7628-6760}}
+%\Author[2]{Paul}{Walther}
+%\Author[3]{Martin}{Werner\orcid{0000-0002-4095-6665}}
+\Author[1]{Anonymous}{}
 
-\affil[1]{Technical University of Munich, TUM School of Engineering and Design, Munich, Germany}
+%\affil[1]{Technical University of Munich, TUM School of Engineering and Design, Munich, Germany}
 
-\correspondence{Moritz Laass (\color{blue}moritz.laass@tum.de)}
+%\correspondence{Moritz Laass (\color{blue}moritz.laass@tum.de)}
 
 \firstpage{1}
 
@@ -58,7 +60,8 @@ Geospatial applications generate point data at massive scales -- billions of geo
 
 Probabilistic structures like Counting Bloom Filters (CBFs)~\citep{fan2000summary} offer space-efficient frequency estimation, but fixed-bit-depth counters either overflow at hotspots or waste memory at rare locations. This is problematic for spatial data, which typically follows power-law distributions: a few locations (city centers, popular venues) receive orders of magnitude more observations than the majority. A 4-bit counter overflows at count 15---insufficient for any urban hotspot---while 32-bit counters waste 28 bits for locations with fewer than 16 observations.
 
-We introduce \emph{CascadeCBF}, extending GloBiMaps~\citep{werner2019globimaps} with cascading overflow: layers use increasing bit-depths, and increments cascade upward when counters saturate. Unlike traditional multi-layer approaches that incur rebuild overhead or require Huffman coding, CascadeCBF uses a simple overflow bit protocol: each counter reserves its high bit as a flag, enabling $\mathcal{O}(1)$ overflow detection. This design achieves three properties simultaneously: (1) \emph{cache efficiency}---most operations touch only the first layer; (2) \emph{large count range}---two layers handle counts up to $2^{30}$; (3) \emph{composability}---spatial operations work directly on the compressed representation.
+% CAMERA-READY: Restore citation: "extending GloBiMaps~\citep{werner2019globimaps} with"
+We introduce \emph{CascadeCBF}, a multi-layer counting Bloom filter with cascading overflow: layers use increasing bit-depths, and increments cascade upward when counters saturate. Unlike traditional multi-layer approaches that incur rebuild overhead or require Huffman coding, CascadeCBF uses a simple overflow bit protocol: each counter reserves its high bit as a flag, enabling $\mathcal{O}(1)$ overflow detection. This design achieves three properties simultaneously: (1) \emph{cache efficiency}---most operations touch only the first layer; (2) \emph{large count range}---two layers handle counts up to $2^{30}$; (3) \emph{composability}---spatial operations work directly on the compressed representation.
 
 Our contributions are: (1) an overflow bit protocol for efficient multi-layer counting with cache-friendly access patterns; (2) spatial operations (union, intersection, aggregation) directly on compressed representations; (3) comprehensive evaluation on four real-world spatial datasets demonstrating competitive accuracy and 1.3--1.6$\times$ throughput improvements over alternatives.
 
@@ -89,7 +92,8 @@ Multi-layer approaches address the bit-depth tradeoff. Dynamic Bloom Filters~\ci
 
 Real-world spatial data follows power-law (Zipfian) distributions~\citep{broder2004network}: a few locations receive most observations, making fixed-depth counters particularly inefficient. The Zipfian distribution with parameter $\alpha$ assigns probability $p(r) \propto r^{-\alpha}$ to the $r$-th ranked item. Human mobility data typically exhibits $\alpha \in [1.0, 2.0]$: city centers, transit hubs, and popular venues dominate while suburban and rural areas remain sparse.
 
-GloBiMaps~\citep{werner2019globimaps,werner2021globimapsai} adapt Bloom filters for sparse spatial rasters by hashing discretized coordinates, supporting set operations (union, intersection) directly on the compressed representation. Coordinates are discretized via floor division: for resolution $r$, point $(x, y)$ maps to cell $(\lfloor x/r \rfloor, \lfloor y/r \rfloor)$. This enables multiresolution queries---coarse queries use larger $r$ for overview, fine queries use smaller $r$ for detail.
+% CAMERA-READY: Restore to "GloBiMaps~\citep{werner2019globimaps,werner2021globimapsai} adapt"
+Bloom filters can be adapted for sparse spatial rasters by hashing discretized coordinates, supporting set operations (union, intersection) directly on the compressed representation. Coordinates are discretized via floor division: for resolution $r$, point $(x, y)$ maps to cell $(\lfloor x/r \rfloor, \lfloor y/r \rfloor)$. This enables multiresolution queries---coarse queries use larger $r$ for overview, fine queries use smaller $r$ for detail.
 
 
 %% =============================================================================
@@ -386,7 +390,8 @@ Future work includes multiresolution re-randomization to restore hash uniformity
 %% DATA AND SOFTWARE AVAILABILITY
 %% =============================================================================
 \subsection*{Data and Software Availability}
-The implementation of CascadeCBF is available as a header-only C++ library at \url{https://github.com/mlaass/counting-globimaps}. GDELT event data is publicly available from the GDELT Project (\url{https://www.gdeltproject.org}). COVID-19 case data was derived from the Johns Hopkins CSSE repository.
+
+The implementation of CascadeCBF is available as a header-only C++ library (TODO: anon git URL). GDELT event data is publicly available from the GDELT Project (\url{https://www.gdeltproject.org}). COVID-19 case data was derived from the Johns Hopkins CSSE repository.
 
 
 %% =============================================================================

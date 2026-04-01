@@ -28,10 +28,10 @@
 
 \title{CascadeCBF: Probabilistic Counting for Sparse Spatial Point Clouds}
 
-%\Author[1]{Moritz}{Laass\orcid{0000-0001-7628-6760}}
+%\Author[1]{Moritz}{Laass\orcid{0000-0001-7628-6760}}  % moritz.laass@tum.de
 %\Author[1]{Paul}{Walther\orcid{0000-0002-5101-5793}} % paul.walther@tum.de
 %\Author[1]{Wejdene}{Mansour\orcid{0009-0008-4362-2092}} % wejdene.mansour@tum.de
-%\Author[1]{Martin}{Werner\orcid{0000-0002-4095-6665}}
+%\Author[1]{Martin}{Werner\orcid{0000-0002-4095-6665}} % martin.werner@tum.de
 \Author[1]{Anonymous}{}
 
 %\affil[1]{TUM School of Engineering and Design, Technical University of Munich, Munich, Germany}
@@ -43,7 +43,7 @@
 \maketitle
 
 \begin{abstract}
-Spatial point datasets often exhibit power-law frequency distributions, where few locations receive most observations. Traditional counting Bloom filters struggle with such distributions due to fixed counter bit-depths. We present CascadeCBF, a multi-layer probabilistic data structure using cascading overflow: counters in lower layers handle infrequent locations, while overflow cascades to higher layers for hotspots. CascadeCBF supports spatial operations (union, intersection, aggregation) directly on the compressed representation. Evaluation on Zipfian distributions shows CascadeCBF with minimal increment and independent hashes matches the memory efficiency of Spectral Bloom Filters and Count-Min Sketch, while the multi-layer design enables high-precision counting for highly skewed data.
+Spatial point datasets often exhibit long-tail distributions, where few locations receive most observations. Traditional counting Bloom filters struggle with such distributions due to fixed counter bit-depths. We present CascadeCBF, a multi-layer probabilistic data structure using cascading overflow: counters in lower layers handle infrequent locations, while overflow cascades to higher layers for hotspots. CascadeCBF supports spatial operations (union, intersection, aggregation) directly on the compressed representation. Evaluation on Zipfian distributions shows that CascadeCBF with minimal increment and independent hashes matches the memory efficiency of Spectral Bloom Filters and Count-Min Sketch, while the multi-layer design enables high-precision counting for highly skewed data with a $1.3$-$1.6 \times$ higher throughput.
 
 \textbf{Submission Type.} Short Paper \quad \textbf{BoK Concepts.} [AM5] Geostatistics, [DM3] Data Structures
 
@@ -57,7 +57,7 @@ Spatial point datasets often exhibit power-law frequency distributions, where fe
 \section{Introduction}
 \label{sec:intro}
 
-Geospatial applications generate point data at massive scales, billions of geotagged posts, GPS traces, sensor observations, and mobility records. A key operation is \emph{cardinality estimation}, which counts observations per location for hotspot detection, trajectory analysis, and spatial aggregation. Thus, the distribution of points in space is not uniform: in urban traffic monitoring, intersections log millions of vehicles yearly, while suburban roads see dozens; in pandemic surveillance, cases cluster in population centers, while large areas of the world are unpopulated. These applications require counting structures that adapt to wildly varying frequencies across space.
+Geospatial applications generate point data at massive scales, billions of geotagged posts, GPS traces, sensor observations, and mobility records. A key operation is \emph{cardinality estimation}, which counts observations per location for hotspot detection, trajectory analysis, and spatial aggregation. The distribution of points in space is not uniform: in urban traffic monitoring, intersections log millions of vehicles yearly, while suburban roads see dozens; in pandemic surveillance, cases cluster in population centers, while large areas of the world are unpopulated. These applications require counting structures that adapt to wildly varying frequencies across space.
 
 Probabilistic structures like Counting Bloom Filters (CBFs)~\citep{fan2000summary} offer space-efficient frequency estimation, but fixed-bit-depth counters either overflow at hotspots or waste memory at rare locations. This is problematic for spatial data, which typically follows power-law distributions: a few locations (city centers, popular venues) receive orders of magnitude more observations than the majority. A 4-bit counter overflows at count 15--insufficient for any urban hotspot--while 32-bit counters waste 28 bits for locations with fewer than 16 observations.
 
@@ -208,9 +208,10 @@ Bloom filters can be adapted for sparse spatial rasters by hashing discretized c
 \label{fig:architecture}
 \end{figure*}
 
-CascadeCBF consists of $k$ hash functions and layers $L_0, \ldots, L_{\Lambda-1}$ with increasing bit-depths $b_0 < \cdots < b_{\Lambda-1}$. The \emph{overflow bit protocol} (Fig.~\ref{fig:architecture}) reserves each counter's high bit as overflow flag: when value bits saturate, the flag is set and increments cascade to the next layer. Since Layer 1 is only accessed every $2^{b_0-1}$ increments, most operations touch only Layer 0--improving cache locality.
+CascadeCBF consists of $k$ hash functions and layers $L_0, \ldots, L_{\Lambda-1}$ with increasing bit-depths $b_0 < \cdots < b_{\Lambda-1}$. The \emph{overflow bit protocol} (Fig.~\ref{fig:architecture}) reserves each counter's high bit as overflow flag: when value bits saturate, the flag is set, and increments cascade to the next layer. Since Layer 1 is only accessed every $2^{b_0-1}$ increments, most operations touch only Layer 0--improving cache locality.
 
 We use the \emph{hashing trick}~\citep{kirsch2006less}: a single MurmurHash3 call produces two 64-bit values $(h_1, h_2)$, from which $k$ hash positions are derived as $j_i = (h_1 + i \cdot h_2) \bmod m_x, i \in [1,k]$. This reduces hash computation from $\mathcal{O}(k)$ to $\mathcal{O}(1)$ while maintaining the pairwise independence required for Bloom filter guarantees.
+%Alternatively we use independant hashing (IH) which computes an new MurmurHash for each $k$;
 
 PUT and GET operations are $\mathcal{O}(k \cdot \Lambda)$ worst-case but typically $\mathcal{O}(k)$ since most counters remain in Layer~0. The 128-bit MurmurHash3 output provides excellent distribution for spatial coordinates, which often exhibit spatial autocorrelation that could defeat weaker hash functions.
 
@@ -310,10 +311,10 @@ A key advantage of CascadeCBF over general-purpose sketches is native support fo
 \section{Evaluation}
 \label{sec:evaluation}
 
-We compare CascadeCBF (with minimal increment) against Spectral Bloom Filters (SBF-MI)~\citep{cohen2003spectral} and Count-Min Sketch with conservative update (CMS)~\citep{cormode2005improved} on Zipfian data (10K unique items, 100K insertions).
+For the evaluation we compare CascadeCBF (with minimal increment) against Spectral Bloom Filters (SBF-MI)~\citep{cohen2003spectral} and Count-Min Sketch with conservative update (CMS)~\citep{cormode2005improved} first on a synthetic distribution before looking into the performance for real world applciations.
 
-
-
+\subsection{Synthetic Dataset}
+To evaluate the performance of the developed Cascade CBF in a defined environment we first evaluate them on Zipfian data (10K unique items, 100K insertions).
 Figure~\ref{fig:k_sensitivity} shows that \textbf{CascadeCBF achieves negligible error ($<$0.01\%) at $k \geq 4$}, matching SBF-MI, while CMS requires $k \geq 11$. This difference arises because CMS uses separate counter arrays per hash function (requiring more hashes to achieve the same coverage), whereas CascadeCBF and SBF share a single counter array across all $k$ positions. The optimal $k^* \approx 0.693(m/n) \approx 4$ for our configuration explains why $k = 4$ suffices.
 % k could be different for both layers?
 
@@ -354,17 +355,18 @@ Standard mode CascadeCBF provides 1.5--2$\times$ higher throughput than SBF-MI d
   \label{fig:memory}
 \end{figure*}
 
-Figure~\ref{fig:memory} shows error vs. memory across Zipfian distributions. Single-layer CascadeCBF with minimal increment and independent hashes (MI+IH) matches the memory efficiency of SBF-MI and CMS: at $\alpha=1.5$, all achieve $<$1\% error with 32~KB. Two-layer CascadeCBF achieves near-zero error at higher skew ($\alpha=2.0$) with just 10~KB by cascading overflow to a second layer.
+Figure~\ref{fig:memory} shows error vs. memory across Zipfian distributions. Single-layer CascadeCBF with minimal increment (MI) and independent hashes (IH) matches the memory efficiency of SBF-MI and CMS: at $\alpha=1.5$, all achieve $<$1\% error with 32~KB. Two-layer CascadeCBF achieves near-zero error at higher skew ($\alpha=2.0$) with just 10~KB by cascading overflow to a second layer.
 
 This is particularly relevant for geospatial data, where population centers create extreme hotspots (e.g., $\alpha > 1.5$) that would overflow single-layer counters. NYC taxi data exhibits $\alpha \approx 2.0$: Times Square receives thousands of pickups daily while outer-borough streets see single digits. The multi-layer design adapts naturally: Times Square counters overflow to Layer~1 while suburban counters remain in compact Layer~0 storage.
 
 \subsection{Real-World Spatial Datasets}
 
-We evaluate on two real geospatial datasets: \textbf{GDELT}~\citep{leetaru2013gdelt} (1.9M global news events with coordinates) and \textbf{COVID-19}~\citep{dong2020interactive} (1.8M case locations sampled from 182M total). Both datasets exhibit spatial clustering: GDELT concentrates in major news regions (USA, Europe, Middle East) while COVID-19 reflects population density with hotspots in India, Brazil, and the United States.
+To align with the practical use of the proposed data structure in the geo domain, we evaluate on three real geospatial datasets: \textbf{GDELT}~\citep{leetaru2013gdelt} (1.9M global news events with coordinates), \textbf{COVID-19}~\citep{dong2020interactive} (1.8M case locations sampled from 182M total) and \textbf{New York Taxi}~\citep{nyc_tlc_data} (987k taxi trips). All datasets exhibit spatial clustering: GDELT concentrates in major news regions (USA, Europe, Middle East), COVID-19 reflects population density with hotspots in India, Brazil, and the United States and New York Taxi has hotspots in mobility hubs like train stations and airports.
 
-CascadeCBF in standard mode achieves the fastest insert times (0.13s GDELT, 7.0s COVID-19), while MI mode provides comparable performance to Spectral BF-MI and CMS. Query times are comparable across all implementations ($\sim$0.27~ms per query). The performance difference between datasets (54$\times$ slower for COVID-19) reflects dataset size and spatial distribution--COVID-19's higher point density causes more counter updates per unique cell.
+Generally, CascadeCBF in standard mode achieves the fastest insert times (0.13s GDELT, 7.0s COVID-19), while MI mode provides comparable performance to Spectral BF-MI and CMS. Query times are comparable across all implementations ($\sim$0.27~ms per query). The performance difference between datasets (54$\times$ slower for COVID-19) reflects dataset size and spatial distribution. COVID-19's higher point density causes more counter updates per unique cell.
+In the following, we evaluate CascadeCBF across various real-world applications.
 
-\subsection{Multi-Category Event Classification}
+\subsubsection{Multi-Category Event Classification}
 
 Real-world spatial data often includes categorical attributes (event types, time bins). We extend coordinates as $\langle$lat, lon, category$\rangle$ triplets, hashing the full vector to ensure category isolation. This approach requires no additional memory--categories share the same filter--while providing complete separation. We test on GDELT events classified into four types derived from Goldstein scale: Verbal Cooperation (46\%), Material Cooperation (14\%), Verbal Conflict (31\%), Material Conflict (10\%).
 
@@ -376,7 +378,7 @@ Table~\ref{tab:multicategory_512kb} shows CascadeCBF achieves the lowest error (
 \input{tables/tab_timeseries.tex}
 \input{tables/tab_taxi.tex}
 
-\subsection{Polygon Counting}
+\subsubsection{Polygon Counting}
 
 Spatial aggregation queries sum counts within administrative boundaries. We insert 1.9M GDELT events into filters and query 1632 Natural Earth country polygons by summing counts across rasterized cells. Polygon rasterization converts boundaries to cell sets via scanline algorithms; each cell's count is queried and summed.
 
@@ -384,14 +386,14 @@ For large polygons, all implementations achieve low error: USA (626K events) sho
 
 For polygons with $>$1000 events, CascadeCBF achieves $<$2\% error. CMS shows higher aggregation error (5--10\%) due to systematic overcounting when summing many cells--each cell's false positive probability compounds additively. This makes CMS less suitable for large-scale spatial aggregation despite its strong theoretical guarantees for individual queries.
 
-\subsection{Time-Series Evolution}
+\subsubsection{Time-Series Evolution}
 
 Power-law spatial data grows over time as events accumulate at hotspots. We track COVID-19 pandemic evolution across 6 snapshots (March 2020--June 2022), inserting 1.1M cumulative points. This tests the multi-layer overflow design under realistic growth patterns: early snapshots fit entirely in Layer~0, while later snapshots trigger overflow to Layer~1 as counts exceed $2^{15}$.
 
 
 Table~\ref{tab:timeseries} shows CascadeCBF maintains 0\% error throughout all snapshots, while SBF-MI and CMS accumulate 0.51\% error as counts grow to 1.1M. This validates the multi-layer overflow design: Layer~1 handles hotspot overflow while Layer~0 remains cache-efficient. The error growth in single-layer approaches is gradual--0\% through mid-2021, then increasing as counters saturate. CascadeCBF's two-layer design provides headroom for continued growth beyond 1M points without accuracy degradation.
 
-\subsection{Urban Mobility: NYC Taxi}
+\subsubsection{Urban Mobility Hotspots}
 
 Urban transportation data exhibits extreme spatial concentration--Manhattan receives $>$90\% of NYC taxi pickups while outer boroughs remain sparse. This creates challenging conditions for probabilistic counting: hash collisions between dense Manhattan cells accumulate errors rapidly. We evaluate on 987K yellow taxi trips~\citep{nyc_tlc_data} from January 2015, rasterized to 4096$\times$4096 cells covering the NYC metropolitan area.
 

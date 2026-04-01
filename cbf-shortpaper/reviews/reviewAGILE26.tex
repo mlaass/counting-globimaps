@@ -1,0 +1,96 @@
+Reviews
+Review 1
+Overall evaluation	
+5: accept
+The paper addresses scalable counting for large spatial point datasets, which is relevant to geospatial data processing and spatial analytics. Efficient handling of massive geospatial event streams (e.g., mobility data, sensor observations, or social media data) is an important challenge for the AGILE community. The proposed probabilistic data structure supports spatial aggregation and set operations directly on compressed data structures, which could benefit large-scale spatial analysis. However, the focus is primarily on the underlying data structure rather than on concrete geospatial analysis problems. The relevance to AGILE could be strengthened by highlighting more explicit GIS use cases or spatial analysis scenarios.
+
+The paper follows a logical structure and clearly separates background, methodology, and evaluation. Algorithms for the PUT and GET operations are presented and figures help illustrate the cascade overflow mechanism. However, some sections are technically dense and may be difficult for readers without a strong background in probabilistic data structures. The explanation of spatial operations and their relevance to typical GIS workflows could be expanded to improve accessibility. Some sentences are relatively long and technical - consider simplifying.
+
+The conclusions are largely supported by the experimental results. The discussion also acknowledges several limitations such as hash collisions and memory preallocation requirements. A slightly more critical discussion of practical deployment scenarios and trade-offs with existing approaches would strengthen the conclusions.
+
+Overall, the paper's formatting is clear and consistent. However, some figures are relatively dense and could benefit from slightly clearer captions or more explicit explanations in the main text. Minor improvements in figure readability and referencing would further enhance the presentation.
+TODO: Figure 3 Memory not logarithmic, better descriptions
+TODO: Clearer Captions for figures
+
+Minor improvements could be made by clarifying some methodological details, strengthening the discussion of geospatial applications, and slightly simplifying technical explanations. With these revisions, the paper would make a valuable contribution to the AGILE community.
+
+Data and methodology	The proposed method is described in detail, including hashing strategy, overflow protocol, and layer configuration. The evaluation includes both synthetic Zipfian datasets and several real-world spatial datasets such as GDELT events, COVID-19 case data, and NYC taxi trips. The results show that CascadeCBF achieves very low error rates (e.g., <0.01\% in some configurations) while maintaining competitive throughput compared to Spectral Bloom Filters and Count-Min Sketch. However, some implementation details and parameter choices (e.g., memory allocation and layer sizing) could be explained more clearly to support reproducibility.
+TODO: List experiment parameters
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Review 2 DONE
+Overall evaluation	
+5: accept
+The study addresses an important and timely topic. The proposed approach appears technically sound and the evaluation seems convincing.
+
+One possible improvement would be to include one or two quantitative results directly in the abstract (for example, key values from Figures 2 or 3). 
+TODO: Quantitative results in abstract? DONE
+This would make the contribution and performance gains clearer at first glance.
+Data and methodology	
+
+ with 1.3–1.6× higher throughpu
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Review 3
+Overall evaluation	
+3: borderline paper
+The paper introduces CascadeCBF, a multi-layer probabilistic counting data structure designed for spatial point datasets with highly skewed frequency distributions. The approach extends counting Bloom filters (CBF) through a cascading overflow mechanism for providing a compact representation along with the identification of highly frequent spatial locations (hotspots). The structure supports spatial operations such as union, intersection, and aggregation on this representation. The approach is evaluated on synthetic data and on real-world spatial datasets. The results indicate that CascadeCBF provides improved handling of highly skewed spatial distributions and its accuracy is comparable to that of Spectral Bloom Filters and Count-Min Sketch.
+The paper's motivation is based on the observation that spatial datasets often follow power-law distributions, where a small number of locations accumulate a large share of observations. The idea to use an overflow bit to cascade counts into higher layers is simple and easy to understand but hierarchical/layered counting structures (e.g., multilayer compressed counting Bloom filters) have appeared in other works and there is no discussion of how CascadeCBF differs from these. 
+TODO: Differentiation to other counting data structures
+Moreover, the theoretical analysis of CascadeCBF is very limited in the papers and many issues are unclear (at least to me). Finally, although the paper deals with and test spatial datasets, the approach can be applied mainly to any domain. From what I understand, the spatial aspect is limited to coordinates.
+Data and methodology	I would like to see more theoretical analysis of the approach and more explanation of the results. For example, the reported 0\% error in time-series experiments may depend on parameter settings or dataset characteristics, hence, I would like to see why the authors think this occurs.
+TODO: Add parameters for experiments
+
+
+%%%%%%%%%%%%%%%%%%%%$
+Review 4 - DONE
+Overall evaluation	
+5: accept
+Authors present CascadeCBF, a multi-layer probabilistic data structure using cascading overflow:
+counters in lower layers handle infrequent locations, while overflow cascades to higher layers for hotspots.
+CascadeCBF supports spatial operations (union, intersection, aggregation) directly on the compressed
+representation.
+CascadeCBF provides efficient cardinality estimation for power-law spatial data through cascading overflow
+between layers.
+Data and methodology	
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Review 5
+Overall evaluation	
+5: accept
+Counting Bloom Filters (CBF) faces problems when used for data following a power-law distribution. The authors addressed an important shortage of the current design of CBF: fixed bit-depth creates a tradeoff where small counters overflow on hotspots while large counters waste memory on rare items. Multi-layered approaches have been developed to handle the bit-depth tradeoff.
+
+The author(s) propose CascadeCBF, aiming at covering the shortage of CBF which struggles with power-law distributions (due to fixed counter bit-depths in the algorithmic design). The first bit is reserved as an indicator of overflow. The incremental goes into the next layer when saturated. Its new design claims to have cache efficiency and a large count range. Furthermore, they adopted a hashing trick for efficiency. Two modes: with and without minimal increment (MI). In the Geo-spatial domain, they demonstrated extensions for spatial aggregation, multi-category indexing, and spatial-movement of a datapoint (delete and then add).
+
+The evaluation was against Spectral Bloom Filters (SBF-MI) and Count-Min Sketch with conservative update (CMS) over four datasets that follow Zipfian distribution. CascadeCBF achieved the best performance for insertion time, the lowest error under constrained memory, very good performance for polygons with >1000 events. It saves 37.5% memory when compared to fixed 32-bit CBF (4 bytes/counter). The paper is well-written apart from a few minor issues to address below. The evaluation results seem convincing.
+
+1. There is no evaluation on deletion. It seems that missing deletion support is not a big problem for many real-world applications, at least not for problems in the targeting geo community.
+TODO: Evaluation on deletion
+2. Why is the standard mode not included in Fig 2?
+TODO: Add standard CBF? 
+3. The presentation of the evaluation is a little confusing to me. Am I correct that there are two evaluations: one on synthetic data (10K unique items, 100K insertions) and the other using real-life data (GDELT, COVID19, etc.), but then another one in 5.5 using NYC Taxi data? If so, would it be better to have them in two subsections respectively?
+TODO: 
+4. Why is CascadeCBF missing in Figure 2 (but only CascadeCBF with MI)? Can you explain what the queries about? Are they simply queries such as if element x is in set A or more complex/nested queries? Inconsistent use of CascadeCBF, CCBF, CCBF (MI+IH) in text and Figure 3.
+5. It was not clear why independent hashing is used only for the evaluation of Fig 3?  TODO: remove IH mention (moritz)
+6. It is unclear if the independent hashing means the same thing as the “hashing trick” mentioned in the second paragraph of Section 5. TODO: remove IH mention (moritz)
+7. Section 5.1 is about insertion time but with the details of the evaluation results (i.e. the numbers) missing?? TODO: create table (moritz)
+8. Why is the Union, deletion operation not evaluated? Can you provide the details in supplementary materials? Please provide more details why your evaluation is designed this way (aligning with practical use in geo domain I guess?). If possible, please include evaluation results and more details in the supplementary materials.
+
+
+A few minor editing suggestions:
+
+- In the abstract, the use of “power-law” distribution may not be generic enough. Given the diversity in spatial data, a “long-tail” distribution could fit better (the “power-law” distribution is a kind of “long-tail” distribution). I wonder if the author would consider a more generic term. Otherwise, maybe mention it in the future work (your method can be applied to other data that follows a long-tail distribution)?
+TODO: mention long tail DONE
+- The second sentence could be improved. Strictly speaking, cardinality estimation is not an operation like union, difference, etc. Remove “per location” if the sentence’s claim has to do with “trajectory”.
+- Remove “Thus,” in the third sentence. DONE
+- I’d suggest rewriting the first paragraph and making it more succinct.
+- Please describe a suggested design/parametric setting for the use of general geo data regarding its indicators.
+- The writing of the evaluation could be improved. DONE?
+
+Implementation design, C++ code, and Dataset:
+
+- The LICENCE file is missing.
+- References to GDELT and COVID data are described on page 3 but without a (persistent) link (maybe a footnote?) in the paper. Which version did the authors use?
+- Please consider making this package available for Python users if possible (and for other languages).
+Data and methodology	

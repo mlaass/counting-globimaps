@@ -118,7 +118,12 @@ def plot_accuracy_vs_k(by_impl: dict, output_dir: Path):
 
 def plot_combined(by_impl: dict, output_dir: Path):
     """Create a combined 2-panel figure with all implementations."""
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+    plt.rcParams["font.family"] = "sans-serif"
+    # plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
+    plt.rcParams.update({'font.size': 8})
+
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    fig.set_size_inches(6.7180117763931, 6.7180117763931 * 5 / 14)
 
     colors = {
         "Spectral BF (MI)": "#2ecc71",
@@ -130,17 +135,24 @@ def plot_combined(by_impl: dict, output_dir: Path):
         "Count-Min Sketch": "s",
         "CascadeCBF (MI)": "D",
     }
+    linestyles = {
+        "Spectral BF (MI)": "-",
+        "Count-Min Sketch": "--",
+        "CascadeCBF (MI)": "-.",
+    }
 
     # Panel 1: Throughput (all implementations)
     for impl, data in by_impl.items():
         ax1.plot(data["k"], data["throughput"],
                 label=impl, color=colors.get(impl, "gray"),
-                marker=markers.get(impl, "o"), markersize=4, linewidth=1.5)
+                marker=markers.get(impl, "o"),
+                linestyle=linestyles.get(impl, "-"),
+                markersize=4, linewidth=1.5)
 
-    ax1.set_xlabel("k (number of hash functions)", fontsize=12)
-    ax1.set_ylabel("Insert Throughput (M ops/sec)", fontsize=12)
-    ax1.set_title("(a) Insert Throughput", fontsize=12)
-    ax1.legend(loc="upper right", fontsize=9)
+    ax1.set_xlabel("k (number of hash functions)")
+    ax1.set_ylabel("Insert Throughput (M ops/sec)")
+    ax1.set_title("(a) Insert Throughput", fontsize=8)
+    ax1.legend(loc="upper right", fontsize=8)
     ax1.grid(True, alpha=0.3)
     max_k = max(max(d["k"]) for d in by_impl.values())
     ax1.set_xlim(0.5, max_k + 0.5)
@@ -150,12 +162,14 @@ def plot_combined(by_impl: dict, output_dir: Path):
         clamped_error = [min(e, 50) for e in data["mean_error"]]
         ax2.plot(data["k"], clamped_error,
                 label=impl, color=colors.get(impl, "gray"),
-                marker=markers.get(impl, "o"), markersize=4, linewidth=1.5)
+                marker=markers.get(impl, "o"),
+                linestyle=linestyles.get(impl, "-"),
+                markersize=4, linewidth=1.5)
 
-    ax2.set_xlabel("k (number of hash functions)", fontsize=12)
-    ax2.set_ylabel("Mean Error (%)", fontsize=12)
-    ax2.set_title("(b) Query Accuracy", fontsize=12)
-    ax2.legend(loc="upper right", fontsize=9)
+    ax2.set_xlabel("k (number of hash functions)")
+    ax2.set_ylabel("Mean Error (%)")
+    ax2.set_title("(b) Query Accuracy", fontsize=8)
+    ax2.legend(loc="upper right", fontsize=8)
     ax2.grid(True, alpha=0.3)
     ax2.set_xlim(0.5, max_k + 0.5)
     ax2.set_ylim(-1, 50)

@@ -211,8 +211,10 @@ def plot_memory_at_zero_error(by_impl_alpha: dict, alphas: list, output_dir: Pat
 def plot_paper_figure(by_impl_alpha: dict, alphas: list, output_dir: Path):
     """Create the main figure for the shortpaper - compact 3-panel layout."""
     # Set up figure with AGILE column width (8.2cm)
-    fig, axes = plt.subplots(1, 3, figsize=(8.2 / 2.54 * 1.5, 5 / 2.54 * 1.2), sharey=True)
-
+    fig, axes = plt.subplots(1, 3,sharey=True)
+                            #  figsize=(8.2 / 2.54 * 1.5, 5 / 2.54 * 1.2),
+    fig.set_size_inches(6.7180117763931, 6.7180117763931 *.4)
+    FONTSIZE = 8
     # Show best CascadeCBF variant (single-layer MI+IH) against main competitors
     impls_to_show = ["CascadeCBF-16 MI+IH", "CascadeCBF-16-16 MI+IH",
                      "Spectral BF (MI)", "Count-Min Sketch"]
@@ -228,22 +230,22 @@ def plot_paper_figure(by_impl_alpha: dict, alphas: list, output_dir: Path):
                        label=IMPL_NAMES.get(impl, impl),
                        color=IMPL_COLORS.get(impl, "gray"),
                        marker=IMPL_MARKERS.get(impl, "o"),
-                       markersize=4, linewidth=1.2)
+                       markersize=5, linewidth=1.8)
 
-        ax.set_xlabel("Memory (KB)", fontsize=9)
+        ax.set_xlabel("Memory (KB)", fontsize=FONTSIZE)
         ax.set_xscale("log")
-        ax.set_title(f"$\\alpha$ = {alpha:.1f}", fontsize=10)
+        ax.set_title(f"$\\alpha$ = {alpha:.1f}", fontsize=FONTSIZE)
         ax.grid(True, alpha=0.3)
         ax.set_xlim(2, 400)
         ax.axhline(y=1, color='gray', linestyle='--', alpha=0.5, linewidth=0.8)
-        ax.tick_params(labelsize=8)
+        ax.tick_params(labelsize=10)
 
-    axes[0].set_ylabel("Mean Error (%)", fontsize=9)
+    axes[0].set_ylabel("Mean Error (%)", fontsize=FONTSIZE)
     axes[0].set_ylim(-0.5, 10)  # Zoom in to show differences
 
     # Single legend below
     handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='upper center', ncol=4, fontsize=8,
+    fig.legend(handles, labels, loc='upper center', ncol=4, fontsize=FONTSIZE,
                bbox_to_anchor=(0.5, 1.0), frameon=False)
 
     plt.tight_layout()
@@ -256,7 +258,7 @@ def plot_paper_figure(by_impl_alpha: dict, alphas: list, output_dir: Path):
     print(f"Saved: {output_path}")
 
     # Also copy to shortpaper figures directory
-    shortpaper_fig = Path("cbf-shortpaper/figures/memory_efficiency.pdf")
+    shortpaper_fig = Path("cbf-shortpaper/figures/zipfian_memory_paper.pdf")
     if shortpaper_fig.parent.exists():
         import shutil
         shutil.copy(output_path, shortpaper_fig)

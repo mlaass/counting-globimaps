@@ -6,11 +6,11 @@
 
 ## 1. Executive Summary
 
-Five reviewers provided feedback on the CascadeCBF shortpaper (4 accepts, 1 borderline). Most substantive comments have been addressed in commit `ff802fb`. This PRD covers the **11 remaining open TODOs** spanning figure regeneration, a new performance table, text clarifications, and naming consistency. The changes are text/figure-level; no C++ experiment code needs modification.
+Five reviewers provided feedback on the CascadeCBF shortpaper (4 accepts, 1 borderline). Most substantive comments have been addressed in commit `ff802fb`. This PRD covers the **13 remaining open TODOs** spanning figure regeneration, a new performance table, text clarifications, and naming consistency. The changes are text/figure-level; no C++ experiment code needs modification.
 
 **Key decisions made:**
 - IH (independent hashing) mentions will be removed by renaming figure legends only (no experiment re-run)
-- New timing table covers all 3 datasets with insert + query times, main 3 implementations only
+- New timing table covers all 3 datasets with insert times only (query times omitted -- units inconsistent across experiments), 4 implementations including standard CascadeCBF
 - De-anonymization is a separate final step after all content changes
 
 ---
@@ -20,7 +20,7 @@ Five reviewers provided feedback on the CascadeCBF shortpaper (4 accepts, 1 bord
 | # | TODO | Source | Type | Effort |
 |---|------|--------|------|--------|
 | 1 | Remove IH mentions from figure + text | R5 items 5-6 | Figure regen + text edit | Medium |
-| 2 | Create insertion/query time table | R5 item 7 | New table + script | Medium |
+| 2 | Create insertion time table | R5 item 7 | New table + script | Medium |
 | 3 | Figure 3 axis descriptions | R1 | Figure caption edit | Small |
 | 4 | Clearer figure captions | R1 | Text edit | Small |
 | 5 | List experiment parameters | R1, R3 | Text edit | Small |
@@ -86,7 +86,7 @@ Body text (~line 358), change:
 → "Single-layer CascadeCBF with minimal increment (MI) matches"
 ```
 
-### 3.2 Create Insertion/Query Time Table (TODO 2)
+### 3.2 Create Insertion Time Table (TODO 2)
 
 **Problem:** Reviewer 5 noted "Section 5.1 is about insertion time but with the details of the evaluation results (i.e. the numbers) missing."
 
@@ -95,16 +95,18 @@ Body text (~line 358), change:
 - `results/dataset_comparison/compare_dataset_covid19_cases_w8192h8192.json`
 - `results/taxi/taxi_benchmark_nyc_taxi.json`
 
-**Available timing data from JSON files:**
+**Available insert timing data from JSON files:**
 
-| Implementation (JSON name) | Display Name | GDELT Insert | GDELT Query | COVID Insert | COVID Query | Taxi Insert | Taxi Query |
-|---|---|---|---|---|---|---|---|
-| CGM V2 (12+20) | CascadeCBF | 0.133s | 0.274ms | 6.99s | 0.261ms | - | - |
-| CGM V2 (12+20, MI) | CascadeCBF (MI) | 0.177s | 0.270ms | 9.22s | 0.261ms | 0.066s | - |
-| Spectral BF (MI) | Spectral BF (MI) | 0.160s | 0.289ms | 7.61s | 0.276ms | 0.085s | - |
-| Count-Min Sketch | Count-Min Sketch | 0.187s | 0.272ms | 10.78s | 0.261ms | 0.108s | - |
+| Implementation (JSON name) | Display Name | GDELT Insert | COVID Insert | Taxi Insert |
+|---|---|---|---|---|
+| CGM V2 (12+20) | CascadeCBF | 0.133s | 6.99s | - |
+| CGM V2 (12+20, MI) | CascadeCBF (MI) | 0.177s | 9.22s | 0.066s |
+| Spectral BF (MI) | Spectral BF (MI) | 0.160s | 7.61s | 0.085s |
+| Count-Min Sketch | Count-Min Sketch | 0.187s | 10.78s | 0.108s |
 
-**Note:** Taxi JSON uses different names. Need to extract taxi query times from the JSON or note they're comparable (~0.27ms).
+**Note:** Query times are omitted from this table -- the GDELT/COVID JSONs report per-run query time (`query_time_mean_sec`) while the taxi JSON reports total query time (`query_time_sec`), making cross-dataset comparison misleading. Query times are all comparable (~0.27ms per run for GDELT/COVID) and don't differentiate implementations.
+
+**Note:** Taxi JSON uses different implementation names (e.g., "CascadeCBF (MI)" instead of "CGM V2 (12+20, MI)"). Standard CascadeCBF is not present in taxi results.
 
 **Implementation:**
 
@@ -113,29 +115,31 @@ Body text (~line 358), change:
    - Name mapping: `{"CGM V2 (12+20, MI)": "CascadeCBF (MI)", "CGM V2 (12+20)": "CascadeCBF", ...}`
    - Output: `cbf-shortpaper/tables/tab_performance.tex`
 
-2. Table format:
+2. Remove the Insert column from `tab_taxi.tex` generation (in `generate_taxi_table()`) to avoid duplicating timing data now covered by the performance table.
+
+3. Table format (insert times only, includes standard CascadeCBF):
 ```latex
 \begin{table*}[ht]
 \centering
-\caption{Insert and query performance across datasets. Query time is mean per single-cell lookup.}
+\caption{Insert performance across datasets (seconds).}
 \label{tab:performance}
 \small
-\begin{tabular}{lcccccc}
+\begin{tabular}{lccc}
 \tophline
-& \multicolumn{2}{c}{\textbf{GDELT (1.9M)}} & \multicolumn{2}{c}{\textbf{COVID-19 (1.8M)}} & \multicolumn{2}{c}{\textbf{NYC Taxi (987K)}} \\
-\textbf{Implementation} & Insert (s) & Query (ms) & Insert (s) & Query (ms) & Insert (s) & Query (ms) \\
+\textbf{Implementation} & \textbf{GDELT (1.9M)} & \textbf{COVID-19 (1.8M)} & \textbf{NYC Taxi (987K)} \\
 \middlehline
-CascadeCBF (MI) & 0.18 & 0.27 & 9.22 & 0.26 & 0.07 & ... \\
-Spectral BF (MI) & 0.16 & 0.29 & 7.61 & 0.28 & 0.09 & ... \\
-Count-Min Sketch & 0.19 & 0.27 & 10.78 & 0.26 & 0.11 & ... \\
+CascadeCBF & 0.13 & 6.99 & -- \\
+CascadeCBF (MI) & 0.18 & 9.22 & 0.07 \\
+Spectral BF (MI) & 0.16 & 7.61 & 0.09 \\
+Count-Min Sketch & 0.19 & 10.78 & 0.11 \\
 \bottomhline
 \end{tabular}
 \end{table*}
 ```
 
-3. Add `\input{tables/tab_performance.tex}` in the evaluation section, after the "Real-World Spatial Datasets" intro paragraph and before the subsubsections.
+4. Add `\input{tables/tab_performance.tex}` in the evaluation section, after the "Real-World Spatial Datasets" intro paragraph and before the subsubsections.
 
-4. Update the prose at line ~366 to reference the table rather than listing numbers inline.
+5. Update the prose at line ~366 to reference the table for MI-mode numbers. Keep the standard-mode throughput comparison in prose (e.g., "Standard CascadeCBF achieves the fastest inserts; see Table~\ref{tab:performance}").
 
 ### 3.3 Figure 3 Axis + Descriptions (TODO 3)
 
@@ -163,17 +167,32 @@ All configurations use $k=8$ hash functions, 10K unique items, 100K insertions."
 
 **Problem:** Reviewers 1 and 3 want explicit parameter listings. Currently parameters are scattered across prose and footnotes.
 
-**Action:** Add a footnote or dedicated sentence after the evaluation section intro (~line 314) listing the common parameters:
+**Action:** Add a footnote or dedicated sentence after the evaluation section intro (~line 314) listing common parameters, with per-experiment notes where they differ.
+
+**Verified parameters** (from C++ experiment source code):
+
+Common across all experiments:
+- $k=8$ hash functions (unless stated otherwise)
+- All implementations use 16-bit counters
+
+Per-experiment configurations:
+
+| Experiment | CascadeCBF layers | Spectral BF $m$ | CMS $\varepsilon$ | CMS conservative | Grid |
+|---|---|---|---|---|---|
+| Dataset comparison (GDELT, COVID) | $m_0=2^{16}$, $m_1=2^{14}$ | $2^{16}$ | 0.0003 | No | $8192 \times 8192$ |
+| NYC Taxi | $m_0=2^{20}$, $m_1=2^{16}$ | $2^{20}$ | 0.000013 | Yes | $4096 \times 4096$ |
+| K-sensitivity | $m_0=2^{16}$, $m_1=2^{14}$ | $2^{16}$ | 0.001 | Yes | Synthetic (10K items) |
+| Zipfian memory | Sweeps logsize 10--17 | Matches logsize | Matches memory | Yes | Synthetic (10K items) |
+
+Sources: `experiments/src/globimap_test_dataset_compare.cpp`, `globimap_test_taxi.cpp`, `globimap_test_k_compare.cpp`, `globimap_test_zipfian_memory.cpp`
 
 ```latex
-All experiments use $k=8$ hash functions unless stated otherwise.
-CascadeCBF uses two 16-bit layers with $m_0 = 2^{14}$ (Layer~0) and $m_1 = 2^{10}$ (Layer~1) counters.
-Spectral BF uses 32-bit counters with $m = 2^{12}$.
-Count-Min Sketch uses $\varepsilon=0.01$, $\delta=0.01$ with conservative update.
-Spatial datasets are rasterized to $8192 \times 8192$ grids.
+All experiments use $k=8$ hash functions and 16-bit counters unless stated otherwise.
+For the dataset comparison (GDELT, COVID-19), CascadeCBF uses two layers with $m_0 = 2^{16}$ and $m_1 = 2^{14}$ counters,
+Spectral BF uses $m = 2^{16}$, and Count-Min Sketch uses $\varepsilon = 3 \times 10^{-4}$, $\delta = 0.01$.
+The NYC Taxi experiment uses larger filters ($m_0 = 2^{20}$, $m_1 = 2^{16}$) on a $4096 \times 4096$ grid;
+all other spatial datasets use $8192 \times 8192$.
 ```
-
-**Verify exact parameters** from the C++ experiment source or JSON metadata before writing.
 
 ### 3.6 Differentiation from Multi-Layer CBFs (TODO 6)
 
@@ -271,7 +290,7 @@ Optional additional concepts if space allows:
 - **[AM5-1] Point pattern analysis** -- the datasets are spatial point patterns
 - **[AM10-1] Problems of large spatial databases** -- scalability is a key motivation
 
-### 3.13 Complete DASA Section (TODO 13)
+### 3.13 Complete DASA Section (TODO 13 + CLAUDE.md fix)
 
 **Current DASA section** (line 281-283) covers the code repository and GDELT/COVID-19 data but is missing:
 - NYC Taxi data reference (added as a dataset in the last revision)
@@ -290,6 +309,8 @@ NYC yellow taxi trip data is publicly available from the NYC Taxi and Limousine 
 ```
 
 Note: The anonymous repo URL will be updated to the final public URL during de-anonymization (Phase 3).
+
+**Also fix CLAUDE.md:** The project `CLAUDE.md` incorrectly references `scripts/plot_density_compression.py` → `memory_efficiency.pdf` for the memory efficiency figure. The paper actually uses `reports/plot_zipfian_memory.py` → `figures/zipfian_memory_paper.pdf`. Update the "Generate memory efficiency figure" entry in CLAUDE.md to match.
 
 ---
 
@@ -314,9 +335,11 @@ After all content changes, do a final pass:
 
 1. Edit `reports/plot_zipfian_memory.py` -- rename IH legend labels
 2. Run `uv run reports/plot_zipfian_memory.py` to regenerate `zipfian_memory_paper.pdf`
-3. Add timing table function to `scripts/generate_shortpaper_tables.py`
-4. Run `uv run scripts/generate_shortpaper_tables.py` to generate `tab_performance.tex`
-5. Verify generated outputs
+3. Add insert-time table function to `scripts/generate_shortpaper_tables.py`
+4. Remove Insert column from `generate_taxi_table()` in `scripts/generate_shortpaper_tables.py`
+5. Run `uv run scripts/generate_shortpaper_tables.py` to generate `tab_performance.tex` and updated `tab_taxi.tex`
+6. Verify generated outputs
+7. Fix CLAUDE.md figure/script reference (see Section 3.13)
 
 ### Phase 2: Paper Text Edits (all in `cbf-shortpaper/cbf-shortpaper.tex`)
 
@@ -353,10 +376,11 @@ Check: all figures render, all tables appear, no LaTeX errors, page count within
 
 - [ ] Figure 3 legend shows "CCBF (MI)" and "CCBF 2L (MI)" (no IH)
 - [ ] No occurrence of "IH" or "independent hash" in paper text
-- [ ] New timing table renders correctly with all 3 datasets
-- [ ] Timing numbers match JSON source data
+- [ ] New insert-time table renders correctly with all 3 datasets and 4 implementations
+- [ ] Insert timing numbers match JSON source data
+- [ ] Taxi table no longer duplicates insert timing
 - [ ] Figure captions are self-contained and descriptive
-- [ ] Experiment parameters are explicitly listed
+- [ ] Experiment parameters are explicitly listed (common + per-experiment notes)
 - [ ] Section 2.2 contrasts CascadeCBF with prior multi-layer approaches
 - [ ] Time-series 0% error is explained
 - [ ] Deletion/union evaluation gap is justified
@@ -367,5 +391,6 @@ Check: all figures render, all tables appear, no LaTeX errors, page count within
 - [ ] DASA section uses `\url{}` not `\url()`
 - [ ] Paper compiles without errors
 - [ ] Authors and citations are restored (de-anonymized)
-- [ ] Paper stays within page limits
+- [ ] Paper stays within word limits
+- [ ] CLAUDE.md figure/script reference updated
 - [ ] Presenting author registered for conference by 1 May 2026

@@ -1,0 +1,19 @@
+% Auto-generated from dataset comparison and taxi results
+% Run: uv run scripts/generate_shortpaper_tables.py
+\begin{table}[ht]
+\centering
+\caption{Insert performance across datasets (seconds).}
+\label{tab:performance}
+\small
+\begin{tabular}{lccc}
+\tophline
+\textbf{Implementation} & \textbf{GDELT} & \textbf{COVID-19} & \textbf{NYC Taxi} \\
+ & (1.9M) & (1.8M) & (987K) \\
+\middlehline
+CascadeCBF & 0.13 & 6.99 & -- \\
+CascadeCBF (MI) & 0.18 & 9.22 & 0.07 \\
+Spectral BF (MI) & 0.16 & 7.61 & 0.09 \\
+Count-Min Sketch & 0.19 & 10.78 & 0.11 \\
+\bottomhline
+\end{tabular}
+\end{table}

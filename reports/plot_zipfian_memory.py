@@ -59,10 +59,10 @@ IMPL_MARKERS = {
     "CascadeCBF-16 MI": "D",
     "CascadeCBF-16 IH": "p",
     "CascadeCBF-16 MI+IH": "D",
-    "CascadeCBF-16-16 MI+IH": "*",
+    "CascadeCBF-16-16 MI+IH": "o",
     "CascadeCBF (MI)": "D",
-    "Spectral BF (MI)": "o",
-    "Count-Min Sketch": "s",
+    "Spectral BF (MI)": "^",
+    "Count-Min Sketch": "*",
     "d-Left CBF": "^",
     "VI-CBF": "x",
 }
@@ -72,8 +72,8 @@ IMPL_NAMES = {
     "CascadeCBF-16 (1L)": "CCBF (std)",
     "CascadeCBF-16 MI": "CCBF (MI)",
     "CascadeCBF-16 IH": "CCBF (IH)",
-    "CascadeCBF-16 MI+IH": "CCBF (MI+IH)",
-    "CascadeCBF-16-16 MI+IH": "CCBF 2L",
+    "CascadeCBF-16 MI+IH": "CCBF (MI)",
+    "CascadeCBF-16-16 MI+IH": "CCBF 2L (MI)",
     "CascadeCBF (MI)": "CascadeCBF",
     "Spectral BF (MI)": "Spectral BF",
     "Count-Min Sketch": "Count-Min",
@@ -215,7 +215,7 @@ def plot_paper_figure(by_impl_alpha: dict, alphas: list, output_dir: Path):
                             #  figsize=(8.2 / 2.54 * 1.5, 5 / 2.54 * 1.2),
     fig.set_size_inches(6.7180117763931, 6.7180117763931 *.4)
     FONTSIZE = 8
-    # Show best CascadeCBF variant (single-layer MI+IH) against main competitors
+    # Show best CascadeCBF variant against main competitors
     impls_to_show = ["CascadeCBF-16 MI+IH", "CascadeCBF-16-16 MI+IH",
                      "Spectral BF (MI)", "Count-Min Sketch"]
 
@@ -259,6 +259,57 @@ def plot_paper_figure(by_impl_alpha: dict, alphas: list, output_dir: Path):
 
     # Also copy to shortpaper figures directory
     shortpaper_fig = Path("cbf-shortpaper/figures/zipfian_memory_paper.pdf")
+    if shortpaper_fig.parent.exists():
+        import shutil
+        shutil.copy(output_path, shortpaper_fig)
+        print(f"Copied to: {shortpaper_fig}")
+
+    plt.close()
+
+
+def plot_paper_figure_linear(by_impl_alpha: dict, alphas: list, output_dir: Path):
+    """Variant of paper figure with linear (not log) x-axis for review."""
+    fig, axes = plt.subplots(1, 3, sharey=True)
+    fig.set_size_inches(6.7180117763931, 6.7180117763931 * .4)
+    FONTSIZE = 8
+    impls_to_show = ["CascadeCBF-16 MI+IH", "CascadeCBF-16-16 MI+IH",
+                     "Spectral BF (MI)", "Count-Min Sketch"]
+
+    for ax, alpha in zip(axes, alphas):
+        for impl in impls_to_show:
+            key = (impl, alpha)
+            if key in by_impl_alpha:
+                data = by_impl_alpha[key]
+                clamped_error = [min(e, 100) for e in data["mean_error"]]
+                ax.plot(data["memory_kb"], clamped_error,
+                       label=IMPL_NAMES.get(impl, impl),
+                       color=IMPL_COLORS.get(impl, "gray"),
+                       marker=IMPL_MARKERS.get(impl, "o"),
+                       markersize=5, linewidth=1.8)
+
+        ax.set_xlabel("Memory (KB)", fontsize=FONTSIZE)
+        ax.set_title(f"$\\alpha$ = {alpha:.1f}", fontsize=FONTSIZE)
+        ax.grid(True, alpha=0.3)
+        ax.set_xlim(0, 400)
+        ax.axhline(y=1, color='gray', linestyle='--', alpha=0.5, linewidth=0.8)
+        ax.tick_params(labelsize=10)
+
+    axes[0].set_ylabel("Mean Error (%)", fontsize=FONTSIZE)
+    axes[0].set_ylim(-0.5, 10)
+
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper center', ncol=4, fontsize=FONTSIZE,
+               bbox_to_anchor=(0.5, 1.0), frameon=False)
+
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.82, wspace=0.08)
+
+    output_path = output_dir / "zipfian_memory_paper_linear.pdf"
+    plt.savefig(output_path, bbox_inches='tight')
+    plt.savefig(output_dir / "zipfian_memory_paper_linear.png", dpi=300, bbox_inches='tight')
+    print(f"Saved: {output_path}")
+
+    shortpaper_fig = Path("cbf-shortpaper/figures/zipfian_memory_paper_linear.pdf")
     if shortpaper_fig.parent.exists():
         import shutil
         shutil.copy(output_path, shortpaper_fig)
@@ -340,6 +391,7 @@ def main():
     plot_error_vs_memory_combined(by_impl_alpha, args.output)
     plot_memory_at_zero_error(by_impl_alpha, alphas, args.output)
     plot_paper_figure(by_impl_alpha, alphas, args.output)
+    plot_paper_figure_linear(by_impl_alpha, alphas, args.output)
 
     # Print summary
     print_summary_table(by_impl_alpha, alphas)

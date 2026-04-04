@@ -610,7 +610,7 @@ The repository includes papers documenting the Counting GloBiMap data structure:
 
 **Figures used** (in `cbf-shortpaper/figures/`):
 - `k_sensitivity_combined.pdf` - Accuracy vs k parameter (generated from experiments)
-- `memory_efficiency.pdf` - Memory efficiency comparison
+- `zipfian_memory_paper.pdf` - Memory efficiency comparison
 - `CGM_Layer_Schema.pdf` - Multi-layer architecture diagram
 
 **Tables in paper**:
@@ -658,7 +658,7 @@ cd build && make -j$(nproc)
 ./build/globimap_test_taxi
 # Output: results/taxi/taxi_benchmark_nyc_taxi.json
 
-# Memory efficiency / Zipfian distribution (Figure 2: memory_efficiency.pdf)
+# Memory efficiency / Zipfian distribution (Figure 3: zipfian_memory_paper.pdf)
 ./build/globimap_test_zipfian_memory
 # Output: results/zipfian_memory/compare_zipfian_memory.json
 
@@ -681,9 +681,9 @@ uv run scripts/plot_k_sensitivity.py
 # Output: cbf-shortpaper/figures/k_sensitivity_combined.pdf
 
 # Generate memory efficiency figure
-uv run scripts/plot_density_compression.py
+uv run reports/plot_zipfian_memory.py
 # Reads: results/zipfian_memory/compare_zipfian_memory.json
-# Output: cbf-shortpaper/figures/memory_efficiency.pdf
+# Output: cbf-shortpaper/figures/zipfian_memory_paper.pdf
 
 # Other plotting scripts:
 uv run scripts/plot_scalability.py       # Scalability analysis
@@ -752,7 +752,7 @@ mkdir -p build && cd build && cmake .. && make -j$(nproc) && cd ..
 
 # 4. Generate figures
 uv run scripts/plot_k_sensitivity.py
-uv run scripts/plot_density_compression.py
+uv run reports/plot_zipfian_memory.py
 
 # 5. Rebuild paper with updated figures
 cd cbf-shortpaper

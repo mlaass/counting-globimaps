@@ -174,20 +174,85 @@ def generate_taxi_table(json_path: Path, output_path: Path):
 \\caption{{NYC Taxi: urban hotspot accuracy ({total_points} pickups).}}
 \\label{{tab:taxi}}
 \\small
-\\begin{{tabular}}{{lcccc}}
+\\begin{{tabular}}{{lccc}}
 \\tophline
-\\textbf{{Implementation}} & \\textbf{{Memory}} & \\textbf{{Insert}} & \\textbf{{Mean Err}} & \\textbf{{Max Err}} \\\\
- & (KB) & (s) & (\\%) & (\\%) \\\\
+\\textbf{{Implementation}} & \\textbf{{Memory}} & \\textbf{{Mean Err}} & \\textbf{{Max Err}} \\\\
+ & (KB) & (\\%) & (\\%) \\\\
 \\middlehline
 """
 
     for impl in implementations:
         name = impl["name"]
         mem_kb = impl["memory_bytes"] // 1024
-        insert_time = impl.get("insert_time_sec", 0)
         mean_err = impl.get("mean_error_pct", 0)
         max_err = impl.get("max_error_pct", 0)
-        latex += f"{name} & {mem_kb} & {insert_time:.3f} & {mean_err:.2f} & {max_err:.0f} \\\\\n"
+        latex += f"{name} & {mem_kb} & {mean_err:.2f} & {max_err:.0f} \\\\\n"
+
+    latex += """\\bottomhline
+\\end{tabular}
+\\end{table}
+"""
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, 'w') as f:
+        f.write(latex)
+    print(f"Generated: {output_path}")
+
+
+def generate_performance_table(gdelt_json: Path, covid_json: Path, taxi_json: Path, output_path: Path):
+    """Generate insert performance table across all datasets."""
+    gdelt = load_json(gdelt_json)
+    covid = load_json(covid_json)
+    taxi = load_json(taxi_json)
+
+    # Name mapping from JSON implementation names to display names
+    NAME_MAP = {
+        "CGM V2 (12+20)": "CascadeCBF",
+        "CGM V2 (12+20, MI)": "CascadeCBF (MI)",
+        "CascadeCBF (MI)": "CascadeCBF (MI)",
+        "Spectral BF (MI)": "Spectral BF (MI)",
+        "Count-Min Sketch": "Count-Min Sketch",
+    }
+
+    # Build lookup: display_name -> {dataset: time}
+    DISPLAY_ORDER = ["CascadeCBF", "CascadeCBF (MI)", "Spectral BF (MI)", "Count-Min Sketch"]
+    times = {name: {} for name in DISPLAY_ORDER}
+
+    for impl in gdelt["implementations"]:
+        display = NAME_MAP.get(impl["name"])
+        if display and display in times:
+            times[display]["gdelt"] = impl.get("insert_time_sec")
+
+    for impl in covid["implementations"]:
+        display = NAME_MAP.get(impl["name"])
+        if display and display in times:
+            times[display]["covid"] = impl.get("insert_time_sec")
+
+    for impl in taxi["implementations"]:
+        display = NAME_MAP.get(impl["name"])
+        if display and display in times:
+            times[display]["taxi"] = impl.get("insert_time_sec")
+
+    latex = f"""% Auto-generated from dataset comparison and taxi results
+% Run: uv run scripts/generate_shortpaper_tables.py
+\\begin{{table}}[ht]
+\\centering
+\\caption{{Insert performance across datasets (seconds).}}
+\\label{{tab:performance}}
+\\small
+\\begin{{tabular}}{{lccc}}
+\\tophline
+\\textbf{{Implementation}} & \\textbf{{GDELT}} & \\textbf{{COVID-19}} & \\textbf{{NYC Taxi}} \\\\
+ & (1.9M) & (1.8M) & (987K) \\\\
+\\middlehline
+"""
+
+    for name in DISPLAY_ORDER:
+        t = times[name]
+        gdelt_str = f"{t['gdelt']:.2f}" if "gdelt" in t else "--"
+        covid_str = f"{t['covid']:.2f}" if "covid" in t else "--"
+        taxi_str = f"{t['taxi']:.2f}" if "taxi" in t else "--"
+        latex += f"{name} & {gdelt_str} & {covid_str} & {taxi_str} \\\\\n"
 
     latex += """\\bottomhline
 \\end{tabular}
@@ -271,6 +336,17 @@ def main():
         )
     else:
         print("Warning: No taxi results found")
+
+    # Table 4: Insert performance across datasets
+    gdelt_json = RESULTS_DIR / "dataset_comparison" / "compare_dataset_gdelt_events_w8192h8192.json"
+    covid_json = RESULTS_DIR / "dataset_comparison" / "compare_dataset_covid19_cases_w8192h8192.json"
+    if gdelt_json.exists() and covid_json.exists() and taxi_json:
+        generate_performance_table(
+            gdelt_json, covid_json, taxi_json,
+            OUTPUT_DIR / "tab_performance.tex"
+        )
+    else:
+        print("Warning: Missing dataset comparison or taxi results for performance table")
 
     print(f"\nAll tables written to {OUTPUT_DIR}/")
     print("Include in LaTeX with: \\input{tables/tab_multicategory.tex}")

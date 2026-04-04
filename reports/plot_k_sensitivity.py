@@ -122,8 +122,9 @@ def plot_combined(by_impl: dict, output_dir: Path):
     # plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
     plt.rcParams.update({'font.size': 8})
 
+    FONTSIZE = 8
     fig, (ax1, ax2) = plt.subplots(1, 2)
-    fig.set_size_inches(6.7180117763931, 6.7180117763931 * 5 / 14)
+    fig.set_size_inches(6.7180117763931, 6.7180117763931 * .4)
 
     colors = {
         "Spectral BF (MI)": "#2ecc71",
@@ -147,15 +148,16 @@ def plot_combined(by_impl: dict, output_dir: Path):
                 label=impl, color=colors.get(impl, "gray"),
                 marker=markers.get(impl, "o"),
                 linestyle=linestyles.get(impl, "-"),
-                markersize=4, linewidth=1.5)
+                markersize=5, linewidth=1.8)
 
-    ax1.set_xlabel("k (number of hash functions)")
-    ax1.set_ylabel("Insert Throughput (M ops/sec)")
-    ax1.set_title("(a) Insert Throughput", fontsize=8)
-    ax1.legend(loc="upper right", fontsize=8)
+    ax1.set_xlabel("k (number of hash functions)", fontsize=FONTSIZE)
+    ax1.set_ylabel("Insert Throughput (M ops/sec)", fontsize=FONTSIZE)
+    ax1.set_title("(a) Insert Throughput", fontsize=FONTSIZE)
+    ax1.legend(loc="upper right", fontsize=FONTSIZE)
     ax1.grid(True, alpha=0.3)
     max_k = max(max(d["k"]) for d in by_impl.values())
     ax1.set_xlim(0.5, max_k + 0.5)
+    ax1.tick_params(labelsize=10)
 
     # Panel 2: Accuracy (all implementations, clamped)
     for impl, data in by_impl.items():
@@ -164,22 +166,30 @@ def plot_combined(by_impl: dict, output_dir: Path):
                 label=impl, color=colors.get(impl, "gray"),
                 marker=markers.get(impl, "o"),
                 linestyle=linestyles.get(impl, "-"),
-                markersize=4, linewidth=1.5)
+                markersize=5, linewidth=1.8)
 
-    ax2.set_xlabel("k (number of hash functions)")
-    ax2.set_ylabel("Mean Error (%)")
-    ax2.set_title("(b) Query Accuracy", fontsize=8)
-    ax2.legend(loc="upper right", fontsize=8)
+    ax2.set_xlabel("k (number of hash functions)", fontsize=FONTSIZE)
+    ax2.set_ylabel("Mean Error (%)", fontsize=FONTSIZE)
+    ax2.set_title("(b) Query Accuracy", fontsize=FONTSIZE)
+    ax2.legend(loc="upper right", fontsize=FONTSIZE)
     ax2.grid(True, alpha=0.3)
     ax2.set_xlim(0.5, max_k + 0.5)
     ax2.set_ylim(-1, 50)
     ax2.axhline(y=0, color='gray', linestyle='--', alpha=0.5)
+    ax2.tick_params(labelsize=10)
 
     plt.tight_layout()
     output_path = output_dir / "k_sensitivity_combined.png"
-    plt.savefig(output_path, dpi=150)
-    plt.savefig(output_dir / "k_sensitivity_combined.pdf")
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.savefig(output_dir / "k_sensitivity_combined.pdf", bbox_inches='tight')
     print(f"Saved: {output_path}")
+
+    # Auto-copy to shortpaper figures
+    shortpaper_fig = Path("cbf-shortpaper/figures/k_sensitivity_combined.pdf")
+    if shortpaper_fig.parent.exists():
+        import shutil
+        shutil.copy(output_dir / "k_sensitivity_combined.pdf", shortpaper_fig)
+        print(f"Copied to: {shortpaper_fig}")
     plt.close()
 
 

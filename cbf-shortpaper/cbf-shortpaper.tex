@@ -35,7 +35,7 @@
 
 \affil[1]{TUM School of Engineering and Design, Technical University of Munich, Munich, Germany}
 
-\correspondence{Moritz Laass (\color{blue}moritz.laass@tum.de)}
+%\correspondence{Moritz Laass (\color{blue}moritz.laass@tum.de)}
 
 \firstpage{1}
 
@@ -282,6 +282,12 @@ The implementation of CascadeCBF is available as a header-only C++ library with 
 %% =============================================================================
 %% SPATIAL OPERATIONS
 %% =============================================================================
+\begin{figure*}[h]
+  \includegraphics[width=\textwidth]{figures/k_sensitivity_combined.pdf}
+  \caption{K-parameter sensitivity ($\alpha=1.5$): (a) throughput decreases with $k$; (b) error decreases with $k$. CascadeCBF achieves negligible error ($<$0.01\%) at $k \geq 4$.}
+  \label{fig:k_sensitivity}
+\end{figure*}
+
 \section{Spatial Operations}
 \label{sec:spatial}
 
@@ -290,11 +296,7 @@ A key advantage of CascadeCBF over general-purpose sketches is native support fo
 \textbf{Union.} Merging two CascadeCBFs representing disjoint spatial regions requires element-wise counter addition. For each position $j$ across all layers, we add corresponding counters: $A[j] = A_1[j] + A_2[j]$. The overflow bit protocol automatically handles cases where addition causes overflow--if the sum exceeds the layer capacity, the overflow bit is set and the carry propagates to the next layer. This enables distributed counting: partition space into tiles, maintain per-tile CascadeCBFs, and merge on demand.
 
 \textbf{Intersection.} Computing the minimum count between two filters uses element-wise $\min$: $A[j] = \min(A_1[j], A_2[j])$. This is useful for identifying locations present in both datasets (e.g., places visited by two users). Alternatively, \emph{masking} zeroes counters where a binary filter indicates absence, and \emph{subtraction} computes set difference when one dataset is a superset.
-\begin{figure*}[h]
-  \includegraphics[width=\textwidth]{figures/k_sensitivity_combined.pdf}
-  \caption{K-parameter sensitivity ($\alpha=1.5$): (a) throughput decreases with $k$; (b) error decreases with $k$. CascadeCBF achieves negligible error ($<$0.01\%) at $k \geq 4$.}
-  \label{fig:k_sensitivity}
-\end{figure*}
+
 
 \textbf{Spatial Aggregation.} Count-in-polygon queries sum GET results over all raster cells inside a polygon. Given polygon $P$ rasterized to cells $\{c_1, \ldots, c_n\}$, the aggregate count is $\sum_{i=1}^{n} \text{GET}(c_i)$. This operation is embarrassingly parallel and can be accelerated via SIMD or GPU. The error accumulates additively: for $n$ cells with mean overcount $\bar{\varepsilon}$, total error is $\mathcal{O}(n\bar{\varepsilon})$. In practice, large polygons (many cells) exhibit lower relative error since overcounting errors partially cancel.
 
@@ -308,7 +310,7 @@ A key advantage of CascadeCBF over general-purpose sketches is native support fo
 \section{Evaluation}
 \label{sec:evaluation}
 
-For the evaluation we compare CascadeCBF (with minimal increment) against Spectral Bloom Filters (SBF-MI)~\citep{cohen2003spectral} and Count-Min Sketch with conservative update (CMS)~\citep{cormode2005improved} first on a synthetic distribution before looking into the performance for real world applications. All experiments use $k=8$ hash functions and 16-bit counters unless stated otherwise. We focus on insert and query accuracy for append-heavy geospatial streams (Section~\ref{sec:discussion}).
+For the evaluation we compare CascadeCBF (with minimal increment) against Spectral Bloom Filters (SBF-MI)~\citep{cohen2003spectral} and Count-Min Sketch with conservative update (CMS)~\citep{cormode2005improved} first on a synthetic distribution before looking into the performance for real world applications. All experiments use $k=8$ hash functions and 16-bit counters unless stated otherwise. We focus on insert and query accuracy for append-heavy geospatial streams (Section~\ref{sec:discussion})
 
 \subsection{Synthetic Dataset}
 To evaluate the performance of the developed Cascade CBF in a defined environment we first evaluate them on Zipfian data (10K unique items, 100K insertions).
@@ -366,6 +368,7 @@ Table~\ref{tab:performance} shows insert times across all three datasets. Cascad
 
 In the following, we evaluate CascadeCBF across various real-world applications.
 
+\input{tables/tab_timeseries.tex}
 \subsubsection{Multi-Category Event Classification}
 
 Real-world spatial data often includes categorical attributes (event types, time bins). We extend coordinates as $\langle$lat, lon, category$\rangle$ triplets, hashing the full vector to ensure category isolation. This approach requires no additional memory--categories share the same filter--while providing complete separation. We test on GDELT events classified into four types derived from Goldstein scale: Verbal Cooperation (46\%), Material Cooperation (14\%), Verbal Conflict (31\%), Material Conflict (10\%).
@@ -375,8 +378,6 @@ Real-world spatial data often includes categorical attributes (event types, time
 
 Table~\ref{tab:multicategory_512kb} shows CascadeCBF achieves the lowest error (0.02\%) under constrained memory. At this resolution, maximum cell counts reach 33,051--exceeding the 32,768 threshold that triggers Layer~1 overflow. CascadeCBF's two 16-bit layers provide more counters than single 32-bit implementations at equal memory, while the overflow protocol handles extreme counts that would saturate single-layer filters.
 
-\input{tables/tab_timeseries.tex}
-\input{tables/tab_taxi.tex}
 
 \subsubsection{Polygon Counting}
 
@@ -395,6 +396,7 @@ Table~\ref{tab:timeseries} shows CascadeCBF maintains 0\% error throughout all s
 
 \subsubsection{Urban Mobility Hotspots}
 
+\input{tables/tab_taxi.tex}
 Urban transportation data exhibits extreme spatial concentration--Manhattan receives $>$90\% of NYC taxi pickups while outer boroughs remain sparse. This creates challenging conditions for probabilistic counting: hash collisions between dense Manhattan cells accumulate errors rapidly. We evaluate on 987K yellow taxi trips~\citep{nyc_tlc_data} from January 2015, rasterized to 4096$\times$4096 cells covering the NYC metropolitan area.
 
 
@@ -444,8 +446,8 @@ Generative AI tools (Claude, Gemini) were utilized to assist with code developme
 %% =============================================================================
 %% ACKNOWLEDGEMENTS
 %% =============================================================================
-%\subsection*{Acknowledgements}
-% TODO: Add acknowledgements if needed
+\subsection*{Acknowledgements}
+This work is partly funded by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) -- 507196470.
 
 
 %% =============================================================================
